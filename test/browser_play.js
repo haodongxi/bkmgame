@@ -53,6 +53,7 @@ async function main() {
   await evaljs('localStorage.clear(); resetGame(); render();');
   ok(await evaljs("document.querySelector('#screen-title').classList.contains('active')"), '标题页激活');
   ok(await evaljs("document.querySelector('#btn-continue').style.display === 'none'"), '无存档时隐藏继续按钮');
+  ok(await evaljs("Object.keys(POKEDEX).filter(function(k){ return +k <= 151; }).length === 151"), '页面图鉴 151 只');
 
   await evaljs('uiStartNew();');
   ok(await evaljs("document.querySelector('#screen-starter').classList.contains('active')"), '选御三家页激活');

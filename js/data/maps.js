@@ -53,10 +53,22 @@ const MAP_NODES = {
     ]
   },
   viridian: {
-    id: 'viridian', name: '常磐市', type: 'town', next: ['route1', 'route2'],
+    id: 'viridian', name: '常磐市', type: 'town', next: ['route1', 'route2', 'route21', 'route22'],
     weatherWeights: { '晴': 90, '雨': 10 },
-    desc: '常磐道馆大门紧锁，据说需要集齐七枚徽章才能挑战。',
-    gymLocked: '常磐道馆大门紧锁，看起来要集齐七枚徽章才能挑战。'
+    desc: '关都地区最后的道馆就在这里，馆主是深不可测的坂木。',
+    gym: {
+      leader: '坂木', title: '馆主', badge: '绿色徽章', tm: '挖洞',
+      requireBadges: 7, minLevel: 46,
+      text: '哼，居然能走到我面前。让我看看你的本事！',
+      winText: '……我输了。这枚绿色徽章，拿去吧。',
+      apprentices: [
+        { id: 'vir_a1', title: '火箭队精英', name: '马斯科', prize: 1500, text: '坂木大人不容许任何人打扰！', party: [{ id: 111, level: 44, moves: ['rock_throw', 'harden', 'take_down'] }] },
+        { id: 'vir_a2', title: '火箭队精英', name: '兰斯', prize: 1600, text: '想见坂木大人，先打败我！', party: [{ id: 51, level: 45, moves: ['dig', 'earthquake', 'fury_swipes'] }] }
+      ],
+      team: [ { id: 34, level: 46, moves: ['earthquake', 'bite', 'poison_sting', 'take_down'] },
+              { id: 112, level: 48, moves: ['earthquake', 'rock_slide', 'take_down', 'harden'] } ],
+      aceIndex: 1
+    }
   },
   route2: {
     id: 'route2', name: '2号道路', type: 'route', next: ['viridian', 'forest'],
@@ -123,7 +135,7 @@ const MAP_NODES = {
     ]
   },
   cerulean: {
-    id: 'cerulean', name: '华蓝市', type: 'town', next: ['mtmoon', 'route24'],
+    id: 'cerulean', name: '华蓝市', type: 'town', next: ['mtmoon', 'route24', 'route5'],
     weatherWeights: { '晴': 90, '雨': 10 },
     desc: '水属性道馆的所在地，馆主是人鱼公主小霞。',
     gym: {
@@ -163,6 +175,191 @@ const MAP_NODES = {
     },
     trainers: [
       { id: 'r25_t1', title: '露营少女', name: '小百合', prize: 720, text: '野营就要带着宝可梦一起！', party: [{ id: 35, level: 14 }, { id: 16, level: 14 }] }
+    ]
+  },
+  route5: {
+    id: 'route5', name: '5号道路', type: 'route', next: ['cerulean', 'saffron'], requireBadge: '蓝色徽章',
+    levels: [15, 19], weatherWeights: { '晴': 80, '雨': 20 },
+    pools: {
+      '晴': [ { id: 43, w: 30 }, { id: 48, w: 25 }, { id: 21, w: 20 }, { id: 46, w: 15 }, { id: 25, w: 10 } ],
+      '雨': [ { id: 48, w: 25 }, { id: 43, w: 20 }, { id: 46, w: 15 }, { id: 21, w: 15 }, { id: 25, w: 15 }, { id: 16, w: 10 } ]
+    },
+    trainers: [
+      { id: 'r5_t1', title: '短裤小子', name: '大悟', prize: 750, text: '去金黄市要经过这里！', party: [{ id: 21, level: 16 }, { id: 19, level: 16 }] },
+      { id: 'r5_t2', title: '露营少女', name: '美绪', prize: 780, text: '这条路上的草可茂盛了！', party: [{ id: 43, level: 17 }, { id: 48, level: 17 }] }
+    ]
+  },
+  saffron: {
+    id: 'saffron', name: '金黄市', type: 'town', next: ['route5', 'route6', 'route7'], requireBadge: '蓝色徽章',
+    weatherWeights: { '晴': 90, '雨': 10 },
+    desc: '超能力系道馆的所在地，馆主是拥有强大超能力的娜姿。',
+    gym: {
+      leader: '娜姿', title: '馆主', badge: '金色徽章', tm: '冥想',
+      minLevel: 32,
+      text: '你的想法……我都能看穿。',
+      winText: '……不可思议，你居然打败了我。这枚金色徽章属于你了。',
+      apprentices: [
+        { id: 'saf_a1', title: '超能力者', name: '敬一', prize: 900, text: '我的念力无坚不摧！', party: [{ id: 63, level: 30, moves: ['confusion', 'growl'] }] },
+        { id: 'saf_a2', title: '超能力者', name: '凉子', prize: 950, text: '感觉到心灵的波动了吗？', party: [{ id: 64, level: 32, moves: ['confusion', 'psybeam'] }] }
+      ],
+      team: [ { id: 122, level: 36, moves: ['psychic', 'psybeam', 'confusion', 'protect'] },
+              { id: 65, level: 38, moves: ['psychic', 'psybeam', 'hypnosis', 'agility'] } ],
+      aceIndex: 1
+    }
+  },
+  route6: {
+    id: 'route6', name: '6号道路', type: 'route', next: ['saffron', 'vermilion'], requireBadge: '蓝色徽章',
+    levels: [17, 21], weatherWeights: { '晴': 80, '雨': 20 },
+    pools: {
+      '晴': [ { id: 48, w: 30 }, { id: 43, w: 25 }, { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 25, w: 10 } ],
+      '雨': [ { id: 48, w: 25 }, { id: 43, w: 20 }, { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 25, w: 10 }, { id: 54, w: 10 } ]
+    },
+    trainers: [
+      { id: 'r6_t1', title: '短裤小子', name: '雄介', prize: 820, text: '电系道馆就在前面！', party: [{ id: 25, level: 19 }] },
+      { id: 'r6_t2', title: '精英训练家', name: '可奈', prize: 900, text: '你来挑战马志士的吗？', party: [{ id: 48, level: 18 }, { id: 21, level: 18 }] }
+    ]
+  },
+  vermilion: {
+    id: 'vermilion', name: '枯叶市', type: 'town', next: ['route6'], requireBadge: '蓝色徽章',
+    weatherWeights: { '晴': 90, '雨': 10 },
+    desc: '港口城市，电系道馆的馆主是曾经的美军少尉马志士。',
+    gym: {
+      leader: '马志士', title: '馆主', badge: '橙色徽章', tm: '十万伏特',
+      minLevel: 22,
+      text: '我的电系宝可梦会让你浑身发抖！',
+      winText: '居然敢电我……不，你的实力我认可了！橙色徽章拿去吧！',
+      apprentices: [
+        { id: 'ver_a1', title: '电系训练家', name: '电次', prize: 550, text: '这里可是马志士大人的地盘！', party: [{ id: 81, level: 20, moves: ['thundershock', 'tackle'] }] },
+        { id: 'ver_a2', title: '电系训练家', name: '理沙', prize: 600, text: '皮卡丘，给他们点颜色看看！', party: [{ id: 25, level: 22, moves: ['thundershock', 'quick_attack'] }] }
+      ],
+      team: [ { id: 81, level: 24, moves: ['thundershock', 'thunderbolt', 'tackle'] },
+              { id: 25, level: 24, moves: ['thundershock', 'thunder_wave', 'quick_attack'] },
+              { id: 26, level: 26, moves: ['thunderbolt', 'thunder_wave', 'quick_attack', 'agility'] } ],
+      aceIndex: 2
+    }
+  },
+  route7: {
+    id: 'route7', name: '7号道路', type: 'route', next: ['saffron', 'celadon'], requireBadge: '橙色徽章',
+    levels: [20, 24], weatherWeights: { '晴': 80, '雨': 20 },
+    pools: {
+      '晴': [ { id: 16, w: 25 }, { id: 21, w: 20 }, { id: 43, w: 20 }, { id: 48, w: 15 }, { id: 39, w: 10 }, { id: 25, w: 10 } ],
+      '雨': [ { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 43, w: 15 }, { id: 48, w: 15 }, { id: 25, w: 15 }, { id: 54, w: 10 }, { id: 39, w: 10 } ]
+    },
+    trainers: [
+      { id: 'r7_t1', title: '精英训练家', name: '修', prize: 1000, text: '彩虹市就在前面！', party: [{ id: 43, level: 22 }, { id: 16, level: 22 }] }
+    ]
+  },
+  celadon: {
+    id: 'celadon', name: '彩虹市', type: 'town', next: ['route7', 'route16'], requireBadge: '橙色徽章',
+    weatherWeights: { '晴': 90, '雨': 10 },
+    desc: '关都最大的城市，草系道馆的馆主是优雅的莉佳。',
+    gym: {
+      leader: '莉佳', title: '馆主', badge: '彩虹徽章', tm: '日光束',
+      minLevel: 28,
+      text: '花与草……是这世界上最温柔也最坚韧的力量。',
+      winText: '我输了……这片彩虹徽章，请你收下。',
+      apprentices: [
+        { id: 'cel_a1', title: '园艺家', name: '政', prize: 800, text: '我的植物可都照顾得很好！', party: [{ id: 43, level: 25, moves: ['absorb', 'razor_leaf'] }] },
+        { id: 'cel_a2', title: '园艺家', name: '薰', prize: 850, text: '莉佳小姐不会输的！', party: [{ id: 44, level: 26, moves: ['razor_leaf', 'acid'] }] }
+      ],
+      team: [ { id: 45, level: 30, moves: ['razor_leaf', 'solar_beam', 'sleep_powder'] },
+              { id: 114, level: 30, moves: ['vine_whip', 'mega_drain', 'stun_spore'] },
+              { id: 71, level: 32, moves: ['razor_leaf', 'sleep_powder', 'giga_drain'] } ],
+      aceIndex: 2
+    }
+  },
+  route16: {
+    id: 'route16', name: '16号道路', type: 'route', next: ['celadon', 'fuchsia'], requireBadge: '彩虹徽章',
+    levels: [24, 28], weatherWeights: { '晴': 80, '雨': 20 },
+    pools: {
+      '晴': [ { id: 21, w: 30 }, { id: 16, w: 20 }, { id: 48, w: 15 }, { id: 43, w: 15 }, { id: 54, w: 10 }, { id: 25, w: 10 } ],
+      '雨': [ { id: 21, w: 20 }, { id: 16, w: 15 }, { id: 48, w: 15 }, { id: 43, w: 10 }, { id: 54, w: 20 }, { id: 25, w: 10 }, { id: 72, w: 10 } ]
+    },
+    trainers: [
+      { id: 'r16_t1', title: '自行车手', name: '疾风', prize: 1150, text: '骑车的人可不能被追上！', party: [{ id: 21, level: 26 }, { id: 19, level: 26 }] }
+    ]
+  },
+  fuchsia: {
+    id: 'fuchsia', name: '浅红市', type: 'town', next: ['route16', 'route19'], requireBadge: '彩虹徽章',
+    weatherWeights: { '晴': 90, '雨': 10 },
+    desc: '毒系道馆的所在地，馆主是忍者出身的阿桔。',
+    gym: {
+      leader: '阿桔', title: '馆主', badge: '粉红徽章', tm: '剧毒',
+      minLevel: 36,
+      text: '忍者之道，在于无声无息地取胜。',
+      winText: '忍者的修行……还远远不够。这枚粉红徽章是你的了。',
+      apprentices: [
+        { id: 'fuc_a1', title: '忍者', name: '影', prize: 1200, text: '你发现不了我的踪迹！', party: [{ id: 23, level: 34, moves: ['bite', 'poison_sting'] }] },
+        { id: 'fuc_a2', title: '忍者', name: '疾', prize: 1250, text: '毒，才是最强的武器！', party: [{ id: 109, level: 35, moves: ['sludge_bomb', 'acid'] }] }
+      ],
+      team: [ { id: 24, level: 38, moves: ['crunch', 'sludge_bomb', 'bite'] },
+              { id: 110, level: 38, moves: ['sludge_bomb', 'acid', 'take_down'] },
+              { id: 49, level: 40, moves: ['psychic', 'sludge_bomb', 'sleep_powder'] } ],
+      aceIndex: 2
+    }
+  },
+  route19: {
+    id: 'route19', name: '19号水路', type: 'route', next: ['fuchsia', 'cinnabar'], requireBadge: '粉红徽章',
+    levels: [28, 32], water: true, weatherWeights: { '晴': 75, '雨': 25 },
+    pools: {
+      '晴': [ { id: 72, w: 35 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 54, w: 10 }, { id: 147, w: 10 } ],
+      '雨': [ { id: 72, w: 30 }, { id: 129, w: 20 }, { id: 120, w: 25 }, { id: 54, w: 10 }, { id: 147, w: 15 } ]
+    },
+    trainers: [
+      { id: 'r19_t1', title: '垂钓者', name: '海男', prize: 1300, text: '这里的水里全是宝可梦！', party: [{ id: 129, level: 28 }, { id: 120, level: 30 }] }
+    ]
+  },
+  cinnabar: {
+    id: 'cinnabar', name: '红莲岛', type: 'town', next: ['route19', 'route21'], requireBadge: '粉红徽章',
+    weatherWeights: { '晴': 90, '雨': 10 },
+    desc: '火山岛上的火系道馆，馆主是研究宝可梦化石的夏伯。',
+    gym: {
+      leader: '夏伯', title: '馆主', badge: '深红徽章', tm: '喷射火焰',
+      minLevel: 42,
+      text: '哎呀，老夫的火系宝可梦可不会手下留情！',
+      winText: '后生可畏！这枚深红徽章给你了！',
+      apprentices: [
+        { id: 'cin_a1', title: '消防员', name: '火村', prize: 1400, text: '小心烫伤！', party: [{ id: 58, level: 40, moves: ['ember', 'bite'] }] },
+        { id: 'cin_a2', title: '登山男', name: '岩夫', prize: 1450, text: '火山附近气温可不低！', party: [{ id: 37, level: 41, moves: ['ember', 'confuse_ray'] }] }
+      ],
+      team: [ { id: 59, level: 43, moves: ['flamethrower', 'bite', 'take_down'] },
+              { id: 78, level: 43, moves: ['flamethrower', 'agility', 'take_down'] },
+              { id: 38, level: 45, moves: ['flamethrower', 'confuse_ray', 'overheat'] } ],
+      aceIndex: 2
+    }
+  },
+  route21: {
+    id: 'route21', name: '21号水路', type: 'route', next: ['cinnabar', 'viridian'], requireBadge: '深红徽章',
+    levels: [32, 36], water: true, weatherWeights: { '晴': 75, '雨': 25 },
+    pools: {
+      '晴': [ { id: 72, w: 30 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 147, w: 15 }, { id: 54, w: 10 } ],
+      '雨': [ { id: 72, w: 25 }, { id: 129, w: 20 }, { id: 120, w: 20 }, { id: 147, w: 20 }, { id: 54, w: 15 } ]
+    },
+    trainers: [
+      { id: 'r21_t1', title: '垂钓者', name: '老大', prize: 1500, text: '这可是关都最好的钓点！', party: [{ id: 130, level: 34 }] }
+    ]
+  },
+  route22: {
+    id: 'route22', name: '22号道路', type: 'route', next: ['viridian', 'champion'], requireBadge: '绿色徽章',
+    levels: [36, 40], weatherWeights: { '晴': 80, '雨': 20 },
+    pools: {
+      '晴': [ { id: 19, w: 20 }, { id: 21, w: 20 }, { id: 32, w: 15 }, { id: 29, w: 15 }, { id: 23, w: 15 }, { id: 16, w: 15 } ],
+      '雨': [ { id: 19, w: 15 }, { id: 21, w: 15 }, { id: 32, w: 10 }, { id: 29, w: 10 }, { id: 23, w: 10 }, { id: 16, w: 15 }, { id: 54, w: 15 }, { id: 72, w: 10 } ]
+    },
+    trainers: [
+      { id: 'r22_t1', title: '精英训练家', name: '健一', prize: 1600, text: '冠军之路就在前面！', party: [{ id: 34, level: 38 }, { id: 22, level: 38 }] }
+    ]
+  },
+  champion: {
+    id: 'champion', name: '冠军之路', type: 'cave', next: ['route22'], requireBadge: '绿色徽章',
+    levels: [40, 45], weatherWeights: { '晴': 100 },
+    desc: '通往精灵联盟的最终试炼。这里盘踞着关都最强的野生宝可梦。',
+    pools: {
+      '晴': [ { id: 41, w: 20 }, { id: 42, w: 15 }, { id: 74, w: 15 }, { id: 95, w: 15 }, { id: 51, w: 10 }, { id: 64, w: 10 }, { id: 112, w: 15 } ]
+    },
+    trainers: [
+      { id: 'ch_t1', title: '精英训练家', name: '铁也', prize: 2200, text: '这里就是关都的巅峰！', party: [{ id: 65, level: 42 }, { id: 130, level: 42 }] },
+      { id: 'ch_t2', title: '冠军之路守卫', name: '罗伊', prize: 2400, text: '打败我，你才有资格迈向联盟！', party: [{ id: 112, level: 43 }, { id: 149, level: 42 }] }
     ]
   }
 };

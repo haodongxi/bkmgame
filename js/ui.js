@@ -206,11 +206,14 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'mart\')">🏪 友好商店</button>';
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
-      html += '<button class="btn btn-primary" onclick="doMapAction(\'gym\')">🏟️ 挑战道馆（首发 Lv.' + node.gym.minLevel + '+）</button>';
+      if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
+        html += '<button class="btn" disabled>🏟️ 常磐道馆（需要 ' + node.gym.requireBadges + ' 枚徽章）</button>';
+      } else {
+        html += '<button class="btn btn-primary" onclick="doMapAction(\'gym\')">🏟️ 挑战道馆（首发 Lv.' + node.gym.minLevel + '+）</button>';
+      }
     } else if (node.gym) {
       html += '<button class="btn" disabled>🏟️ 道馆已挑战</button>';
     }
-    if (node.gymLocked) html += '<button class="btn" onclick="doMapAction(\'gymlocked\')">🏟️ 常磐道馆</button>';
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
   } else {
     html += '<button class="btn btn-primary" onclick="doMapAction(\'explore\')">🌿 在草丛探索</button>';

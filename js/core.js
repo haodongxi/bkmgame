@@ -529,6 +529,10 @@ function challengeGym() {
   const gym = node.gym;
   if (!gym) { addLog('这里没有道馆。'); return; }
   if (STATE.badges.indexOf(gym.badge) !== -1) { addLog('你已经挑战过这个道馆了。'); return; }
+  if (gym.requireBadges && STATE.badges.length < gym.requireBadges) {
+    addLog('道馆大门紧锁，需要集齐 ' + gym.requireBadges + ' 枚徽章才能挑战。');
+    return;
+  }
   const maxLv = STATE.party.reduce(function (m, mon) { return Math.max(m, mon.level); }, 0);
   if (maxLv < gym.minLevel) {
     addLog('道馆学徒拦住你：「馆主只接受首发 Lv.' + gym.minLevel + ' 以上的挑战者！」');

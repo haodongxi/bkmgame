@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const files = ['js/data/typechart.js', 'js/data/moves.js', 'js/data/pokedex.js', 'js/data/maps.js', 'js/core.js'];
+const files = ['js/data/typechart.js', 'js/data/moves.js', 'js/data/pokedex.js', 'js/data/pokedex_gen.js', 'js/data/maps.js', 'js/core.js'];
 let src = files.map(function (f) {
   return fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 }).join('\n;\n');
@@ -358,6 +358,69 @@ section('MVP3：道馆踢馆与城镇事件');
   T.startWildBattle(16, 2);
   T.battleMove(0);
   ok(T.getState().log.some(function (l) { return l.indexOf('吃剩的东西') !== -1; }), '吃剩的东西回合结束回复生效');
+}
+
+// ---------- 9.7 MVP4：全图鉴与完整关都 ----------
+section('MVP4：全图鉴与完整关都');
+{
+  const ids = Object.keys(T.POKEDEX).map(Number).filter(function (id) { return id >= 1 && id <= 151; });
+  ok(ids.length === 151, '图鉴共 151 只（实际 ' + ids.length + '）');
+  const bad = ids.filter(function (id) {
+    const d = T.POKEDEX[id];
+    return !d.base || !d.types || !d.learnset || !d.catchRate;
+  });
+  ok(bad.length === 0, '全部条目含种族值/属性/学习面/捕获率');
+  ok(!!T.POKEDEX[151], '梦幻也在图鉴里');
+}
+{
+  const gyms = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  ok(gyms.every(function (id) { return T.MAP_NODES[id] && T.MAP_NODES[id].gym; }), '8 个道馆全部存在');
+}
+{
+  // 常磐道馆徽章门槛
+  T.newGame(4);
+  T.getState().nodeId = 'viridian';
+  T.getState().badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章', '金色徽章', '粉红徽章'];
+  T.getState().party = [T.makeMon(6, 60, { nature: '勤奋' })];
+  T.challengeGym();
+  ok(!T.getState().battle, '6 枚徽章时无法挑战常磐道馆');
+}
+{
+  // 全道馆巡回：8 徽章通关
+  T.newGame(4);
+  T.getState().party = [
+    T.makeMon(6, 60, { nature: '勤奋' }),
+    T.makeMon(9, 60, { nature: '勤奋' }),
+    T.makeMon(3, 60, { nature: '勤奋' }),
+    T.makeMon(149, 60, { nature: '勤奋' })
+  ];
+  const order = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  let allWin = true;
+  for (let i = 0; i < order.length; i++) {
+    T.getState().nodeId = order[i];
+    T.challengeGym();
+    let guard = 0;
+    while (T.getState().battle && !T.getState().battle.over && guard++ < 300) {
+      const active = T.getState().battle.player.mons[T.getState().battle.player.active];
+      T.battleMove(damageMoveIdx(active));
+    }
+    if (T.getState().lastResult !== 'win') allWin = false;
+  }
+  ok(allWin, '8 大道馆全部挑战成功');
+  ok(T.getState().badges.length === 8, '集齐 8 枚徽章');
+}
+{
+  // 地图门槛：22号道路需要绿色徽章
+  T.newGame(4);
+  T.getState().nodeId = 'viridian';
+  T.getState().party = [T.makeMon(6, 60, { nature: '勤奋' })];
+  T.gotoNode('route22');
+  ok(T.getState().nodeId === 'viridian', '无绿色徽章时 22 号道路被拦截');
+  T.getState().badges.push('绿色徽章');
+  T.gotoNode('route22');
+  ok(T.getState().nodeId === 'route22', '持有绿色徽章后可进入 22 号道路');
+  T.gotoNode('champion');
+  ok(T.getState().nodeId === 'champion', '可进入冠军之路');
 }
 
 // ---------- 10. 存档读档 ----------
