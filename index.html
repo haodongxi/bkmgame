@@ -11,6 +11,10 @@
   </style>
 </head>
 <body>
-  <div id="root"><iframe id="app-frame" src="./app.html" title="宝可梦：关都篇"></iframe></div>
+  <div id="root"><iframe id="app-frame" title="宝可梦：关都篇"></iframe></div>
+  <script>
+    // 每次加载给 app.html 加时间戳，避免浏览器缓存旧代码
+    document.getElementById('app-frame').src = './app.html?v=' + Date.now();
+  </script>
 </body>
 </html>
