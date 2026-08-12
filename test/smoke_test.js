@@ -18,6 +18,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
   '  startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle, startGymBattle: startGymBattle,\n' +
   '  startRocketBattle: startRocketBattle,\n' +
+  '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
+  '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle\n' +
@@ -281,6 +283,81 @@ ok(T.getState().party.length >= 2, '强买强卖获得宝可梦（鲤鱼王或�
   ok(T.getState().bag['金珠'] === undefined, '非关键道具金珠被没收');
   ok(T.getState().nodeId === 'pallet', '全灭回到最近城镇');
   ok(T.getState().party.every(function (m) { return m.hp === m.stats.hp; }), '宝可梦中心全员恢复');
+}
+
+// ---------- 10. 存档读档 ----------
+// ---------- 9.5 MVP3：道馆连战 / 交换 / 钓鱼 / 宿敌 / 携带道具 ----------
+section('MVP3：道馆踢馆与城镇事件');
+{
+  T.newGame(4);
+  T.getState().nodeId = 'pewter';
+  T.getState().party = [T.makeMon(6, 8, { nature: '勤奋' })];
+  T.challengeGym();
+  ok(!T.getState().battle, '首发等级不足时无法挑战道馆');
+  ok(T.getState().log.some(function (l) { return l.indexOf('首发 Lv.10') !== -1; }), '提示等级门槛');
+}
+{
+  T.newGame(4);
+  T.getState().nodeId = 'pewter';
+  T.getState().party = [T.makeMon(6, 25, { nature: '勤奋' })];
+  T.challengeGym();
+  ok(T.getState().battle && T.getState().battle.kind === 'gym_apprentice', '进入道馆学徒连战');
+  let guard = 0;
+  while (T.getState().battle && !T.getState().battle.over && guard++ < 200) {
+    const active = T.getState().battle.player.mons[T.getState().battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(T.getState().lastResult === 'win', '连战全部获胜');
+  ok(T.getState().badges.indexOf('灰色徽章') !== -1, '获得徽章');
+  ok(T.getState().gymSession === null, '道馆会话正常结束');
+  const gauntletLogs = T.getState().log.filter(function (l) { return l.indexOf('来不及休息') !== -1; }).length;
+  ok(gauntletLogs === 2, '连续两场学徒战之间未自动恢复（战间提示 ' + gauntletLogs + ' 次）');
+}
+{
+  // NPC 交换 + 1.5 倍经验
+  T.newGame(7);
+  T.getState().party.push(T.makeMon(19, 6, { nature: '勤奋' }));
+  T.getState().townTrade = { give: 16, want: 19 };
+  T.doTownTrade(true);
+  const traded = T.getState().party.find(function (m) { return m.species === 16; });
+  ok(!!traded && traded.tradeBonus, '交换获得波波并带 1.5 倍经验标记');
+  const exp0 = traded.exp;
+  T.grantExp(traded, 100, []);
+  ok(traded.exp - exp0 === 150, '交换宝可梦经验 1.5 倍生效（+150）');
+}
+{
+  // 钓鱼
+  T.newGame(4);
+  T.getState().keyItems.push('破旧钓竿');
+  T.getState().nodeId = 'route24';
+  T.fish();
+  ok(T.getState().battle && [129, 120, 147, 130].indexOf(T.getState().battle.foe.mons[0].m.species) !== -1, '钓鱼遇到水边宝可梦');
+}
+{
+  // 宿敌小茂
+  T.newGame(4);
+  T.getState().badges.push('灰色徽章');
+  T.getState().nodeId = 'pewter';
+  T.getState().party = [T.makeMon(6, 22, { nature: '勤奋' })];
+  T.gotoNode('route3');
+  ok(T.getState().battle && T.getState().battle.kind === 'rival', '宿敌小茂在 3 号道路拦截');
+  ok(T.getState().battle.canRun === false, '宿敌战不可逃跑');
+  let guard = 0;
+  while (T.getState().battle && !T.getState().battle.over && guard++ < 100) {
+    const active = T.getState().battle.player.mons[T.getState().battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(T.getState().rivalWon.indexOf('r3') !== -1, '击败小茂并记录');
+}
+{
+  // 吃剩的东西
+  T.newGame(7);
+  T.getState().party = [T.makeMon(9, 20, { nature: '勤奋' })];
+  T.getState().party[0].held = '吃剩的东西';
+  T.getState().party[0].hp = Math.floor(T.getState().party[0].stats.hp * 0.8); // 先扣血，验证回合结束回复
+  T.startWildBattle(16, 2);
+  T.battleMove(0);
+  ok(T.getState().log.some(function (l) { return l.indexOf('吃剩的东西') !== -1; }), '吃剩的东西回合结束回复生效');
 }
 
 // ---------- 10. 存档读档 ----------

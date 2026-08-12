@@ -24,7 +24,12 @@ const STATE = {
   caughtDex: {},
   trainersDefeated: {},
   lastTown: 'pallet',
-  name: ''
+  name: '',
+  keyItems: [],
+  rivalWon: [],
+  gymSession: null,
+  townTrade: null,
+  trashFound: false
 };
 
 // ---------------- 基础工具 ----------------
@@ -177,7 +182,7 @@ function recalcStats(mon) {
 // ---------------- 等级 / 学习 / 进化 ----------------
 
 function grantExp(mon, amount, log) {
-  let remain = amount;
+  let remain = mon.tradeBonus ? Math.floor(amount * 1.5) : amount;
   while (mon.level < 100 && mon.exp + remain >= expForLevel(mon.speciesData.growth, mon.level + 1)) {
     const need = expForLevel(mon.speciesData.growth, mon.level + 1) - mon.exp;
     remain -= need;
@@ -405,6 +410,7 @@ function startBattle(kind, opts) {
     rewardMon: opts.rewardMon || null,
     badge: opts.badge || null,
     tm: opts.tm || null,
+    rivalStep: opts.rivalStep || null,
     trainerId: opts.trainerId || null,
     player: { active: playerActive, mons: playerMons },
     foe: { active: 0, mons: foeMons },
@@ -445,6 +451,7 @@ function startRocketBattle(kind) {
   const ev = ROCKET_EVENTS[kind];
   const node = MAP_NODES[STATE.nodeId];
   const top = node.levels ? node.levels[1] : 10;
+  const opening = ev.lines && ev.lines.length > 0 ? ev.lines[randInt(0, ev.lines.length - 1)] : ev.text;
   const foe = ev.party.map(function (p, i) {
     return { id: p.id, level: top + 1 + i, moves: p.moves };
   });
@@ -455,8 +462,44 @@ function startRocketBattle(kind) {
     rewardMon: ev.rewardMon || null,
     trainerName: '火箭队',
     title: kind === 'rescue' ? '火箭队干部' : '火箭队队员',
-    trainerText: ev.text,
-    opening: ev.text
+    trainerText: opening,
+    opening: opening
+  });
+}
+
+// ---------- 宿敌小茂 ----------
+
+function getRivalStarter(playerStarter) {
+  const map = { 4: 7, 7: 1, 1: 4 };
+  return map[playerStarter] || 4;
+}
+
+function rivalTriggerFor(nodeId) {
+  if (nodeId === 'route3' && STATE.badges.indexOf('灰色徽章') !== -1 && STATE.rivalWon.indexOf('r3') === -1) {
+    return {
+      step: 'r3',
+      team: [ { id: getRivalStarter(STATE.party[0].species), level: 13 }, { id: 16, level: 13 } ]
+    };
+  }
+  if (nodeId === 'route24' && STATE.badges.indexOf('蓝色徽章') !== -1 && STATE.rivalWon.indexOf('r24') === -1) {
+    return {
+      step: 'r24',
+      team: [ { id: getRivalStarter(STATE.party[0].species), level: 18 }, { id: 17, level: 18 } ]
+    };
+  }
+  return null;
+}
+
+function startRivalBattle(trigger) {
+  startBattle('rival', {
+    foe: trigger.team.map(function (p) { return { id: p.id, level: p.level, moves: p.moves }; }),
+    canRun: false,
+    prize: trigger.step === 'r3' ? 500 : 900,
+    rivalStep: trigger.step,
+    trainerName: '小茂',
+    title: '宿敌',
+    trainerText: '我会用实力证明我比你强！',
+    opening: '小茂突然出现：「喂，听说你也出来旅行了？来和我比一场吧！」'
   });
 }
 
@@ -477,6 +520,50 @@ function startGymBattle(gym) {
     trainerText: gym.text,
     opening: gym.leader + '：' + gym.text
   });
+}
+
+// ---------- 道馆踢馆（学徒连战 + 馆主） ----------
+
+function challengeGym() {
+  const node = MAP_NODES[STATE.nodeId];
+  const gym = node.gym;
+  if (!gym) { addLog('这里没有道馆。'); return; }
+  if (STATE.badges.indexOf(gym.badge) !== -1) { addLog('你已经挑战过这个道馆了。'); return; }
+  const maxLv = STATE.party.reduce(function (m, mon) { return Math.max(m, mon.level); }, 0);
+  if (maxLv < gym.minLevel) {
+    addLog('道馆学徒拦住你：「馆主只接受首发 Lv.' + gym.minLevel + ' 以上的挑战者！」');
+    return;
+  }
+  STATE.gymSession = {
+    gymId: node.id,
+    steps: gym.apprentices.concat([{ leader: true }]),
+    step: 0
+  };
+  addLog('你走进了 ' + node.name + ' 道馆！连战开始，途中无法恢复！');
+  startGymStep();
+}
+
+function startGymStep() {
+  const s = STATE.gymSession;
+  if (!s) return;
+  const gym = MAP_NODES[s.gymId].gym;
+  const step = s.steps[s.step];
+  if (!step) { STATE.gymSession = null; return; }
+  if (step.leader) {
+    s.step = s.steps.length;
+    startGymBattle(gym);
+  } else {
+    startBattle('gym_apprentice', {
+      foe: step.party.map(function (p) { return { id: p.id, level: p.level, moves: p.moves }; }),
+      canRun: false,
+      prize: step.prize || 0,
+      trainerId: step.id,
+      trainerName: step.name,
+      title: step.title,
+      trainerText: step.text,
+      opening: step.title + ' ' + step.name + ' 挡在你面前：「' + step.text + '」'
+    });
+  }
 }
 
 function pickFoeMove(fm) {
@@ -737,6 +824,11 @@ function endOfTurn(log) {
       m.hp -= chip;
       log.push(m.name + ' 被火焰旋涡困住，受到了 ' + chip + ' 点伤害！');
     }
+    if (m.held === '吃剩的东西' && m.hp > 0 && m.hp < m.stats.hp) {
+      const heal = Math.max(1, Math.floor(m.stats.hp / 16));
+      m.hp = Math.min(m.stats.hp, m.hp + heal);
+      log.push(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！');
+    }
     if (m.hp <= 0) {
       m.hp = 0;
       log.push(m.name + ' 倒下了！');
@@ -947,6 +1039,10 @@ function endBattle(outcome) {
       addItem('TM' + b.tm, 1);
       addLog('获得了【TM' + b.tm + '】！');
     }
+    if (b.kind === 'rival' && b.rivalStep) {
+      STATE.rivalWon.push(b.rivalStep);
+      addLog('小茂：哼，这次算你赢了！下次可不会这么简单！');
+    }
     const gym = MAP_NODES[STATE.nodeId] && MAP_NODES[STATE.nodeId].gym;
     if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText);
   } else if (outcome === 'lose') {
@@ -968,6 +1064,17 @@ function endBattle(outcome) {
     STATE.nodeId = STATE.lastTown;
     STATE.weather = rollWeather(STATE.lastTown);
   }
+  if (b.kind === 'gym_apprentice' && STATE.gymSession && outcome === 'win') {
+    STATE.gymSession.step++;
+    addLog('你击败了道馆学徒！但连战还在继续，宝可梦们来不及休息……');
+    if (STATE.gymSession.step >= STATE.gymSession.steps.length) {
+      STATE.gymSession = null;
+    } else {
+      startGymStep();
+    }
+    return;
+  }
+  STATE.gymSession = null;
   STATE.battle = null;
 }
 
@@ -992,9 +1099,11 @@ function gotoNode(nodeId) {
   if (node.type === 'town') STATE.lastTown = nodeId;
   addLog('你来到了 ' + node.name + '。');
   if (node.desc) addLog(node.desc);
+  const rival = rivalTriggerFor(nodeId);
+  if (rival) startRivalBattle(rival);
 }
 
-function explore() {
+function exploreOnce() {
   const node = MAP_NODES[STATE.nodeId];
   if (node.type === 'town') {
     addLog('城镇里没有草丛，去野外探索吧！');
@@ -1067,6 +1176,31 @@ function explore() {
   addLog('周围很安静，看来今天运气一般。');
 }
 
+function explore() {
+  exploreOnce();
+  if (!STATE.battle && !STATE.townTrade && !STATE.rocketSell &&
+      STATE.keyItems.indexOf('自行车') !== -1 && Math.random() < 0.3) {
+    addLog('骑着自行车，你很快来到了另一片草丛！');
+    exploreOnce();
+  }
+}
+
+// ---------- 钓鱼（破旧钓竿） ----------
+
+function fish() {
+  const node = MAP_NODES[STATE.nodeId];
+  if (!node.water) { addLog('这里没有水域，钓不了鱼。'); return; }
+  if (STATE.keyItems.indexOf('破旧钓竿') === -1) { addLog('你没有钓竿……去华蓝市找找看吧。'); return; }
+  const r = Math.random();
+  let id = 129;
+  if (r >= 0.7 && r < 0.95) id = 120;
+  else if (r >= 0.95 && r < 0.99) id = 147;
+  else if (r >= 0.99) id = 130;
+  const level = node.levels[0] + randInt(0, 2);
+  addLog('水面泛起了波纹……上钩了！是野生的 ' + POKEDEX[id].name + '！');
+  startWildBattle(id, level);
+}
+
 function resolveRocketSell(pay) {
   const ev = ROCKET_EVENTS.sell;
   if (pay) {
@@ -1132,10 +1266,35 @@ function sellItem(name) {
 
 function wanderTown() {
   if (MAP_NODES[STATE.nodeId].type !== 'town') { addLog('这里不是城镇。'); return; }
+  // 关键道具：常磐市自行车店
+  if (STATE.nodeId === 'viridian' && STATE.keyItems.indexOf('自行车') === -1 && Math.random() < 0.5) {
+    STATE.keyItems.push('自行车');
+    addLog('常磐市的自行车店老板送你一辆【自行车】！野外探索时骑行更快！');
+    return;
+  }
+  // 关键道具：华蓝市钓鱼大叔
+  if (STATE.nodeId === 'cerulean' && STATE.keyItems.indexOf('破旧钓竿') === -1 && Math.random() < 0.4) {
+    STATE.keyItems.push('破旧钓竿');
+    addLog('华蓝市的钓鱼大叔看你顺眼，送了你一根【破旧钓竿】！去水边试试吧！');
+    return;
+  }
+  // 垃圾桶寻宝：电气球（华蓝市，每档一次）
   if (STATE.nodeId === 'cerulean' && !STATE.heldObtained && Math.random() < 0.25) {
     addItem('电气球', 1);
     STATE.heldObtained = true;
     addLog('你在华蓝市的垃圾桶后面翻出了【电气球】！只有皮卡丘能携带它。');
+    return;
+  }
+  // 垃圾桶寻宝：吃剩的东西（每档一次）
+  if (!STATE.trashFound && Math.random() < 0.08) {
+    STATE.trashFound = true;
+    addItem('吃剩的东西', 1);
+    addLog('你在垃圾桶后面翻出了【吃剩的东西】！听说携带它每回合能恢复HP。');
+    return;
+  }
+  // NPC 交换（30%）
+  if (Math.random() < 0.3) {
+    startTradeEvent();
     return;
   }
   const r = randInt(1, 100);
@@ -1151,6 +1310,40 @@ function wanderTown() {
   } else {
     addLog('镇上很平静，大家都在过着安稳的日子。');
   }
+}
+
+// ---------- NPC 交换（交换来的宝可梦 1.5 倍经验） ----------
+
+const TRADES = [
+  { give: 16, want: 19 }, // 居民想用 波波 换 小拉达
+  { give: 21, want: 16 }, // 烈雀 换 波波
+  { give: 43, want: 21 }, // 走路草 换 烈雀
+  { give: 35, want: 25 }  // 皮皮 换 皮卡丘
+];
+
+function startTradeEvent() {
+  const t = TRADES[randInt(0, TRADES.length - 1)];
+  const has = STATE.party.some(function (m) { return m.species === t.want; });
+  if (!has) {
+    addLog('一位居民想和你交换宝可梦，但你手里没有他想要的 ' + POKEDEX[t.want].name + '。');
+    return;
+  }
+  STATE.townTrade = t;
+  addLog('一位居民拦住你：「我用 ' + POKEDEX[t.give].name + ' 换你的 ' + POKEDEX[t.want].name + '，怎么样？」');
+}
+
+function doTownTrade(accept) {
+  const t = STATE.townTrade;
+  if (!t) return;
+  STATE.townTrade = null;
+  if (!accept) { addLog('你婉拒了这次交换。'); return; }
+  const idx = STATE.party.findIndex(function (m) { return m.species === t.want; });
+  if (idx === -1) { addLog('你手里没有 ' + POKEDEX[t.want].name + '。'); return; }
+  const level = STATE.party[idx].level;
+  const mon = makeMon(t.give, level);
+  mon.tradeBonus = true;
+  STATE.party[idx] = mon;
+  addLog('交换成功！' + mon.name + ' 加入了你的队伍（交换来的宝可梦经验获取 1.5 倍）！');
 }
 
 function useEscapeRope() {
@@ -1236,6 +1429,11 @@ function newGame(starterId) {
   STATE.trainersDefeated = {};
   STATE.lastTown = 'pallet';
   STATE.heldObtained = false;
+  STATE.keyItems = [];
+  STATE.rivalWon = [];
+  STATE.gymSession = null;
+  STATE.townTrade = null;
+  STATE.trashFound = false;
   STATE.seenDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
@@ -1258,7 +1456,10 @@ function save() {
       caughtDex: STATE.caughtDex,
       trainersDefeated: STATE.trainersDefeated,
       lastTown: STATE.lastTown,
-      heldObtained: STATE.heldObtained
+      heldObtained: STATE.heldObtained,
+      keyItems: STATE.keyItems,
+      rivalWon: STATE.rivalWon,
+      trashFound: STATE.trashFound
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 存档失败静默处理 */ }
@@ -1268,7 +1469,7 @@ function serializeMon(m) {
   return {
     species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
-    nature: m.nature, held: m.held
+    nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus
   };
 }
 
@@ -1281,6 +1482,7 @@ function deserializeMon(d) {
   mon.moves = (d.moves || []).slice(0, 4);
   mon.nature = d.nature || '勤奋';
   mon.held = d.held || null;
+  mon.tradeBonus = !!d.tradeBonus;
   return mon;
 }
 
@@ -1307,10 +1509,15 @@ function load() {
     STATE.trainersDefeated = data.trainersDefeated || {};
     STATE.lastTown = data.lastTown || 'pallet';
     STATE.heldObtained = !!data.heldObtained;
+    STATE.keyItems = data.keyItems || [];
+    STATE.rivalWon = data.rivalWon || [];
+    STATE.trashFound = !!data.trashFound;
     STATE.battle = null;
     STATE.pendingLearn = [];
     STATE.log = [];
     STATE.rocketSell = false;
+    STATE.gymSession = null;
+    STATE.townTrade = null;
     addLog('欢迎回来，' + (data.name || '训练家') + '！存档读取成功。');
     return true;
   } catch (e) {
@@ -1324,6 +1531,8 @@ function resetGame() {
   STATE.pendingLearn = [];
   STATE.rocketSell = false;
   STATE.lastResult = null;
+  STATE.gymSession = null;
+  STATE.townTrade = null;
   STATE.screen = 'title';
 }
 
@@ -1340,6 +1549,8 @@ if (typeof module !== 'undefined' && module.exports) {
     resolveRocketSell: resolveRocketSell, resolvePendingLearn: resolvePendingLearn,
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,
+    challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
+    startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,

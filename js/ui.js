@@ -122,6 +122,7 @@ function render() {
   if (STATE.screen === 'map' || STATE.screen === 'battle') {
     if (STATE.pendingLearn.length > 0) showLearnModal();
     else if (STATE.rocketSell) showRocketSellModal();
+    else if (STATE.townTrade) showTradeModal();
   }
 }
 
@@ -205,7 +206,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'mart\')">🏪 友好商店</button>';
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
-      html += '<button class="btn btn-primary" onclick="doMapAction(\'gym\')">🏟️ 挑战道馆</button>';
+      html += '<button class="btn btn-primary" onclick="doMapAction(\'gym\')">🏟️ 挑战道馆（首发 Lv.' + node.gym.minLevel + '+）</button>';
     } else if (node.gym) {
       html += '<button class="btn" disabled>🏟️ 道馆已挑战</button>';
     }
@@ -213,6 +214,9 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
   } else {
     html += '<button class="btn btn-primary" onclick="doMapAction(\'explore\')">🌿 在草丛探索</button>';
+    if (node.water && STATE.keyItems.indexOf('破旧钓竿') !== -1) {
+      html += '<button class="btn" onclick="doMapAction(\'fish\')">🎣 钓鱼</button>';
+    }
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 打开背包</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
@@ -228,12 +232,11 @@ function doMapAction(type) {
     case 'center': visitCenter(); break;
     case 'mart': showShopModal(); return;
     case 'wander': wanderTown(); break;
-    case 'gym':
-      startGymBattle(MAP_NODES[STATE.nodeId].gym);
-      break;
+    case 'gym': challengeGym(); break;
     case 'gymlocked': addLog(MAP_NODES[STATE.nodeId].gymLocked); break;
     case 'travel': showTravelModal(); return;
     case 'explore': explore(); break;
+    case 'fish': fish(); break;
     case 'bag': showBagModal(false); return;
     case 'party': showPartyModal('view'); return;
     case 'town': {
@@ -309,7 +312,16 @@ function doSell(name) {
 function showBagModal(inBattle) {
   const keys = Object.keys(STATE.bag).filter(function (k) { return bagCount(k) > 0; });
   let html = '';
-  if (keys.length === 0) html = '<div class="shop-hint">背包空空如也</div>';
+  if (STATE.keyItems.length > 0) {
+    html += '<div class="shop-hint">—— 关键道具 ——</div>';
+    for (let i = 0; i < STATE.keyItems.length; i++) {
+      const item = ITEMS[STATE.keyItems[i]];
+      html += '<div class="shop-row"><span>' + STATE.keyItems[i] + '</span></div>' +
+        '<div class="shop-desc">' + (item.desc || '') + '</div>';
+    }
+  }
+  if (keys.length > 0) html += '<div class="shop-hint">—— 背包 ——</div>';
+  if (keys.length === 0) html += '<div class="shop-hint">背包空空如也</div>';
   for (let i = 0; i < keys.length; i++) {
     const name = keys[i];
     const item = ITEMS[name];
@@ -464,6 +476,28 @@ function showRocketSellModal() {
 
 function doRocketSell(pay) {
   resolveRocketSell(pay);
+  save();
+  closeModal();
+  render();
+}
+
+// ---------------- 弹窗：NPC 交换 ----------------
+
+function showTradeModal() {
+  const t = STATE.townTrade;
+  if (!t) return;
+  const give = POKEDEX[t.give];
+  const want = POKEDEX[t.want];
+  openModal('宝可梦交换',
+    '<div class="shop-hint">居民想用 <b>' + give.name + '</b> 换你的 <b>' + want.name + '</b>。' +
+    '交换来的宝可梦经验获取 1.5 倍！</div>' +
+    '<div class="modal-btns">' +
+    '<button class="btn btn-primary" onclick="doTrade(true)">交换</button>' +
+    '<button class="btn" onclick="doTrade(false)">婉拒</button></div>');
+}
+
+function doTrade(accept) {
+  doTownTrade(accept);
   save();
   closeModal();
   render();

@@ -28,7 +28,10 @@ const ITEMS = {
   '金珠':   { id: 'nugget', name: '金珠', type: 'loot', sell: 5000, desc: '可以高价卖出的贵重品' },
   'TM岩石封锁': { id: 'tm_rock_tomb', name: 'TM岩石封锁', type: 'tm', move: 'rock_tomb', desc: '让宝可梦习得招式：岩石封锁' },
   'TM泡沫光线': { id: 'tm_bubble_beam', name: 'TM泡沫光线', type: 'tm', move: 'bubble_beam', desc: '让宝可梦习得招式：泡沫光线' },
-  '电气球':   { id: 'lightball', name: '电气球', type: 'held', desc: '只有皮卡丘能携带，携带后攻击与特攻翻倍' }
+  '电气球':   { id: 'lightball', name: '电气球', type: 'held', desc: '只有皮卡丘能携带，携带后攻击与特攻翻倍' },
+  '吃剩的东西': { id: 'leftovers', name: '吃剩的东西', type: 'held', desc: '携带后每回合结束恢复 1/16 最大HP' },
+  '破旧钓竿': { id: 'old_rod', name: '破旧钓竿', type: 'key', desc: '可以在水边钓鱼，说不定能钓上好东西' },
+  '自行车':   { id: 'bicycle', name: '自行车', type: 'key', desc: '骑行让你探索更高效，有几率连续探索两次' }
 };
 
 const MAP_NODES = {
@@ -85,6 +88,11 @@ const MAP_NODES = {
       leader: '小刚', title: '馆主', badge: '灰色徽章', tm: '岩石封锁',
       text: '我的宝可梦可是像岩石一样坚不可摧！',
       winText: '你的实力得到了我的认可！这枚灰色徽章是你的了，还有这招岩石封锁！',
+      minLevel: 10,
+      apprentices: [
+        { id: 'pewter_a1', title: '道馆学徒', name: '阿勇', prize: 300, text: '想挑战馆主，先过我这一关！', party: [{ id: 74, level: 9, moves: ['tackle', 'harden', 'rock_throw'] }] },
+        { id: 'pewter_a2', title: '道馆学徒', name: '小岩', prize: 350, text: '岩石系的防御可不是开玩笑的！', party: [{ id: 74, level: 10, moves: ['tackle', 'harden', 'rock_throw'] }, { id: 95, level: 9, moves: ['rock_throw', 'harden'] }] }
+      ],
       team: [ { id: 74, level: 12, moves: ['tackle', 'harden', 'rock_throw'] },
               { id: 95, level: 14, moves: ['rock_slide', 'rock_tomb', 'tackle', 'harden'] } ],
       aceIndex: 1
@@ -122,6 +130,11 @@ const MAP_NODES = {
       leader: '小霞', title: '馆主', badge: '蓝色徽章', tm: '泡沫光线',
       text: '水系的宝可梦，交给我吧！',
       winText: '你赢了……这枚蓝色徽章拿去吧，泡沫光线也教给你！',
+      minLevel: 16,
+      apprentices: [
+        { id: 'cer_a1', title: '道馆学徒', name: '小蓝', prize: 400, text: '水系宝可梦可是很温柔的！', party: [{ id: 120, level: 14, moves: ['water_gun', 'bubble_beam'] }] },
+        { id: 'cer_a2', title: '道馆学徒', name: '小铃', prize: 450, text: '别以为赢了就结束了！', party: [{ id: 120, level: 15, moves: ['water_gun', 'bubble_beam'] }, { id: 120, level: 15, moves: ['water_gun', 'bubble_beam'] }] }
+      ],
       team: [ { id: 120, level: 16, moves: ['water_gun', 'bubble_beam', 'tackle'] },
               { id: 121, level: 18, moves: ['water_pulse', 'psybeam', 'bubble_beam', 'quick_attack'] } ],
       aceIndex: 1
@@ -129,7 +142,7 @@ const MAP_NODES = {
   },
   route24: {
     id: 'route24', name: '24号道路', type: 'route', next: ['cerulean', 'route25'], requireBadge: '蓝色徽章',
-    levels: [12, 16], weatherWeights: { '晴': 60, '雨': 25, '雷阵雨': 15 },
+    levels: [12, 16], water: true, weatherWeights: { '晴': 60, '雨': 25, '雷阵雨': 15 },
     pools: {
       '晴':    [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 21, w: 20 } ],
       '雨':    [ { id: 43, w: 20 }, { id: 48, w: 25 }, { id: 46, w: 15 }, { id: 21, w: 10 }, { id: 16, w: 15 }, { id: 19, w: 10 }, { id: 147, w: 5 } ],
@@ -143,7 +156,7 @@ const MAP_NODES = {
   },
   route25: {
     id: 'route25', name: '25号道路', type: 'route', next: ['route24'], requireBadge: '蓝色徽章',
-    levels: [13, 17], weatherWeights: { '晴': 75, '雨': 25 },
+    levels: [13, 17], water: true, weatherWeights: { '晴': 75, '雨': 25 },
     pools: {
       '晴': [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 35, w: 20 } ],
       '雨': [ { id: 43, w: 20 }, { id: 48, w: 20 }, { id: 35, w: 15 }, { id: 46, w: 10 }, { id: 21, w: 15 }, { id: 16, w: 12 }, { id: 147, w: 8 } ]
@@ -157,6 +170,11 @@ const MAP_NODES = {
 const ROCKET_EVENTS = {
   robbery: {
     name: '火箭队抢劫', text: '你被火箭队拦住了！「打劫！把身上的钱和道具交出来！」',
+    lines: [
+      '你被火箭队拦住了！「打劫！把身上的钱和道具交出来！」',
+      '「既然你诚心诚意地发问了，我们就大发慈悲地告诉你——交出你的钱！」',
+      '「火箭队！为了夺取宝可梦，也为了夺取你的钱包！」'
+    ],
     winText: '你打败了火箭队！他们丢下了一枚金珠灰溜溜地跑了。',
     loseText: '火箭队抢走了你的钱，还翻走了你的背包……',
     reward: { item: '金珠' },
@@ -164,11 +182,21 @@ const ROCKET_EVENTS = {
   },
   sell: {
     name: '强买强卖', text: '火箭队小兵拦住你：「嘿，小哥，稀有宝可梦要不要？只要3000金！」',
+    lines: [
+      '火箭队小兵拦住你：「嘿，小哥，稀有宝可梦要不要？只要3000金！」',
+      '「走过路过不要错过！超稀有的宝可梦，跳楼价3000金！」',
+      '「这位训练家，我看你骨骼惊奇，这只宝可梦和你很有缘啊！」'
+    ],
     price: 3000, okText: '付钱买下', noText: '不理他，转身就走',
     rare: [133, 147, 25], junk: 129
   },
   rescue: {
     name: '解救宝可梦', text: '你撞见火箭队正在欺负一只伊布！「想救它？先过我们这关！」',
+    lines: [
+      '你撞见火箭队正在欺负一只伊布！「想救它？先过我们这关！」',
+      '「喂！这只伊布是我们先看上的，识相的话赶紧走开！」',
+      '「住手！……哦，来了个多管闲事的训练家。」'
+    ],
     winText: '你救下了伊布！它感激地蹭了蹭你，决定加入你的队伍！',
     rewardMon: 133,
     party: [ { id: 42, level: 0 }, { id: 110, level: 0 } ]

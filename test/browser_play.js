@@ -93,6 +93,15 @@ async function main() {
   await evaljs('doMapAction(\'wander\');');
   ok(await evaljs("STATE.log.length > 0"), '闲逛事件产生日志');
 
+  await evaljs('STATE.keyItems.push(\'破旧钓竿\'); STATE.nodeId = \'route24\'; render();');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('钓鱼') !== -1; })"), '水边出现钓鱼按钮');
+  await evaljs('STATE.party.push(makeMon(19, 6, { nature: "勤奋" })); STATE.townTrade = { give: 16, want: 19 }; render();');
+  ok(await evaljs("document.querySelector('#modal-root .modal') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('波波') !== -1"), 'NPC 交换弹窗弹出');
+  await evaljs('doTrade(true);');
+  ok(await evaljs("STATE.party.some(function(m){ return m.species === 16 && m.tradeBonus; })"), '交换完成且带 1.5 倍经验标记');
+  await evaljs('STATE.nodeId = \'pewter\'; render();');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('挑战道馆') !== -1; })"), '道馆按钮带等级门槛提示');
+
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });
   consoleErrors.forEach(function (e) { console.error('  ERR: ' + e); });
