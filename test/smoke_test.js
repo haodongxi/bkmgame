@@ -437,6 +437,7 @@ section('问题修复回归');
     if (/宝可梦[0-9]+/.test(d.name || '')) bad.push('占位名 ' + id);
   });
   ok(bad.length === 0, '151 只的招式 ID 全部合法、无占位名');
+  ok(T.POKEDEX[16].learnset[1].indexOf('gust') === -1, '波波 1 级不会起风（1号道路新手平衡）');
 }
 {
   // 生成图鉴的野生怪战斗不再崩溃

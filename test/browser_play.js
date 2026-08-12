@@ -75,12 +75,15 @@ async function main() {
 
   await evaljs('STATE.party = [makeMon(6, 15, { nature: "勤奋" })]; startWildBattle(16, 4); render();');
   ok(await evaljs("document.querySelector('#screen-battle').classList.contains('active')"), '战斗界面激活');
+  ok(await evaljs("getComputedStyle(document.querySelector('#screen-map')).display === 'none'"), '战斗中地图屏隐藏');
+  ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display !== 'none'"), '战斗屏可见');
   ok(await evaljs("document.querySelectorAll('#battle-actions .btn').length === STATE.battle.player.mons[0].m.moves.length + 3"), '战斗按钮 = 招式+道具+换人+逃跑');
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}return STATE.lastResult;})()");
   ok(await evaljs("STATE.lastResult === 'win'"), '战斗胜利结算');
   await evaljs('render();');
   ok(await evaljs("document.querySelector('#screen-map').classList.contains('active')"), '战斗后回到地图页');
+  ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display === 'none'"), '回到地图后战斗屏隐藏');
 
   await evaljs('doMapAction(\'mart\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '商店弹窗打开');

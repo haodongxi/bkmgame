@@ -36,8 +36,8 @@
       box-shadow: inset -3px -3px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.08);
       background: var(--bg-panel);
     }
-    .screen { display: none; }
-    .screen.active { display: block; }
+    .screen { display: none !important; }
+    .screen.active { display: block !important; }
 
     .btn {
       display: inline-block;
@@ -79,7 +79,8 @@
     .starter-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin-top: 18px; }
 
     /* ---------- 主场景 ---------- */
-    #screen-map { padding: 10px 10px 18px; display: flex; flex-direction: column; height: 100dvh; }
+    #screen-map { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
+    #screen-map.active { display: flex !important; }
     .scene-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; flex-wrap: wrap; gap: 4px; }
     .meta-line { font-size: 10px; color: var(--gold); margin-bottom: 8px; }
     .log-box {
@@ -113,7 +114,8 @@
     .btn[disabled].travel-btn { opacity: 0.45; }
 
     /* ---------- 战斗 ---------- */
-    #screen-battle { padding: 10px 10px 18px; display: flex; flex-direction: column; height: 100dvh; }
+    #screen-battle { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
+    #screen-battle.active { display: flex !important; }
     .battle-card { display: flex; gap: 10px; padding: 10px; margin-bottom: 8px; }
     .battle-icon { display: flex; align-items: center; }
     .battle-info { flex: 1; }
