@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>宝可梦：关都篇（纯文字像素版）</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       宝可梦：关都篇 - 像素风 UI
+       Created by haodongsheng
+       ============================================================ */
+    :root {
+      --bg: #171a21;
+      --bg-panel: #20242e;
+      --bg-elevated: #2a2f3c;
+      --border: #3a4050;
+      --text: #e8e6d8;
+      --text-dim: #8a90a0;
+      --red: #e8484f;
+      --gold: #f8c84f;
+      --green: #58c25c;
+      --blue: #4aa8f8;
+      --hp: #58c25c;
+      --font: 'Press Start 2P', 'Fusion Pixel', 'Zpix', 'PingFang SC', 'Microsoft YaHei', monospace;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
+    body { overflow-x: hidden; }
+    #app { max-width: 520px; margin: 0 auto; min-height: 100vh; position: relative; }
+
+    .pixel-frame {
+      border: 3px solid var(--border);
+      box-shadow: inset -3px -3px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.08);
+      background: var(--bg-panel);
+    }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    .btn {
+      display: inline-block;
+      border: 3px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+      box-shadow: inset -3px -3px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.08);
+      text-align: left;
+      line-height: 1.4;
+    }
+    .btn:active { transform: translate(1px, 1px); box-shadow: inset 3px 3px 0 rgba(0,0,0,0.35); }
+    .btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+    .btn-primary { background: #7a2a30; border-color: #a83a42; color: #ffd9d9; }
+    .btn-danger { background: #4a2428; border-color: #6a3438; color: #ffb3b3; }
+    .btn-sm { padding: 6px 8px; font-size: 10px; }
+    .btn-big { width: 100%; padding: 14px; font-size: 13px; margin-top: 10px; text-align: center; }
+
+    /* ---------- 标题 ---------- */
+    #screen-title { padding: 48px 22px; text-align: center; }
+    .title-logo { font-size: 30px; color: var(--red); letter-spacing: 2px; text-shadow: 3px 3px 0 #000; }
+    .title-sub { font-size: 11px; color: var(--text-dim); margin-top: 10px; line-height: 1.8; }
+    .title-badge { display: inline-block; margin-top: 16px; padding: 5px 10px; font-size: 10px; border: 3px solid var(--border); color: var(--gold); }
+    .title-actions { margin-top: 28px; }
+    .title-reset { margin-top: 18px; font-size: 9px; color: var(--text-dim); }
+
+    /* ---------- 选御三家 ---------- */
+    #screen-starter { padding: 26px 18px; }
+    .sec-title { font-size: 13px; color: var(--gold); margin-bottom: 16px; letter-spacing: 1px; }
+    .starter-row { display: flex; gap: 10px; }
+    .starter-card { flex: 1; text-align: center; padding: 12px 6px; cursor: pointer; }
+    .starter-card:active { transform: translate(1px, 1px); }
+    .starter-icon { display: flex; justify-content: center; margin-bottom: 8px; }
+    .starter-name { font-size: 12px; }
+    .starter-type { font-size: 9px; color: var(--text-dim); margin-top: 5px; }
+    .starter-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin-top: 18px; }
+
+    /* ---------- 主场景 ---------- */
+    #screen-map { padding: 10px 10px 18px; display: flex; flex-direction: column; height: 100dvh; }
+    .scene-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; flex-wrap: wrap; gap: 4px; }
+    .meta-line { font-size: 10px; color: var(--gold); margin-bottom: 8px; }
+    .log-box {
+      flex: 1;
+      min-height: 120px;
+      max-height: 42vh;
+      overflow-y: auto;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.8;
+      background: var(--bg-panel);
+      border: 3px solid var(--border);
+      box-shadow: inset 3px 3px 0 rgba(0,0,0,0.35);
+    }
+    .log-box.small { flex: 0 0 auto; height: 120px; }
+    #party-strip { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; }
+    .party-card { flex: 0 0 auto; width: 112px; padding: 6px; }
+    .party-icon { display: flex; justify-content: center; }
+    .party-info { font-size: 10px; }
+    .party-name { font-size: 10px; white-space: nowrap; overflow: hidden; }
+    .party-lv { color: var(--text-dim); font-size: 9px; margin: 2px 0; }
+    .party-empty { color: var(--text-dim); font-size: 11px; padding: 10px; }
+
+    .hpbar { height: 8px; background: #10131a; border: 2px solid var(--border); }
+    .hpbar-fill { height: 100%; transition: width 0.25s; }
+    .hp-text { font-size: 9px; color: var(--text-dim); margin-top: 3px; }
+    .status-badge { font-size: 10px; }
+
+    #action-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .travel-btn, .learn-btn, .modal-btns .btn { width: 100%; margin-top: 6px; }
+    .btn[disabled].travel-btn { opacity: 0.45; }
+
+    /* ---------- 战斗 ---------- */
+    #screen-battle { padding: 10px 10px 18px; display: flex; flex-direction: column; height: 100dvh; }
+    .battle-card { display: flex; gap: 10px; padding: 10px; margin-bottom: 8px; }
+    .battle-icon { display: flex; align-items: center; }
+    .battle-info { flex: 1; }
+    .battle-name { font-size: 13px; }
+    .battle-lv { font-size: 10px; color: var(--text-dim); margin: 4px 0; }
+    .vs-divider { text-align: center; color: var(--red); font-size: 11px; margin: 2px 0; }
+    #battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .move-btn { position: relative; }
+    .move-type { display: block; font-size: 9px; color: var(--tc); margin-top: 3px; }
+
+    /* ---------- 弹窗 ---------- */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72);
+      display: flex; align-items: center; justify-content: center; z-index: 50; padding: 18px;
+    }
+    .modal { width: 100%; max-width: 440px; max-height: 78vh; overflow-y: auto; padding: 14px; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--gold); margin-bottom: 10px; }
+    .modal-body { font-size: 11px; }
+    .shop-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px dashed var(--border); }
+    .shop-desc { font-size: 9px; color: var(--text-dim); padding: 3px 0 8px; }
+    .shop-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin: 6px 0; }
+    .party-row { display: flex; gap: 8px; align-items: center; padding: 8px; margin-bottom: 8px; }
+    .modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 标题 -->
+    <div id="screen-title" class="screen">
+      <div class="title-logo">POKéMON</div>
+      <div class="title-sub">关都篇 · 纯文字像素版<br>151 只宝可梦的冒险，从这里开始</div>
+      <div class="title-badge">KANTO REGION</div>
+      <div class="title-actions">
+        <button class="btn btn-primary btn-big" onclick="uiStartNew()">✦ 新的冒险</button>
+        <button class="btn btn-big" onclick="uiContinue()" id="btn-continue">继续冒险</button>
+      </div>
+      <div class="title-reset"><button class="btn btn-sm btn-danger" onclick="uiReset()">删除存档</button></div>
+    </div>
+
+    <!-- 选御三家 -->
+    <div id="screen-starter" class="screen">
+      <div class="sec-title">—— 选择你的伙伴 ——</div>
+      <div id="starter-content"></div>
+    </div>
+
+    <!-- 主界面 -->
+    <div id="screen-map" class="screen">
+      <div class="scene-top">
+        <span id="loc-label"></span>
+        <span id="weather-label"></span>
+      </div>
+      <div class="meta-line" id="meta-label"></div>
+      <div id="log-box" class="log-box"></div>
+      <div id="party-strip"></div>
+      <div id="action-panel"></div>
+    </div>
+
+    <!-- 战斗界面 -->
+    <div id="screen-battle" class="screen">
+      <div id="battle-foe"></div>
+      <div class="vs-divider">▼ 对战 ▼</div>
+      <div id="battle-player"></div>
+      <div id="battle-log" class="log-box small"></div>
+      <div id="battle-actions"></div>
+    </div>
+  </div>
+
+  <div id="modal-root"></div>
+
+  <script src="./js/data/typechart.js"></script>
+  <script src="./js/data/moves.js"></script>
+  <script src="./js/data/pokedex.js"></script>
+  <script src="./js/data/maps.js"></script>
+  <script src="./js/core.js"></script>
+  <script src="./js/ui.js"></script>
+</body>
+</html>
