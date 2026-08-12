@@ -22,7 +22,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
-  '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle\n' +
+  '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle,\n' +
+  '  wanderTown: wanderTown\n' +
   '};';
 
 // 可控随机：默认使用种子序列，需要时可切换
@@ -421,6 +422,62 @@ section('MVP4：全图鉴与完整关都');
   ok(T.getState().nodeId === 'route22', '持有绿色徽章后可进入 22 号道路');
   T.gotoNode('champion');
   ok(T.getState().nodeId === 'champion', '可进入冠军之路');
+}
+
+// ---------- 9.8 问题修复回归（招式数据 / 逃跑 / 闲逛白嫖） ----------
+section('问题修复回归');
+{
+  // 全数据招式 ID 合法性
+  const bad = [];
+  Object.keys(T.POKEDEX).forEach(function (id) {
+    const d = T.POKEDEX[id];
+    Object.keys(d.learnset || {}).forEach(function (lv) {
+      d.learnset[lv].forEach(function (mid) { if (!T.MOVES[mid]) bad.push(id + '/' + d.name + ' -> ' + mid); });
+    });
+    if (/宝可梦[0-9]+/.test(d.name || '')) bad.push('占位名 ' + id);
+  });
+  ok(bad.length === 0, '151 只的招式 ID 全部合法、无占位名');
+}
+{
+  // 生成图鉴的野生怪战斗不再崩溃
+  T.newGame(4);
+  T.getState().party = [T.makeMon(6, 25, { nature: '勤奋' })];
+  T.startWildBattle(65, 20); // 胡地（生成条目）
+  let guard = 0;
+  while (T.getState().battle && !T.getState().battle.over && guard++ < 60) {
+    T.battleMove(damageMoveIdx(T.getState().battle.player.mons[T.getState().battle.player.active]));
+  }
+  ok(['win', 'run', 'lose'].indexOf(T.getState().lastResult) !== -1, '胡地战斗正常结束（' + T.getState().lastResult + '）');
+}
+{
+  // 铁甲蛹只会变硬，也不能把战斗拖死
+  T.newGame(4);
+  T.getState().party = [T.makeMon(6, 20, { nature: '勤奋' })];
+  T.startWildBattle(11, 15);
+  let guard = 0;
+  while (T.getState().battle && !T.getState().battle.over && guard++ < 60) {
+    T.battleMove(damageMoveIdx(T.getState().battle.player.mons[T.getState().battle.player.active]));
+  }
+  ok(!T.getState().battle || T.getState().battle.over, '铁甲蛹硬壳战在 ' + guard + ' 回合内结束');
+}
+{
+  // 逃跑后战斗状态清空
+  T.newGame(4);
+  T.startWildBattle(16, 3);
+  T.battleRun();
+  ok(T.getState().battle === null && T.getState().lastResult === 'run', '逃跑后战斗状态清空');
+}
+{
+  // 闲逛防白嫖：同一次到访只能触发一次事件
+  T.newGame(4);
+  T.getState().wanderUsed = true;
+  const before = JSON.stringify(T.getState().bag);
+  T.wanderTown();
+  const after = JSON.stringify(T.getState().bag);
+  ok(after === before, '已逛过的镇不会再送道具');
+  T.gotoNode('route1');
+  T.gotoNode('pallet');
+  ok(T.getState().wanderUsed === false, '重新进镇后恢复闲逛次数');
 }
 
 // ---------- 10. 存档读档 ----------

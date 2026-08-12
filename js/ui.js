@@ -403,14 +403,15 @@ function renderBattle() {
   bLog.scrollTop = bLog.scrollHeight;
 
   let html = '';
-  for (let i = 0; i < pm.m.moves.length; i++) {
-    const mv = MOVES[pm.m.moves[i]];
+  const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
+  for (let i = 0; i < validMoves.length; i++) {
+    const mv = MOVES[validMoves[i]];
     html += '<button class="btn move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + mv.type + '</span></button>';
   }
   html += '<button class="btn" onclick="doBattleBag()">🎒 道具</button>';
   html += '<button class="btn" onclick="doBattleParty()">🔄 更换精灵</button>';
-  html += '<button class="btn" ' + (b.canRun ? 'onclick="doBattleRun()"' : 'disabled') + '>🏃 逃跑</button>';
+  html += '<button class="btn" onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
   $id('battle-actions').innerHTML = html;
 }
 

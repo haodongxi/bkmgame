@@ -29,7 +29,8 @@ const STATE = {
   rivalWon: [],
   gymSession: null,
   townTrade: null,
-  trashFound: false
+  trashFound: false,
+  wanderUsed: false
 };
 
 // ---------------- 基础工具 ----------------
@@ -571,7 +572,8 @@ function startGymStep() {
 }
 
 function pickFoeMove(fm) {
-  const moves = fm.m.moves;
+  const moves = (fm.m.moves || []).filter(function (id) { return MOVES[id]; });
+  if (moves.length === 0) return MOVES.tackle;
   return MOVES[moves[randInt(0, moves.length - 1)]];
 }
 
@@ -893,8 +895,9 @@ function battleMove(idx) {
   const f = b.foe;
   const pm = p.mons[p.active];
   const fm = f.mons[f.active];
-  const pMove = MOVES[pm.m.moves[idx]];
-  if (!pMove) return;
+  const validMoves = (pm.m.moves || []).filter(function (id) { return MOVES[id]; });
+  const pMove = MOVES[validMoves[idx]];
+  if (!pMove) { addLog(pm.m.name + ' 的招式数据异常，无法使用！'); return; }
   const fMove = pickFoeMove(fm);
   const log = [];
   b.turn++;
@@ -914,6 +917,10 @@ function battleMove(idx) {
     log.forEach(addLog);
     handleFaints(log);
     log.forEach(addLog);
+  }
+  if (!b.over && b.kind === 'wild' && b.turn >= 35 && Math.random() < 0.2) {
+    addLog('野生的 ' + b.foe.mons[b.foe.active].m.name + ' 被你的气势吓到，逃走了！');
+    endBattle('run');
   }
 }
 
@@ -1006,7 +1013,9 @@ function battleRun() {
   addLog('你成功逃走了！');
   b.over = true;
   b.outcome = 'run';
+  STATE.lastResult = 'run';
   STATE.screen = 'map';
+  STATE.battle = null;
 }
 
 function endBattle(outcome) {
@@ -1067,6 +1076,7 @@ function endBattle(outcome) {
     healAll();
     STATE.nodeId = STATE.lastTown;
     STATE.weather = rollWeather(STATE.lastTown);
+    STATE.wanderUsed = false;
   }
   if (b.kind === 'gym_apprentice' && STATE.gymSession && outcome === 'win') {
     STATE.gymSession.step++;
@@ -1101,6 +1111,7 @@ function gotoNode(nodeId) {
   STATE.nodeId = nodeId;
   STATE.weather = rollWeather(nodeId);
   if (node.type === 'town') STATE.lastTown = nodeId;
+  if (node.type === 'town') STATE.wanderUsed = false;
   addLog('你来到了 ' + node.name + '。');
   if (node.desc) addLog(node.desc);
   const rival = rivalTriggerFor(nodeId);
@@ -1270,6 +1281,14 @@ function sellItem(name) {
 
 function wanderTown() {
   if (MAP_NODES[STATE.nodeId].type !== 'town') { addLog('这里不是城镇。'); return; }
+  if (STATE.wanderUsed) {
+    const r = randInt(1, 100);
+    if (r <= 40) addLog('镇上的居民都认识你了，热情地打着招呼。');
+    else if (r <= 70) addLog('你悠闲地在镇上逛了一圈，今天没什么特别的事。');
+    else addLog('远处传来宝可梦的叫声，镇上依然平静。');
+    return;
+  }
+  STATE.wanderUsed = true;
   // 关键道具：常磐市自行车店
   if (STATE.nodeId === 'viridian' && STATE.keyItems.indexOf('自行车') === -1 && Math.random() < 0.5) {
     STATE.keyItems.push('自行车');
@@ -1438,6 +1457,7 @@ function newGame(starterId) {
   STATE.gymSession = null;
   STATE.townTrade = null;
   STATE.trashFound = false;
+  STATE.wanderUsed = false;
   STATE.seenDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
@@ -1483,7 +1503,8 @@ function deserializeMon(d) {
   mon.hp = d.hp;
   mon.status = d.status;
   mon.statusTurns = d.statusTurns || 0;
-  mon.moves = (d.moves || []).slice(0, 4);
+  mon.moves = (d.moves || []).filter(function (id) { return MOVES[id]; }).slice(0, 4);
+  if (mon.moves.length === 0) mon.moves = ['tackle'];
   mon.nature = d.nature || '勤奋';
   mon.held = d.held || null;
   mon.tradeBonus = !!d.tradeBonus;
@@ -1522,6 +1543,7 @@ function load() {
     STATE.rocketSell = false;
     STATE.gymSession = null;
     STATE.townTrade = null;
+    STATE.wanderUsed = false;
     addLog('欢迎回来，' + (data.name || '训练家') + '！存档读取成功。');
     return true;
   } catch (e) {
@@ -1537,6 +1559,7 @@ function resetGame() {
   STATE.lastResult = null;
   STATE.gymSession = null;
   STATE.townTrade = null;
+  STATE.wanderUsed = false;
   STATE.screen = 'title';
 }
 
