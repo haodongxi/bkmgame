@@ -398,7 +398,8 @@ function renderBattle() {
   $id('battle-foe').innerHTML = battleCard(foe, 'foe');
   $id('battle-player').innerHTML = battleCard(pm, 'player');
   const bLog = $id('battle-log');
-  const start = b.logStart || 0;
+  let start = b.logStart || 0;
+  if (start > STATE.log.length) start = Math.max(0, STATE.log.length - 50);
   bLog.innerHTML = STATE.log.slice(start).map(function (s) { return '<div>' + s + '</div>'; }).join('');
   bLog.scrollTop = bLog.scrollHeight;
 
@@ -408,6 +409,14 @@ function renderBattle() {
     const mv = MOVES[validMoves[i]];
     html += '<button class="btn move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + mv.type + '</span></button>';
+  }
+  const foeTypes = foe.m.speciesData.types;
+  const hasEffective = validMoves.some(function (id) {
+    const mv = MOVES[id];
+    return mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0;
+  });
+  if (!hasEffective) {
+    html += '<button class="btn move-btn" onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
   html += '<button class="btn" onclick="doBattleBag()">🎒 道具</button>';
   html += '<button class="btn" onclick="doBattleParty()">🔄 更换精灵</button>';

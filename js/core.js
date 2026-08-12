@@ -50,7 +50,7 @@ function pickWeighted(pool) {
 
 function addLog(text) {
   STATE.log.push(text);
-  if (STATE.log.length > 200) STATE.log.splice(0, STATE.log.length - 200);
+  if (STATE.log.length > 2000) STATE.log.splice(0, STATE.log.length - 2000);
 }
 
 function findPartyMonIdx(pred) {
@@ -106,6 +106,13 @@ const NATURES = {
   '浮躁': { atk: 1, def: 1, spa: 1, spd: 1, spe: 1 }
 };
 const NATURE_KEYS = Object.keys(NATURES);
+
+// 挣扎：所有招式都无效时的兜底（正作机制，无属性、命中必中、反伤 1/4）
+const STRUGGLE = {
+  id: 'struggle', name: '挣扎', type: '普通', category: '物理',
+  power: 50, acc: 0, pp: 1, struggle: true,
+  effect: { kind: 'recoil', ratio: 0.25 }
+};
 
 function expForLevel(growth, level) {
   if (level <= 1) return 0;
@@ -331,8 +338,8 @@ function calcDamage(attacker, defender, move, weather) {
   const base = Math.floor((Math.floor((2 * L / 5 + 2) * P * A / D) / 50)) + 2;
   let mod = 1;
   let eff = 1;
-  if (attacker.m.speciesData.types.indexOf(move.type) !== -1) mod *= 1.5; // STAB
-  eff = typeEffectiveness(move.type, defender.m.speciesData.types);
+  if (!move.struggle && attacker.m.speciesData.types.indexOf(move.type) !== -1) mod *= 1.5; // STAB
+  eff = move.struggle ? 1 : typeEffectiveness(move.type, defender.m.speciesData.types);
   if (eff === 0) return { dmg: 0, eff: 0, crit: false };
   mod *= eff;
   if (weather === '雨') {
@@ -571,10 +578,15 @@ function startGymStep() {
   }
 }
 
-function pickFoeMove(fm) {
+function pickFoeMove(fm, target) {
   const moves = (fm.m.moves || []).filter(function (id) { return MOVES[id]; });
-  if (moves.length === 0) return MOVES.tackle;
-  return MOVES[moves[randInt(0, moves.length - 1)]];
+  const targetTypes = target ? target.m.speciesData.types : [];
+  const damaging = moves.filter(function (id) {
+    const mv = MOVES[id];
+    return mv.power > 0 && typeEffectiveness(mv.type, targetTypes) > 0;
+  });
+  if (damaging.length === 0) return STRUGGLE;
+  return MOVES[damaging[randInt(0, damaging.length - 1)]];
 }
 
 function speedOf(bm) {
@@ -658,6 +670,14 @@ function useMove(user, target, move, log) {
       } else {
         target.leech = true;
         log.push(t.name + ' 被种下了寄生种子！');
+      }
+    } else if (move.effect && move.effect.kind === 'heal') {
+      const healed = Math.min(m.stats.hp - m.hp, Math.floor(m.stats.hp * move.effect.ratio));
+      if (healed > 0) {
+        m.hp += healed;
+        log.push(m.name + ' 回复了 ' + healed + ' 点HP！');
+      } else {
+        log.push(m.name + ' 的HP是满的。');
       }
     } else if (move.effect) {
       if (move.effect.kind === 'stat') {
@@ -751,7 +771,8 @@ function useMove(user, target, move, log) {
       if (m.hp <= 0) { m.hp = 0; log.push(m.name + ' 倒下了！'); }
     }
     if (move.effect.kind === 'heal') {
-      const healed = Math.min(m.stats.hp - m.hp, Math.floor(m.stats.hp * move.effect.ratio));
+      const base = move.effect.self ? m.stats.hp : totalDmg;
+      const healed = Math.min(m.stats.hp - m.hp, Math.floor(base * move.effect.ratio));
       if (healed > 0) {
         m.hp += healed;
         log.push(m.name + ' 回复了 ' + healed + ' 点HP！');
@@ -896,9 +917,9 @@ function battleMove(idx) {
   const pm = p.mons[p.active];
   const fm = f.mons[f.active];
   const validMoves = (pm.m.moves || []).filter(function (id) { return MOVES[id]; });
-  const pMove = MOVES[validMoves[idx]];
+  const pMove = idx === -1 ? STRUGGLE : MOVES[validMoves[idx]];
   if (!pMove) { addLog(pm.m.name + ' 的招式数据异常，无法使用！'); return; }
-  const fMove = pickFoeMove(fm);
+  const fMove = pickFoeMove(fm, pm);
   const log = [];
   b.turn++;
   const pPriority = pMove.effect && pMove.effect.kind === 'priority';
@@ -953,7 +974,7 @@ function battleUseItem(itemName) {
       return;
     }
     addLog('哦不！' + fm.m.name + ' 挣脱了精灵球！');
-    const fMove = pickFoeMove(fm);
+    const fMove = pickFoeMove(fm, pm);
     const log = [];
     if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log);
     log.forEach(addLog);
@@ -976,7 +997,7 @@ function battleUseItem(itemName) {
     } else {
       addLog('但是没有效果……');
     }
-    const fMove = pickFoeMove(fm);
+    const fMove = pickFoeMove(fm, pm);
     const log = [];
     if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log);
     log.forEach(addLog);
@@ -999,7 +1020,7 @@ function battleSwitch(idx) {
   p.active = idx;
   addLog('回来吧！上吧，' + target.m.name + '！');
   const fm = f.mons[f.active];
-  const fMove = pickFoeMove(fm);
+  const fMove = pickFoeMove(fm, target);
   const log = [];
   if (fm.m.hp > 0 && target.m.hp > 0) useMove(fm, target, fMove, log);
   log.forEach(addLog);

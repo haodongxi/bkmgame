@@ -80,6 +80,19 @@ function damageMoveIdx(mon) {
   }
   return 0;
 }
+function strongMoveIdx(b) {
+  const a = b.player.mons[b.player.active];
+  const foeTypes = b.foe.mons[b.foe.active].m.speciesData.types;
+  let best = -1, bp = -1;
+  for (let i = 0; i < a.m.moves.length; i++) {
+    const mv = T.MOVES[a.m.moves[i]];
+    if (mv && mv.power > 0 && T.typeEffectiveness(mv.type, foeTypes) > 0 && mv.power > bp) {
+      bp = mv.power;
+      best = i;
+    }
+  }
+  return best;
+}
 
 // 固定随机种子，保证结果稳定
 setRandomSource(mulberry32(20260812));
@@ -178,7 +191,7 @@ ok(T.getState().nodeId === 'pewter', '无徽章时 3 号道路被拦截');
 
 // ---------- 7. 道馆战与徽章奖励 ----------
 section('道馆');
-T.getState().party = [T.makeMon(6, 22, { nature: '勤奋' })];
+T.getState().party = [T.makeMon(6, 30, { nature: '勤奋' })];
 T.startGymBattle(T.MAP_NODES.pewter.gym);
 ok(T.getState().battle.kind === 'gym', '道馆战开始');
 guard = 0;
@@ -479,6 +492,53 @@ section('问题修复回归');
   T.gotoNode('route1');
   T.gotoNode('pallet');
   ok(T.getState().wanderUsed === false, '重新进镇后恢复闲逛次数');
+}
+
+// ---------- 9.9 战斗完整性模糊回归（卡死/拖死） ----------
+section('战斗完整性模糊回归');
+ok(T.POKEDEX[11].learnset[1].indexOf('tackle') !== -1 && T.POKEDEX[14].learnset[1].indexOf('tackle') !== -1, '铁甲蛹/铁壳蛹自带撞击');
+{
+  // 吸取回复量回归：吸血按"造成伤害"回复，超音蝠无法无限回血拖死战斗
+  T.newGame(4);
+  T.getState().party = [T.makeMon(123, 21, { nature: '勤奋' })]; // 飞天螳螂
+  T.startWildBattle(41, 10); // 超音蝠
+  let g = 0;
+  while (T.getState().battle && !T.getState().battle.over && g++ < 60) {
+    T.battleMove(strongMoveIdx(T.getState().battle));
+  }
+  ok(['win', 'run', 'lose'].indexOf(T.getState().lastResult) !== -1, '飞天螳螂 vs 超音蝠在 ' + g + ' 回合内结束（' + T.getState().lastResult + '）');
+}
+{
+  const allIds = Object.keys(T.POKEDEX).map(Number).filter(function (id) { return id >= 1 && id <= 151; });
+  const trainers = [T.MAP_NODES.route1.trainers[0], T.MAP_NODES.route3.trainers[0], T.MAP_NODES.mtmoon.trainers[0]];
+  let bad = 0, crash = 0, timeout = 0;
+  for (let r = 0; r < 500; r++) {
+    T.newGame(1 + Math.floor(Math.random() * 3));
+    const lvl = 5 + Math.floor(Math.random() * 30);
+    T.getState().party = [T.makeMon(allIds[Math.floor(Math.random() * allIds.length)], lvl, { nature: '勤奋' })];
+    const mode = Math.random();
+    if (mode < 0.5) {
+      T.startWildBattle(allIds[Math.floor(Math.random() * allIds.length)], Math.max(2, lvl - 2 + Math.floor(Math.random() * 6)));
+    } else if (mode < 0.8) {
+      T.startTrainerBattle(trainers[Math.floor(Math.random() * trainers.length)]);
+    } else {
+      T.getState().nodeId = 'pewter';
+      T.startGymBattle(T.MAP_NODES.pewter.gym);
+    }
+    let g = 0;
+    while (T.getState().battle && !T.getState().battle.over && g++ < 60) {
+      const cur = T.getState().battle;
+      const pa = cur.player.mons[cur.player.active];
+      const fa = cur.foe.mons[cur.foe.active];
+      if (pa.m.hp <= 0 || fa.m.hp <= 0) { bad++; break; }
+      try { T.battleMove(strongMoveIdx(cur)); }
+      catch (e) { crash++; break; }
+    }
+    if (g >= 60 && T.getState().battle && !T.getState().battle.over) timeout++;
+  }
+  ok(bad === 0, '500 场随机战斗无在场怪血量为 0 的卡死');
+  ok(crash === 0, '500 场随机战斗无崩溃');
+  ok(timeout === 0, '500 场随机战斗无 60 回合拖死');
 }
 
 // ---------- 10. 存档读档 ----------
