@@ -391,6 +391,19 @@ section('MVP4：全图鉴与完整关都');
   ok(gyms.every(function (id) { return T.MAP_NODES[id] && T.MAP_NODES[id].gym; }), '8 个道馆全部存在');
 }
 {
+  // 地图连通性：从真新镇沿 next 可到达全部节点
+  const seen = { pallet: true };
+  const q = ['pallet'];
+  while (q.length > 0) {
+    const id = q.shift();
+    (T.MAP_NODES[id].next || []).forEach(function (n) {
+      if (!seen[n]) { seen[n] = true; q.push(n); }
+    });
+  }
+  ok(Object.keys(T.MAP_NODES).length === Object.keys(seen).length,
+    '全部地图节点连通（' + Object.keys(seen).length + '/' + Object.keys(T.MAP_NODES).length + '）');
+}
+{
   // 常磐道馆徽章门槛
   T.newGame(4);
   T.getState().nodeId = 'viridian';

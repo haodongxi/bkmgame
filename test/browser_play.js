@@ -72,6 +72,11 @@ async function main() {
   await evaljs('doTravel(\'route1\');');
   ok(await evaljs("STATE.nodeId === 'route1'"), '移动到 1 号道路');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn')[0].textContent.indexOf('探索') !== -1"), '野外探索按钮');
+  await evaljs('doMapAction(\'travel\');');
+  ok(await evaljs("document.querySelectorAll('.travel-btn').length >= 1"), '野外节点也有移动弹窗');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('.travel-btn'), function(b){ return b.textContent.indexOf('常磐市') !== -1; })"), '可从 1 号道路前往常磐市');
+  await evaljs('doTravel(\'viridian\');');
+  ok(await evaljs("STATE.nodeId === 'viridian'"), '成功移动到常磐市');
 
   await evaljs('STATE.party = [makeMon(6, 15, { nature: "勤奋" })]; startWildBattle(16, 4); render();');
   ok(await evaljs("document.querySelector('#screen-battle').classList.contains('active')"), '战斗界面激活');
