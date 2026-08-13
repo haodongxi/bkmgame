@@ -33,7 +33,12 @@ const STATE = {
   wanderUsed: false,
   ssAnneDone: false,
   magikarpDone: false,
-  magikarpOffer: false
+  magikarpOffer: false,
+  merchantOffer: null,
+  banditToll: false,
+  banditPrice: 800,
+  medicOffer: false,
+  repel: 0
 };
 
 // ---------------- 基础工具 ----------------
@@ -194,7 +199,10 @@ function recalcStats(mon) {
 // ---------------- 等级 / 学习 / 进化 ----------------
 
 function grantExp(mon, amount, log) {
-  let remain = mon.tradeBonus ? Math.floor(amount * 1.5) : amount;
+  let mult = 1;
+  if (mon.tradeBonus) mult *= 1.5;
+  if (mon.held === '幸运蛋') mult *= 1.5;
+  let remain = Math.floor(amount * mult);
   while (mon.level < 100 && mon.exp + remain >= expForLevel(mon.speciesData.growth, mon.level + 1)) {
     const need = expForLevel(mon.speciesData.growth, mon.level + 1) - mon.exp;
     remain -= need;
@@ -972,6 +980,15 @@ function battleUseItem(itemName) {
     if (b.kind !== 'wild') { addLog('训练家的宝可梦不能捕捉！'); return; }
     removeItem(itemName, 1);
     addLog('你扔出了【' + itemName + '】！');
+    if (item.master) {
+      addLog('太棒了！' + fm.m.name + ' 被收服了！');
+      addToPartyOrBox(fm.m);
+      STATE.caughtDex[fm.m.species] = true;
+      STATE.battle.over = true;
+      STATE.battle.outcome = 'caught';
+      STATE.screen = 'map';
+      return;
+    }
     const a = Math.min(255, Math.floor(((3 * fm.m.stats.hp - 2 * fm.m.hp) * fm.m.speciesData.catchRate * item.ballMult) / (3 * fm.m.stats.hp)));
     let statusMult = 1;
     if (fm.m.status === '睡眠' || fm.m.status === '冰冻') statusMult = 2;
@@ -1005,6 +1022,13 @@ function battleUseItem(itemName) {
       const healed = Math.min(pm.m.stats.hp - pm.m.hp, item.heal);
       pm.m.hp += healed;
       addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！');
+    } else if (item.cure === 'all') {
+      if (pm.m.status) {
+        pm.m.status = null;
+        addLog(pm.m.name + ' 的异常状态被治愈了！');
+      } else {
+        addLog('但是没有效果……');
+      }
     } else if (item.cure && pm.m.status === item.cure) {
       pm.m.status = null;
       addLog(pm.m.name + ' 的' + item.cure + '被治好了！');
@@ -1111,6 +1135,11 @@ function endBattle(outcome) {
         addLog('火箭队还抢走了你的【' + stolen + '】！');
       }
     }
+    if (b.kind === 'bandit') {
+      const lost = Math.floor(STATE.money / 2);
+      STATE.money -= lost;
+      addLog('强盗抢走了你 ' + lost + ' 金币！');
+    }
     addLog('眼前一黑……你回到了 ' + MAP_NODES[STATE.lastTown].name + ' 的宝可梦中心。');
     healAll();
     STATE.nodeId = STATE.lastTown;
@@ -1177,8 +1206,13 @@ function exploreOnce() {
     addLog('你捡到了【雷之石】！');
     return;
   }
+  if (STATE.repel > 0) {
+    STATE.repel--;
+    addLog('喷雾剂散发出令野生宝可梦讨厌的气味，你安全地走了一段路。（剩余 ' + STATE.repel + ' 次）');
+    return;
+  }
   const r = randInt(1, 100);
-  if (r <= 55) {
+  if (r <= 50) {
     const pool = node.pools[STATE.weather] || node.pools['晴'];
     const pick = pickWeighted(pool);
     const level = randInt(node.levels[0], node.levels[1]);
@@ -1186,7 +1220,7 @@ function exploreOnce() {
     startWildBattle(pick.id, level);
     return;
   }
-  if (r <= 70) {
+  if (r <= 64) {
     const undefeated = (node.trainers || []).filter(function (t) { return !STATE.trainersDefeated[t.id]; });
     if (undefeated.length === 0) {
       addLog('草丛里安安静静的，没有训练家来挑战。');
@@ -1197,22 +1231,30 @@ function exploreOnce() {
     startTrainerBattle(trainer);
     return;
   }
-  if (r <= 73) {
+  if (r <= 67) {
     const gifts = ['伤药', '精灵球', '解毒药', '解麻药'];
     const item = gifts[randInt(0, gifts.length - 1)];
     addItem(item, 1);
     addLog('你捡到了【' + item + '】！');
     return;
   }
-  if (r <= 85) {
-    addLog('草丛里风平浪静，什么都没有发生……');
+  if (r <= 72) {
+    startMerchantOffer();
     return;
   }
-  if (r <= 91) {
+  if (r <= 77) {
+    startBanditEvent();
+    return;
+  }
+  if (r <= 81) {
+    startMedicOffer();
+    return;
+  }
+  if (r <= 87) {
     startRocketBattle('robbery');
     return;
   }
-  if (r <= 95) {
+  if (r <= 91) {
     const ev = ROCKET_EVENTS.sell;
     if (STATE.money < ev.price) {
       addLog(ev.text + ' 但你的钱不够，小兵骂骂咧咧地走了。');
@@ -1223,7 +1265,7 @@ function exploreOnce() {
     STATE.rocketSell = true;
     return;
   }
-  if (r <= 97) {
+  if (r <= 93) {
     startRocketBattle('rescue');
     return;
   }
@@ -1232,7 +1274,8 @@ function exploreOnce() {
 
 function explore() {
   exploreOnce();
-  if (!STATE.battle && !STATE.townTrade && !STATE.rocketSell &&
+  if (!STATE.battle && !STATE.townTrade && !STATE.rocketSell && !STATE.merchantOffer &&
+      !STATE.banditToll && !STATE.medicOffer && !STATE.magikarpOffer &&
       STATE.keyItems.indexOf('自行车') !== -1 && Math.random() < 0.3) {
     addLog('骑着自行车，你很快来到了另一片草丛！');
     exploreOnce();
@@ -1319,6 +1362,110 @@ function resolveMagikarpOffer(pay) {
   } else {
     addLog('你摇摇头走开了，鲤鱼王大叔在后面喊：「不识货啊！」');
     STATE.magikarpDone = true;
+  }
+}
+
+// ---------- 探索金币事件（神秘商人 / 强盗 / 旅行补给商） ----------
+
+function useRepel() {
+  if (bagCount('喷雾剂') <= 0) { addLog('没有喷雾剂。'); return; }
+  removeItem('喷雾剂', 1);
+  STATE.repel = 10;
+  addLog('你使用了喷雾剂，接下来 10 次探索不会遇到野生宝可梦！');
+}
+
+function startMerchantOffer() {
+  const itemDeals = [
+    { kind: 'item', name: '高级球', price: 3000 },
+    { kind: 'item', name: 'PP满回复药', price: 2500 },
+    { kind: 'item', name: ['雷之石', '火之石', '水之石', '叶之石', '月亮石'][randInt(0, 4)], price: 3500 },
+    { kind: 'item', name: '吃剩的东西', price: 12000 },
+    { kind: 'item', name: '幸运蛋', price: 15000 }
+  ];
+  const monDeals = [
+    { kind: 'mon', id: 133, price: 8000 },
+    { kind: 'mon', id: 131, price: 12000 },
+    { kind: 'mon', id: 143, price: 15000 },
+    { kind: 'mon', id: 147, price: 10000 }
+  ];
+  const all = itemDeals.concat(monDeals);
+  STATE.merchantOffer = all[randInt(0, all.length - 1)];
+  addLog('神秘商人从草丛里冒了出来：「小伙子，我这里有件好东西，要不要看看？」');
+}
+
+function resolveMerchantOffer(buy) {
+  const d = STATE.merchantOffer;
+  STATE.merchantOffer = null;
+  if (!d) return;
+  if (!buy) { addLog('你摇了摇头，神秘商人悻悻地走了。'); return; }
+  if (STATE.money < d.price) { addLog('你钱不够，神秘商人摆摆手走了。'); return; }
+  STATE.money -= d.price;
+  if (d.kind === 'item') {
+    addItem(d.name, 1);
+    addLog('你花 ' + d.price + ' 金币买下了【' + d.name + '】！');
+  } else {
+    const node = MAP_NODES[STATE.nodeId];
+    const lv = node.levels ? node.levels[1] : 10;
+    const mon = makeMon(d.id, lv);
+    addToPartyOrBox(mon);
+    STATE.caughtDex[d.id] = true;
+    addLog('你花 ' + d.price + ' 金币买下了 ' + mon.name + '！');
+  }
+}
+
+function startBanditEvent() {
+  STATE.banditToll = true;
+  STATE.banditPrice = 800;
+  addLog('一个凶神恶煞的强盗拦住你：「此路是我开，想过去先交 800 金币！」');
+}
+
+function resolveBandit(pay) {
+  if (!STATE.banditToll) return;
+  const price = STATE.banditPrice || 800;
+  if (pay && STATE.money >= price) {
+    STATE.banditToll = false;
+    STATE.money -= price;
+    addLog('你交了 ' + price + ' 金币过路费，强盗让开了路。');
+    return;
+  }
+  STATE.banditToll = false;
+  if (pay) addLog('你钱不够，只能应战！');
+  const node = MAP_NODES[STATE.nodeId];
+  const top = node.levels ? node.levels[1] : 10;
+  startBattle('bandit', {
+    foe: [
+      { id: 19, level: Math.max(3, top), moves: ['hyper_fang', 'quick_attack'] },
+      { id: 20, level: Math.max(4, top + 1), moves: ['hyper_fang', 'double_edge'] }
+    ],
+    canRun: false,
+    prize: price * 2,
+    trainerName: '强盗',
+    title: '拦路强盗',
+    trainerText: '不给钱？那就尝尝我的厉害！',
+    opening: '强盗向你扑了过来！'
+  });
+}
+
+function startMedicOffer() {
+  STATE.medicOffer = true;
+  addLog('一位旅行补给商在路边招手：「需要补给吗？野外价格，童叟无欺！」');
+}
+
+function resolveMedic(option) {
+  if (!STATE.medicOffer) return;
+  STATE.medicOffer = false;
+  if (option === 'heal') {
+    if (STATE.money < 800) { addLog('钱不够……'); return; }
+    STATE.money -= 800;
+    STATE.party.forEach(function (m) { m.hp = m.stats.hp; m.status = null; m.statusTurns = 0; });
+    addLog('你花了 800 金币，补给商帮你回复了全员 HP！');
+  } else if (option === 'pp') {
+    if (STATE.money < 1500) { addLog('钱不够……'); return; }
+    STATE.money -= 1500;
+    STATE.party.forEach(function (m) { m.pp = m.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; }); });
+    addLog('你花了 1500 金币，补给商帮你回复了全员 PP！');
+  } else {
+    addLog('你谢绝了补给商。');
   }
 }
 
@@ -1496,10 +1643,23 @@ function useBagItemOnMon(itemName, partyIdx) {
     return;
   }
   if (item.type === 'cure') {
-    if (mon.status !== item.cure) { addLog(mon.name + ' 没有' + item.cure + '状态。'); return; }
+    if (item.cure !== 'all' && mon.status !== item.cure) { addLog(mon.name + ' 没有' + item.cure + '状态。'); return; }
+    if (item.cure === 'all' && !mon.status) { addLog(mon.name + ' 没有异常状态。'); return; }
     removeItem(itemName, 1);
     mon.status = null;
-    addLog(mon.name + ' 的' + item.cure + '被治好了！');
+    addLog(item.cure === 'all' ? mon.name + ' 的异常状态被治愈了！' : mon.name + ' 的' + item.cure + '被治好了！');
+    return;
+  }
+  if (item.type === 'pp') {
+    if (!mon.pp) mon.pp = mon.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; });
+    const allFull = mon.moves.every(function (id, i) { return mon.pp[i] >= (MOVES[id] ? MOVES[id].pp : 1); });
+    if (allFull) { addLog(mon.name + ' 的PP已经是满的！'); return; }
+    removeItem(itemName, 1);
+    for (let i = 0; i < mon.moves.length; i++) {
+      const max = MOVES[mon.moves[i]] ? MOVES[mon.moves[i]].pp : 1;
+      mon.pp[i] = item.pp === 'full' ? max : Math.min(max, (mon.pp[i] || 0) + item.pp);
+    }
+    addLog(mon.name + ' 回复了PP！');
     return;
   }
   if (item.type === 'stone') {
@@ -1523,11 +1683,13 @@ function useBagItemOnMon(itemName, partyIdx) {
     return;
   }
   if (item.type === 'held') {
-    if (mon.species !== 25) { addLog('只有皮卡丘才能携带电气球！'); return; }
-    if (mon.held === '电气球') { addLog(mon.name + ' 已经携带着电气球。'); return; }
+    const target = item.held;
+    if (!target) { addLog('这个携带道具无法使用。'); return; }
+    if (item.onlySpecies && mon.species !== item.onlySpecies) { addLog('只有' + POKEDEX[item.onlySpecies].name + '才能携带' + target + '！'); return; }
+    if (mon.held === target) { addLog(mon.name + ' 已经携带着' + target + '。'); return; }
     removeItem(itemName, 1);
-    mon.held = '电气球';
-    addLog(mon.name + ' 携带了电气球，攻击与特攻翻倍！');
+    mon.held = target;
+    addLog(mon.name + ' 携带了' + target + '！');
     return;
   }
   addLog('这个道具不能对宝可梦使用。');
@@ -1563,6 +1725,11 @@ function newGame(starterId) {
   STATE.ssAnneDone = false;
   STATE.magikarpDone = false;
   STATE.magikarpOffer = false;
+  STATE.merchantOffer = null;
+  STATE.banditToll = false;
+  STATE.banditPrice = 800;
+  STATE.medicOffer = false;
+  STATE.repel = 0;
   STATE.seenDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
@@ -1649,6 +1816,11 @@ function load() {
     STATE.ssAnneDone = !!data.ssAnneDone;
     STATE.magikarpDone = !!data.magikarpDone;
     STATE.magikarpOffer = false;
+    STATE.merchantOffer = null;
+    STATE.banditToll = false;
+    STATE.banditPrice = 800;
+    STATE.medicOffer = false;
+    STATE.repel = 0;
     STATE.battle = null;
     STATE.pendingLearn = [];
     STATE.log = [];
@@ -1672,6 +1844,10 @@ function resetGame() {
   STATE.gymSession = null;
   STATE.townTrade = null;
   STATE.magikarpOffer = false;
+  STATE.merchantOffer = null;
+  STATE.banditToll = false;
+  STATE.medicOffer = false;
+  STATE.repel = 0;
   STATE.wanderUsed = false;
   STATE.screen = 'title';
 }
@@ -1693,6 +1869,9 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
+    useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,
+    startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,
+    startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,

@@ -21,9 +21,12 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
+  '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
+  '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
+  '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
-  '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle,\n' +
+  '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
   '  wanderTown: wanderTown\n' +
   '};';
 
@@ -717,6 +720,102 @@ section('MVP7：招式 PP');
   T.getState().party = [];
   T.load();
   ok(T.getState().party[0].pp[0] === 3, '存档读档保留 PP');
+}
+
+// ---------- 10.6 MVP8：商店提价与探索金币事件 ----------
+section('MVP8：商店提价与探索金币事件');
+{
+  ok(T.ITEMS['高级球'].price === 4000 && T.ITEMS['大师球'].price === 50000, '后期道具价格已上调');
+  ok(T.ITEMS['雷之石'].price === 5000 && T.ITEMS['幸运蛋'].price === 20000, '进化石/持有道具价格上调');
+  T.newGame(4);
+  ok(T.getMartStock().indexOf('大师球') === -1, '0徽章商店无大师球');
+  T.getState().badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章', '金色徽章', '粉红徽章', '深红徽章', '绿色徽章'];
+  ok(T.getMartStock().indexOf('大师球') !== -1 && T.getMartStock().indexOf('幸运蛋') !== -1, '8徽章解锁大师球/幸运蛋');
+}
+{
+  T.newGame(4);
+  const mon = T.getState().party[0];
+  mon.status = '中毒';
+  T.getState().bag['万灵药'] = 1;
+  T.useBagItemOnMon('万灵药', 0);
+  ok(mon.status === null && T.getState().bag['万灵药'] === undefined, '万灵药治愈任意异常');
+}
+{
+  T.newGame(4);
+  const mon = T.getState().party[0];
+  mon.pp = mon.moves.map(function () { return 0; });
+  T.getState().bag['PP回复药'] = 1;
+  T.useBagItemOnMon('PP回复药', 0);
+  ok(mon.pp[0] === 10 && T.getState().bag['PP回复药'] === undefined, 'PP回复药回复10点');
+}
+{
+  const mon = T.makeMon(4, 20, { nature: '勤奋' });
+  mon.held = '幸运蛋';
+  const exp0 = mon.exp;
+  T.grantExp(mon, 100, []);
+  ok(mon.exp - exp0 === 150, '幸运蛋经验 1.5 倍');
+}
+{
+  T.newGame(7);
+  T.startWildBattle(16, 2);
+  T.getState().bag['大师球'] = 1;
+  T.battleUseItem('大师球');
+  ok(T.getState().party.length === 2 && T.getState().caughtDex[16] === true, '大师球必定捕获');
+}
+{
+  T.newGame(4);
+  T.getState().bag['喷雾剂'] = 1;
+  T.useRepel();
+  ok(T.getState().repel === 10 && T.getState().bag['喷雾剂'] === undefined, '使用喷雾剂');
+  T.getState().nodeId = 'route1';
+  T.explore();
+  ok(T.getState().repel === 9 && !T.getState().battle, '喷雾剂生效，不遇野生');
+}
+{
+  T.newGame(4);
+  T.getState().money = 10000;
+  T.getState().merchantOffer = { kind: 'item', name: '高级球', price: 3000 };
+  T.resolveMerchantOffer(true);
+  ok(T.getState().money === 7000 && T.getState().bag['高级球'] === 1, '神秘商人购买道具');
+}
+{
+  T.newGame(4);
+  T.getState().nodeId = 'route1';
+  T.startMerchantOffer();
+  ok(!!T.getState().merchantOffer, '探索触发神秘商人');
+}
+{
+  T.newGame(4);
+  T.getState().money = 5000;
+  T.getState().banditToll = true;
+  T.getState().banditPrice = 800;
+  T.resolveBandit(true);
+  ok(T.getState().money === 4200 && T.getState().banditToll === false, '强盗付费过路');
+}
+{
+  T.newGame(4);
+  T.getState().nodeId = 'route1';
+  T.getState().banditToll = true;
+  T.resolveBandit(false);
+  ok(T.getState().battle && T.getState().battle.kind === 'bandit' && !T.getState().battle.canRun, '强盗开战');
+}
+{
+  T.newGame(4);
+  const mon = T.getState().party[0];
+  mon.hp = 1;
+  T.getState().money = 5000;
+  T.getState().medicOffer = true;
+  T.resolveMedic('heal');
+  ok(T.getState().money === 4200 && mon.hp === mon.stats.hp, '旅行补给商回血');
+}
+{
+  T.newGame(4);
+  const mon = T.getState().party[0];
+  mon.pp = mon.moves.map(function () { return 0; });
+  T.getState().money = 5000;
+  T.getState().medicOffer = true;
+  T.resolveMedic('pp');
+  ok(T.getState().money === 3500 && mon.pp[0] > 0, '旅行补给商回PP');
 }
 
 // ---------- 11. 商店 ----------

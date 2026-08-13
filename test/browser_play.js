@@ -113,7 +113,12 @@ async function main() {
   await evaljs('doMapAction(\'mart\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '商店弹窗打开');
   ok(await evaljs("document.querySelectorAll('#modal-root .shop-row').length >= 4"), '商店货架渲染');
+  ok(await evaljs("!Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('大师球') !== -1; })"), '0徽章商店无大师球');
   await evaljs('closeModal();');
+  await evaljs("STATE.badges = ['灰色徽章','蓝色徽章','橙色徽章','彩虹徽章','金色徽章','粉红徽章','深红徽章','绿色徽章']; doMapAction('mart');");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('大师球') !== -1; })"), '8徽章商店有大师球');
+  await evaljs('closeModal();');
+  await evaljs('STATE.badges = [];');
 
   await evaljs('doMapAction(\'bag\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '背包弹窗打开');
@@ -130,6 +135,11 @@ async function main() {
   ok(await evaljs("STATE.party.some(function(m){ return m.species === 16 && m.tradeBonus; })"), '交换完成且带 1.5 倍经验标记');
   await evaljs('STATE.nodeId = \'pewter\'; render();');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('挑战道馆') !== -1; })"), '道馆按钮带等级门槛提示');
+
+  // 神秘商人弹窗
+  await evaljs("STATE.merchantOffer = {kind:'item', name:'高级球', price:3000}; render();");
+  ok(await evaljs("document.querySelector('#modal-root .modal') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('3000') !== -1"), '神秘商人弹窗');
+  await evaljs('closeModal(); STATE.merchantOffer = null;');
 
   // 存档导出 / 导入
   const beforeLen = await evaljs("STATE.party.length");

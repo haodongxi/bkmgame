@@ -137,6 +137,9 @@ function render() {
     if (STATE.pendingLearn.length > 0) showLearnModal();
     else if (STATE.rocketSell) showRocketSellModal();
     else if (STATE.magikarpOffer) showMagikarpModal();
+    else if (STATE.merchantOffer) showMerchantModal();
+    else if (STATE.banditToll) showBanditModal();
+    else if (STATE.medicOffer) showMedicModal();
     else if (STATE.townTrade) showTradeModal();
   }
 }
@@ -417,7 +420,7 @@ function showBagModal(inBattle) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel')) usable = true;
     html += '<div class="shop-row"><span>' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
@@ -434,7 +437,14 @@ function doBagUse(name, inBattle) {
     render();
     return;
   }
-  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm') {
+  if (item.type === 'repel') {
+    useRepel();
+    save();
+    closeModal();
+    render();
+    return;
+  }
+  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held') {
     showPartyModal('item', name);
   }
 }
@@ -682,6 +692,53 @@ function showMagikarpModal() {
 
 function doMagikarpBuy(pay) {
   resolveMagikarpOffer(pay);
+  save();
+  closeModal();
+  render();
+}
+
+// ---------------- 弹窗：神秘商人 / 强盗 / 旅行补给商 ----------------
+
+function showMerchantModal() {
+  const d = STATE.merchantOffer;
+  if (!d) return;
+  const label = d.kind === 'item' ? '【' + d.name + '】' : POKEDEX[d.id].name;
+  openModal('神秘商人', '<div class="shop-hint">神秘商人拿出一件东西：「只要 ' + d.price + ' 金币，' + label + ' 就是你的了！」</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doMerchantBuy(true)">付 ' + d.price + ' 金买下</button>' +
+    '<button class="btn" onclick="doMerchantBuy(false)">不买</button></div>');
+}
+
+function doMerchantBuy(buy) {
+  resolveMerchantOffer(buy);
+  save();
+  closeModal();
+  render();
+}
+
+function showBanditModal() {
+  const price = STATE.banditPrice || 800;
+  openModal('拦路强盗', '<div class="shop-hint">「此路是我开，想过去先交 ' + price + ' 金币！」</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doBandit(true)">付 ' + price + ' 金过路</button>' +
+    '<button class="btn" onclick="doBandit(false)">不给，开战</button></div>');
+}
+
+function doBandit(pay) {
+  resolveBandit(pay);
+  save();
+  closeModal();
+  render();
+}
+
+function showMedicModal() {
+  openModal('旅行补给商', '<div class="shop-hint">「需要补给吗？野外价格，童叟无欺！」</div>' +
+    '<div class="modal-btns">' +
+    '<button class="btn btn-primary" onclick="doMedic(\'heal\')">全员回满 HP（800金）</button>' +
+    '<button class="btn btn-primary" onclick="doMedic(\'pp\')">全员回满 PP（1500金）</button>' +
+    '<button class="btn" onclick="doMedic(\'no\')">不需要</button></div>');
+}
+
+function doMedic(option) {
+  resolveMedic(option);
   save();
   closeModal();
   render();
