@@ -68,6 +68,17 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .lead-tag') !== null"), '首发宝可梦有标记');
   await evaljs("document.querySelector('#modal-root .party-row:nth-child(2) .btn').click()");
   ok(await evaljs("STATE.party[0].name === '波波'"), '点击设为首发后队首变为波波');
+  await evaljs('doMapAction(\'party\');');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .party-row .btn')).filter(function(x){return x.textContent.indexOf('详情')!==-1;})[0]; if(b) b.click();})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .detail-row').length >= 6"), '详情面板显示能力值');
+  ok(await evaljs("document.querySelector('#modal-root .detail-name').textContent.indexOf('波波') !== -1"), '详情面板显示宝可梦名');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '详情面板显示个体值');
+  await evaljs('closeModal();');
+  await evaljs('doMapAction(\'pokedex\');');
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '图鉴显示 151 只');
+  ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen') !== null"), '图鉴已见宝可梦有标记');
+  ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('已见') !== -1"), '图鉴显示进度');
+  await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');

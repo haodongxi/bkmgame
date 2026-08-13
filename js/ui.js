@@ -97,6 +97,18 @@ function statusIcon(status) {
   return '<span class="status-badge">' + (map[status] || status) + '</span>';
 }
 
+function natureText(nature) {
+  const m = NATURES[nature] || NATURES['勤奋'];
+  const names = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+  const boosts = [], drops = [];
+  for (const k in names) {
+    if (m[k] > 1) boosts.push(names[k]);
+    else if (m[k] < 1) drops.push(names[k]);
+  }
+  if (boosts.length === 0) return nature;
+  return nature + '（' + boosts.join('/') + '↑' + (drops.length > 0 ? '，' + drops.join('/') + '↓' : '') + '）';
+}
+
 function hpBar(mon) {
   const pct = Math.max(0, Math.round(mon.hp / mon.stats.hp * 100));
   const color = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
@@ -221,6 +233,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'center\')">🏥 宝可梦中心(恢复)</button>';
     html += '<button class="btn" onclick="doMapAction(\'mart\')">🏪 友好商店</button>';
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
+    html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
         html += '<button class="btn" disabled>🏟️ 常磐道馆（需要 ' + node.gym.requireBadges + ' 枚徽章）</button>';
@@ -238,6 +251,7 @@ function renderMap() {
     }
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 打开背包</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
+    html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
@@ -259,6 +273,7 @@ function doMapAction(type) {
     case 'fish': fish(); break;
     case 'bag': showBagModal(false); return;
     case 'party': showPartyModal('view'); return;
+    case 'pokedex': showPokedexModal(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
       const towns = cur.next.filter(function (n) { return MAP_NODES[n].type === 'town'; });
@@ -378,10 +393,14 @@ function showPartyModal(mode, itemName) {
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
     let btn = '';
-    if (isSwitch) btn = '<button class="btn btn-sm" onclick="doSwitch(' + i + ')">上场</button>';
-    else if (isItem) btn = '<button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button>';
-    else if (i === 0) btn = '<span class="lead-tag">首发</span>';
-    else btn = '<button class="btn btn-sm" onclick="doSetLead(' + i + ')">设为首发</button>';
+    if (isSwitch) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doSwitch(' + i + ')">上场</button></div>';
+    else if (isItem) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
+    else {
+      btn = '<div class="row-btns">';
+      if (i === 0) btn += '<span class="lead-tag">首发</span>';
+      else btn += '<button class="btn btn-sm" onclick="doSetLead(' + i + ')">设为首发</button>';
+      btn += '<button class="btn btn-sm" onclick="showMonDetail(' + i + ')">详情</button></div>';
+    }
     html += '<div class="party-row pixel-frame">' +
       '<div class="party-icon" id="modal-icon-' + i + '"></div>' +
       '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
@@ -414,6 +433,66 @@ function doItemOnMon(name, idx) {
   save();
   closeModal();
   render();
+}
+
+function showMonDetail(idx) {
+  const mon = STATE.party[idx];
+  if (!mon) return;
+  const d = mon.speciesData;
+  const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+  let statsHtml = '';
+  for (const k in statNames) {
+    const iv = mon.ivs ? mon.ivs[k] : '?';
+    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + mon.stats[k] + '（个体 ' + iv + '）</span></div>';
+  }
+  let movesHtml = '';
+  for (let i = 0; i < mon.moves.length; i++) {
+    const mv = MOVES[mon.moves[i]];
+    if (!mv) continue;
+    movesHtml += '<div class="detail-row"><span>' + mv.name + ' · ' + mv.type + '</span><span>' +
+      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + mv.pp + '</span></div>';
+  }
+  let evoHtml = '不会进化';
+  if (d.evo) {
+    if (d.evo.level) evoHtml = 'Lv.' + d.evo.level + ' 进化为 ' + POKEDEX[d.evo.into].name;
+    else if (d.evo.stone) evoHtml = '使用' + d.evo.stone + '进化为 ' + POKEDEX[d.evo.into].name;
+  }
+  const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
+    '<div><div class="detail-name">' + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
+    '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
+    '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
+    '<div class="shop-hint">携带：' + (mon.held || '无') + (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
+    '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
+    '<div class="shop-hint">—— 能力值（括号内为个体值） ——</div>' + statsHtml +
+    '<div class="shop-hint">—— 招式 ——</div>' + movesHtml;
+  openModal(mon.name, html);
+  const iconBox = $id('detail-icon');
+  if (iconBox) iconBox.appendChild(monIcon(mon.species, 48));
+}
+
+function showPokedexModal() {
+  const ids = Object.keys(POKEDEX).map(Number).filter(function (id) { return id >= 1 && id <= 151; }).sort(function (a, b) { return a - b; });
+  let html = '<div class="dex-hint">已见 ' + Object.keys(STATE.seenDex).length + ' · 已捕获 ' + Object.keys(STATE.caughtDex).length + ' / 151</div>' +
+    '<div class="dex-grid">';
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    const seen = !!STATE.seenDex[id];
+    const caught = !!STATE.caughtDex[id];
+    const d = POKEDEX[id];
+    html += '<div class="dex-cell' + (caught ? ' caught' : (seen ? ' seen' : '')) + '" id="dex-icon-' + id + '">' +
+      '<div class="dex-icon">' + (seen ? '' : '?') + '</div>' +
+      '<div class="dex-name">' + (seen ? d.name : '???') + '</div>' +
+      '<div class="dex-no">No.' + id + '</div></div>';
+  }
+  html += '</div>';
+  openModal('宝可梦图鉴', html);
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i];
+    if (STATE.seenDex[id]) {
+      const box = document.querySelector('#dex-icon-' + id + ' .dex-icon');
+      if (box) box.appendChild(monIcon(id, 28));
+    }
+  }
 }
 
 // ---------------- 战斗界面 ----------------
