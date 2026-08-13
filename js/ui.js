@@ -489,7 +489,7 @@ const BAG_TABS = [
   { id: 'ball', label: '精灵球', match: function (item) { return item.type === 'ball'; } },
   { id: 'tm', label: '技能机', match: function (item) { return item.type === 'tm'; } },
   { id: 'key', label: '关键物品', match: function (item) { return item.type === 'key'; } },
-  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot'].indexOf(item.type) !== -1; } }
+  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy'].indexOf(item.type) !== -1; } }
 ];
 
 function showBagModal(inBattle, tab) {
@@ -524,7 +524,7 @@ function showBagModal(inBattle, tab) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy')) usable = true;
     html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
@@ -566,7 +566,7 @@ function doBagUse(name, inBattle) {
     render();
     return;
   }
-  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held') {
+  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'candy') {
     showPartyModal('item', name);
   }
 }
@@ -623,11 +623,24 @@ function showBoxModal() {
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
-      '<div class="row-btns"><button class="btn btn-sm" onclick="doBoxSwap(' + i + ')">取回</button></div></div>';
+      '<div class="row-btns">' +
+      '<button class="btn btn-sm" onclick="doBoxSwap(' + i + ')">取回</button>' +
+      '<button class="btn btn-sm btn-danger" onclick="doTransfer(' + i + ')">传送</button></div></div>';
   }
   openModal('电脑箱（' + STATE.box.length + '只）', html);
   for (let i = 0; i < STATE.box.length; i++) {
     $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36));
+  }
+}
+
+// 传送（删除操作，需确认）：转化为万能经验 + 属性糖果
+function doTransfer(idx) {
+  const mon = STATE.box[idx];
+  if (!mon) return;
+  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
+    transferMon(idx);
+    save();
+    showBoxModal();
   }
 }
 
@@ -677,7 +690,11 @@ function showMonDetail(idx) {
   let statsHtml = '';
   for (const k in statNames) {
     const iv = mon.ivs ? mon.ivs[k] : '?';
-    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + mon.stats[k] + '（个体 ' + iv + '）</span></div>';
+    const cb = mon.candyBonus || {};
+    const bonus = cb[k] || 0;
+    const maxTag = (bonus >= 15 || (cb.total || 0) >= 50) ? ' <span class="candy-max">[MAX]</span>' : '';
+    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + mon.stats[k] +
+      '（个体 ' + iv + '）' + (bonus > 0 ? ' <span class="candy-bonus">(+' + bonus + ')</span>' : '') + maxTag + '</span></div>';
   }
   let movesHtml = '';
   for (let i = 0; i < mon.moves.length; i++) {
@@ -692,17 +709,39 @@ function showMonDetail(idx) {
     if (d.evo.level) evoHtml = 'Lv.' + d.evo.level + ' 进化为 ' + POKEDEX[d.evo.into].name;
     else if (d.evo.stone) evoHtml = '使用' + d.evo.stone + '进化为 ' + POKEDEX[d.evo.into].name;
   }
+  const expPoolBtn = STATE.expPool > 0 ?
+    '<button class="btn btn-sm" onclick="showAllocateExp(' + idx + ')">📊 分配经验（经验池 ' + STATE.expPool + '）</button>' : '';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
     '<div><div class="detail-name">' + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
     '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
     '<div class="shop-hint">携带：' + (mon.held || '无') + (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
     '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
+    expPoolBtn +
     '<div class="shop-hint">—— 能力值（括号内为个体值） ——</div>' + statsHtml +
     '<div class="shop-hint">—— 招式 ——</div>' + movesHtml;
   openModal(mon.name, html);
   const iconBox = $id('detail-icon');
   if (iconBox) iconBox.appendChild(monIcon(mon.species, 48));
+}
+
+// 万能经验池分配弹窗
+function showAllocateExp(idx) {
+  const mon = STATE.party[idx];
+  if (!mon) return;
+  openModal('分配万能经验',
+    '<div class="shop-hint">当前经验池：' + STATE.expPool + ' 点</div>' +
+    '<div class="shop-hint">' + mon.name + ' 距离下一级还需 ' + expToNext(mon) + ' 经验</div>' +
+    '<div class="modal-btns">' +
+    '<button class="btn btn-primary" onclick="doAllocateExp(' + idx + ',\'next\')">注入升 1 级所需</button>' +
+    '<button class="btn btn-primary" onclick="doAllocateExp(' + idx + ',\'all\')">全部分配</button>' +
+    '<button class="btn" onclick="closeModal()">取消</button></div>');
+}
+
+function doAllocateExp(idx, mode) {
+  allocateExp(idx, mode);
+  save();
+  showMonDetail(idx);
 }
 
 function showPokedexModal() {

@@ -15,6 +15,7 @@ const STATE = {
   nodeId: 'pallet',
   weather: '晴',
   money: 3000,
+  expPool: 0,
   bag: {},
   badges: [],
   party: [],
@@ -188,7 +189,8 @@ function makeMon(speciesId, level, opts) {
     ivs: ivs,
     moves: moves.slice(0, 4),
     pp: moves.slice(0, 4).map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; }),
-    stats: stats
+    stats: stats,
+    candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 }
   };
   return mon;
 }
@@ -198,9 +200,10 @@ function recalcStats(mon) {
   const ivs = mon.ivs;
   const oldMax = mon.stats.hp;
   const stats = {};
-  stats.hp = Math.floor(((2 * data.base.hp + ivs.hp) * mon.level) / 100) + mon.level + 10;
+  const candy = mon.candyBonus || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  stats.hp = Math.floor(((2 * data.base.hp + ivs.hp) * mon.level) / 100) + mon.level + 10 + candy.hp;
   ['atk', 'def', 'spa', 'spd', 'spe'].forEach(function (k) {
-    stats[k] = Math.floor((Math.floor(((2 * data.base[k] + ivs[k]) * mon.level) / 100) + 5) * NATURES[mon.nature || '勤奋'][k]);
+    stats[k] = Math.floor((Math.floor(((2 * data.base[k] + ivs[k]) * mon.level) / 100) + 5) * NATURES[mon.nature || '勤奋'][k]) + candy[k];
   });
   const hpGain = stats.hp - oldMax;
   mon.stats = stats;
@@ -1325,6 +1328,54 @@ function boxSwap(boxIdx, partyIdx) {
   addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！', 'good');
 }
 
+// 属性糖果掉落：按最高种族值决定，同分按 体力 > 速度 > 物攻 > 特攻 > 物防 > 特防
+const CANDY_PRIORITY = [
+  { key: 'hp', name: 'HP糖果' },
+  { key: 'spe', name: '速度糖果' },
+  { key: 'atk', name: '攻击糖果' },
+  { key: 'spa', name: '特攻糖果' },
+  { key: 'def', name: '防御糖果' },
+  { key: 'spd', name: '特防糖果' }
+];
+
+function candyForSpecies(speciesId) {
+  const d = POKEDEX[speciesId];
+  let best = CANDY_PRIORITY[0];
+  for (let i = 1; i < CANDY_PRIORITY.length; i++) {
+    if (d.base[CANDY_PRIORITY[i].key] > d.base[best.key]) best = CANDY_PRIORITY[i];
+  }
+  return best.name;
+}
+
+// 传送：宝可梦消失 → 万能经验（保底 10）+ 1 颗属性糖果
+function transferMon(boxIdx) {
+  const mon = STATE.box[boxIdx];
+  if (!mon) { addLog('没有这只宝可梦。', 'info'); return; }
+  const exp = Math.max(10, Math.floor(mon.exp * 0.3));
+  const candy = candyForSpecies(mon.species);
+  STATE.expPool += exp;
+  addItem(candy, 1);
+  STATE.box.splice(boxIdx, 1);
+  addLog('你把 ' + mon.name + ' 传送给了大木博士。', 'info');
+  addLog('万能经验 +' + exp + '，获得了【' + candy + '】×1！', 'good');
+}
+
+// 从万能经验池分配经验给队伍宝可梦：mode = 'next'（升 1 级）/ 'all'（全部分配）
+function allocateExp(partyIdx, mode) {
+  const mon = STATE.party[partyIdx];
+  if (!mon) return;
+  if (STATE.expPool <= 0) { addLog('万能经验池是空的。', 'info'); return; }
+  if (mon.level >= 100) { addLog(mon.name + ' 已经满级了。', 'info'); return; }
+  let amount = mode === 'next' ? expToNext(mon) : STATE.expPool;
+  amount = Math.min(amount, STATE.expPool);
+  STATE.expPool -= amount;
+  const log = [];
+  const kinds = [];
+  grantExp(mon, amount, log, kinds);
+  log.forEach(function (t, i) { addLog(t, kinds[i]); });
+  addLog('万能经验池剩余 ' + STATE.expPool + ' 点。', 'info');
+}
+
 // ---------------- 探索 / 城镇 ----------------
 
 function gotoNode(nodeId) {
@@ -1887,6 +1938,18 @@ function useBagItemOnMon(itemName, partyIdx) {
     addLog(mon.name + ' 携带了' + target + '！', 'good');
     return;
   }
+  if (item.type === 'candy') {
+    const stat = item.stat;
+    const cb = mon.candyBonus;
+    if (cb[stat] >= 15) { addLog(mon.name + ' 的该项属性已达极限！', 'info'); return; }
+    if (cb.total >= 50) { addLog(mon.name + ' 已经吃不下任何糖果了！', 'info'); return; }
+    removeItem(itemName, 1);
+    cb[stat]++;
+    cb.total++;
+    recalcStats(mon);
+    addLog(mon.name + ' 吃下了【' + itemName + '】，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了！', 'good');
+    return;
+  }
   addLog('这个道具不能对宝可梦使用。', 'info');
 }
 
@@ -1898,6 +1961,7 @@ function newGame(starterId) {
   STATE.nodeId = 'pallet';
   STATE.weather = '晴';
   STATE.money = 3000;
+  STATE.expPool = 0;
   STATE.bag = {};
   Object.keys(START_ITEMS).forEach(function (k) { STATE.bag[k] = START_ITEMS[k]; });
   STATE.badges = [];
@@ -1944,6 +2008,7 @@ function save() {
       nodeId: STATE.nodeId,
       weather: STATE.weather,
       money: STATE.money,
+      expPool: STATE.expPool,
       bag: STATE.bag,
       badges: STATE.badges,
       party: STATE.party.map(serializeMon),
@@ -1971,12 +2036,15 @@ function serializeMon(m) {
   return {
     species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
-    pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus
+    pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
+    candyBonus: m.candyBonus
   };
 }
 
 function deserializeMon(d) {
   const mon = makeMon(d.species, d.level, { iv: d.ivs });
+  mon.candyBonus = Object.assign({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 }, d.candyBonus || {});
+  recalcStats(mon); // 让糖果加成计入面板
   mon.exp = d.exp;
   mon.hp = d.hp;
   mon.status = d.status;
@@ -2005,6 +2073,7 @@ function load() {
     STATE.nodeId = data.nodeId || 'pallet';
     STATE.weather = data.weather || '晴';
     STATE.money = data.money || 0;
+    STATE.expPool = data.expPool || 0;
     STATE.bag = data.bag || {};
     STATE.badges = data.badges || [];
     STATE.party = (data.party || []).map(deserializeMon);
@@ -2055,6 +2124,7 @@ function resetGame() {
   STATE.pendingLearn = [];
   STATE.logKinds = [];
   STATE.wildBattles = 0;
+  STATE.expPool = 0;
   STATE.rocketSell = false;
   STATE.lastResult = null;
   STATE.gymSession = null;
@@ -2087,6 +2157,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
+    transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,
     startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,

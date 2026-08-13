@@ -21,6 +21,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
+  '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
   '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
   '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
@@ -1086,6 +1087,74 @@ section('经典回合制');
     const active = s.battle.player.mons[s.battle.player.active];
     T.battleMove(damageMoveIdx(active));
   }
+}
+
+// ---------- 14. MVP11.1：喂养系统 ----------
+section('MVP11.1：喂养系统');
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = T.makeMon(68, 30); // 怪力：物攻最高 → 攻击糖果
+  s.box = [mon];
+  const expBefore = s.expPool;
+  T.transferMon(0);
+  ok(s.box.length === 0, '传送后宝可梦从电脑箱移除');
+  ok(s.expPool === expBefore + Math.max(10, Math.floor(mon.exp * 0.3)), '万能经验按 exp×0.3 入池');
+  ok(s.bag['攻击糖果'] === 1, '按最高种族值掉落攻击糖果');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = T.makeMon(16, 2); // 低经验波波：速度最高 → 速度糖果，经验保底
+  s.box = [mon];
+  const expBefore = s.expPool;
+  T.transferMon(0);
+  ok(s.expPool === expBefore + Math.max(10, Math.floor(mon.exp * 0.3)), '低经验传送按保底折算');
+  ok(s.bag['速度糖果'] === 1, '波波掉落速度糖果');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0]; // 小火龙 Lv5
+  s.expPool = 10000;
+  const need = T.expForLevel(mon.speciesData.growth, 6) - mon.exp;
+  T.allocateExp(0, 'next');
+  ok(mon.level === 6 && s.expPool === 10000 - need, '注入升 1 级所需：升一级并扣对应经验');
+  T.allocateExp(0, 'all');
+  ok(s.expPool === 0 && mon.level > 6, '全部分配可连升多级且经验池清零');
+  s.party[0] = T.makeMon(16, 100);
+  s.expPool = 100;
+  T.allocateExp(0, 'all');
+  ok(s.expPool === 100, '满级时不能分配经验');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  s.bag['攻击糖果'] = 2;
+  const atkBefore = mon.stats.atk;
+  T.useBagItemOnMon('攻击糖果', 0);
+  ok(mon.candyBonus.atk === 1 && mon.stats.atk === atkBefore + 1, '喂糖果：面板 +1');
+  ok(s.bag['攻击糖果'] === 1, '糖果消耗 1 颗');
+  mon.candyBonus.atk = 15;
+  T.useBagItemOnMon('攻击糖果', 0);
+  ok(s.bag['攻击糖果'] === 1, '单项达到上限后无法继续喂');
+  mon.candyBonus.atk = 0;
+  mon.candyBonus.total = 50;
+  T.useBagItemOnMon('攻击糖果', 0);
+  ok(s.bag['攻击糖果'] === 1, '总和达到上限后无法继续喂');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.expPool = 500;
+  s.party[0].candyBonus = { hp: 3, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 3 };
+  T.save();
+  s.expPool = 0;
+  s.party = [];
+  ok(T.load(), '读档成功');
+  ok(T.getState().expPool === 500, '经验池随存档保存');
+  ok(T.getState().party[0].candyBonus.hp === 3, '糖果加成随存档保存');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
