@@ -504,14 +504,28 @@ section('问题修复回归');
 {
   // 闲逛防白嫖：同一次到访只能触发一次事件
   T.newGame(4);
-  T.getState().wanderUsed = true;
+  const s = T.getState();
+  s.wanderUsed = true;
   const before = JSON.stringify(T.getState().bag);
   T.wanderTown();
   const after = JSON.stringify(T.getState().bag);
   ok(after === before, '已逛过的镇不会再送道具');
+  ok(T.getState().log.some(function (l) { return l.indexOf('没有什么特别的发现') !== -1; }), '未刷新时输出无收益过渡文本');
   T.gotoNode('route1');
   T.gotoNode('pallet');
-  ok(T.getState().wanderUsed === false, '重新进镇后恢复闲逛次数');
+  ok(T.getState().wanderUsed === true, '未打够野外遭遇战，重新进镇不重置闲逛');
+  for (let i = 0; i < 3; i++) {
+    T.startWildBattle(16, 2);
+    let g = 0;
+    while (T.getState().battle && !T.getState().battle.over && g++ < 30) {
+      const active = T.getState().battle.player.mons[T.getState().battle.player.active];
+      T.battleMove(damageMoveIdx(active));
+    }
+  }
+  ok(T.getState().wildBattles >= 3, '野外遭遇战计数累计');
+  T.gotoNode('route1');
+  T.gotoNode('pallet');
+  ok(T.getState().wanderUsed === false, '3 场野外遭遇战后重新进镇恢复闲逛');
 }
 
 // ---------- 9.9 战斗完整性模糊回归（卡死/拖死） ----------
@@ -945,6 +959,32 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   s.pendingLearn = [];
   ok(T.load(), '读档成功');
   ok(T.getState().pendingLearn.length === learnCount, '学招待选随存档保存并在读档后恢复');
+}
+{
+  // 宝可梦中心按队伍平均等级收费（软性续航成本）
+  T.newGame(4);
+  const s = T.getState();
+  const moneyBefore = s.money;
+  s.party[0].hp = 1;
+  T.visitCenter();
+  ok(s.money === moneyBefore - 50, '宝可梦中心按平均等级收费（Lv5 收 50 金）');
+  ok(s.party[0].hp === s.party[0].stats.hp, '宝可梦中心恢复生效');
+}
+{
+  // 日志着色标记与日志行一一对应
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 15, { nature: '勤奋' })];
+  T.startWildBattle(129, 15);
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 40) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(s.logKinds.length === s.log.length, '日志着色标记与日志行一一对应');
+  ok(s.logKinds.some(function (k) { return k === 'player'; }), '日志含玩家侧着色标记');
+  ok(s.logKinds.some(function (k) { return k === 'foe'; }), '日志含敌方侧着色标记');
+  ok(s.logKinds.some(function (k) { return k === 'good'; }), '日志含正向反馈着色标记');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

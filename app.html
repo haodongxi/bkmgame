@@ -29,6 +29,16 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
     body { overflow-x: hidden; }
+    body.busy * { pointer-events: none !important; }
+    body.busy { cursor: wait; }
+    .log-line.log-player { color: var(--blue); }
+    .log-line.log-foe { color: var(--red); }
+    .log-line.log-good { color: var(--green); }
+    .log-line.log-bad { color: var(--red); }
+    .log-line.log-info { color: #8fb3d9; }
+    .bag-tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+    .bag-tabs .btn { font-size: 10px; padding: 5px 8px; }
+    .bag-tabs .btn.active { background: var(--blue); color: #06121f; box-shadow: inset -2px -2px 0 rgba(0,0,0,0.35); }
     #app { max-width: 520px; margin: 0 auto; min-height: 100vh; position: relative; }
 
     .pixel-frame {

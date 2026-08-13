@@ -6,6 +6,8 @@
 
 const SAVE_KEY = 'bkm_poke_save_v1';
 const GAME_VERSION = 1;
+// 闲逛事件重新激活所需的野外遭遇战次数（离开城镇不再重置，需要打够次数）
+const WANDER_REFRESH_BATTLES = 3;
 
 const STATE = {
   version: GAME_VERSION,
@@ -18,6 +20,9 @@ const STATE = {
   party: [],
   box: [],
   log: [],
+  logKinds: [],
+  wildBattles: 0,
+  lastBattleView: null,
   battle: null,
   pendingLearn: [],
   seenDex: {},
@@ -58,9 +63,11 @@ function pickWeighted(pool) {
   return pool[pool.length - 1];
 }
 
-function addLog(text) {
+function addLog(text, kind) {
   STATE.log.push(text);
+  STATE.logKinds.push(kind || '');
   if (STATE.log.length > 2000) STATE.log.splice(0, STATE.log.length - 2000);
+  if (STATE.logKinds.length > 2000) STATE.logKinds.splice(0, STATE.logKinds.length - 2000);
 }
 
 function findPartyMonIdx(pred) {
@@ -200,39 +207,45 @@ function recalcStats(mon) {
 
 // ---------------- 等级 / 学习 / 进化 ----------------
 
-function grantExp(mon, amount, log) {
+function grantExp(mon, amount, log, kinds) {
   let mult = 1;
   if (mon.tradeBonus) mult *= 1.5;
   if (mon.held === '幸运蛋') mult *= 1.5;
   let remain = Math.floor(amount * mult);
+  const L = function (text) {
+    log.push(text);
+    if (kinds) kinds.push('good');
+  };
   while (mon.level < 100 && mon.exp + remain >= expForLevel(mon.speciesData.growth, mon.level + 1)) {
     const need = expForLevel(mon.speciesData.growth, mon.level + 1) - mon.exp;
     remain -= need;
     mon.exp = expForLevel(mon.speciesData.growth, mon.level + 1);
     mon.level++;
     recalcStats(mon);
-    log.push(mon.name + ' 升到了 Lv.' + mon.level + '！');
+    L(mon.name + ' 升到了 Lv.' + mon.level + '！');
     const newMoves = movesAtLevel(mon.speciesData, mon.level);
     for (let i = 0; i < newMoves.length; i++) {
-      if (mon.moves.indexOf(newMoves[i]) === -1) tryLearnMove(mon, newMoves[i], log, false);
+      if (mon.moves.indexOf(newMoves[i]) === -1) tryLearnMove(mon, newMoves[i], log, false, kinds);
     }
-    checkEvolution(mon, log);
+    checkEvolution(mon, log, kinds);
   }
   if (remain > 0) mon.exp += remain;
 }
 
-function tryLearnMove(mon, moveId, log, autoReplace) {
+function tryLearnMove(mon, moveId, log, autoReplace, kinds) {
   const mv = MOVES[moveId];
   if (mon.moves.indexOf(moveId) !== -1) return;
   if (mon.moves.length < 4) {
     mon.moves.push(moveId);
     if (mon.pp) mon.pp.push(mv.pp);
     log.push(mon.name + ' 学会了新招式【' + mv.name + '】！');
+    if (kinds) kinds.push('good');
   } else if (autoReplace) {
     const old = mon.moves[0];
     mon.moves[0] = moveId;
     if (mon.pp) mon.pp[0] = mv.pp;
     log.push(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + mv.name + '】！');
+    if (kinds) kinds.push('good');
   } else {
     const where = STATE.party.indexOf(mon) !== -1 ? 'party' : 'box';
     const idx = (where === 'party' ? STATE.party : STATE.box).indexOf(mon);
@@ -266,19 +279,19 @@ const STONE_EVOLUTIONS = {
   '叶之石': { 44: 45 }
 };
 
-function checkEvolution(mon, log) {
+function checkEvolution(mon, log, kinds) {
   let guard = 0;
   while (guard++ < 10) {
     const data = POKEDEX[mon.species];
     if (data.evo && data.evo.level && mon.level >= data.evo.level) {
-      evolveTo(mon, data.evo.into, log);
+      evolveTo(mon, data.evo.into, log, kinds);
     } else {
       break;
     }
   }
 }
 
-function evolveTo(mon, intoId, log) {
+function evolveTo(mon, intoId, log, kinds) {
   const oldName = mon.name;
   const newData = POKEDEX[intoId];
   const ratio = mon.hp / mon.stats.hp;
@@ -288,6 +301,7 @@ function evolveTo(mon, intoId, log) {
   recalcStats(mon);
   mon.hp = Math.max(1, Math.floor(mon.stats.hp * ratio));
   if (log) log.push('哇！' + oldName + ' 进化成了 ' + newData.name + '！');
+  if (kinds && log) kinds.push('good');
 }
 
 function tryStoneEvolution(mon, stoneName) {
@@ -333,7 +347,7 @@ function refreshWeather(force) {
     const next = rollWeather(STATE.nodeId, biasType);
     if (next !== STATE.weather) {
       STATE.weather = next;
-      addLog('天气变成了 ' + WEATHER[next].icon + ' ' + WEATHER[next].name + '！');
+      addLog('天气变成了 ' + WEATHER[next].icon + ' ' + WEATHER[next].name + '！', 'info');
     }
   }
   if (STATE.weatherBias) {
@@ -401,7 +415,7 @@ function statusMoveImmune(moveType, status, target) {
   return false;
 }
 
-function applyStatus(bm, status, log, moveType) {
+function applyStatus(bm, status, log, moveType, kinds) {
   if (bm.m.status) return;
   if (statusMoveImmune(moveType || '变化', status, bm)) return;
   bm.m.status = status;
@@ -409,6 +423,7 @@ function applyStatus(bm, status, log, moveType) {
   bm.poisonTurns = 0;
   if (status === '睡眠') bm.sleepTurns = randInt(1, 3);
   log.push(bm.m.name + ' 陷入了【' + status + '】状态！');
+  if (kinds) kinds.push(bm.side || '');
 }
 
 // ---------------- 战斗 ----------------
@@ -445,6 +460,8 @@ function startBattle(kind, opts) {
     const statMult = fd.statMult || 1;
     return makeBattleMon(makeMon(fd.id, fd.level, { statMult: statMult, moves: fd.moves }));
   });
+  playerMons.forEach(function (bm) { bm.side = 'player'; });
+  foeMons.forEach(function (bm) { bm.side = 'foe'; });
   STATE.battle = {
     kind: kind,
     title: opts.title || '',
@@ -468,12 +485,13 @@ function startBattle(kind, opts) {
   };
   STATE.screen = 'battle';
   const pActive = STATE.battle.player.mons[STATE.battle.player.active];
-  addLog(opts.opening || ('野生的 ' + foeMons[0].m.name + ' 出现了！'));
-  addLog('就决定是你了，' + pActive.m.name + '！');
+  addLog(opts.opening || ('野生的 ' + foeMons[0].m.name + ' 出现了！'), 'info');
+  addLog('就决定是你了，' + pActive.m.name + '！', 'info');
 }
 
 function startWildBattle(speciesId, level) {
   STATE.seenDex[speciesId] = true;
+  STATE.wildBattles++;
   startBattle('wild', { foe: [{ id: speciesId, level: level }], canRun: true });
 }
 
@@ -633,16 +651,19 @@ function speedOf(bm) {
   return sp;
 }
 
-function canAct(bm, log) {
+function canAct(bm, log, kinds) {
   const m = bm.m;
+  const side = bm.side || '';
   if (m.hp <= 0) return false;
   if (m.status === '睡眠') {
     bm.sleepTurns--;
     if (bm.sleepTurns <= 0) {
       m.status = null;
       log.push(m.name + ' 醒了过来！');
+      if (kinds) kinds.push(side);
     } else {
       log.push(m.name + ' 正在呼呼大睡……');
+      if (kinds) kinds.push(side);
       return false;
     }
   }
@@ -650,13 +671,16 @@ function canAct(bm, log) {
     if (Math.random() < 0.2) {
       m.status = null;
       log.push(m.name + ' 解冻了！');
+      if (kinds) kinds.push(side);
     } else {
       log.push(m.name + ' 被冻住了，无法动弹！');
+      if (kinds) kinds.push(side);
       return false;
     }
   }
   if (m.status === '麻痹' && Math.random() < 0.25) {
     log.push(m.name + ' 因为麻痹无法行动！');
+    if (kinds) kinds.push(side);
     return false;
   }
   if (bm.confuseTurns > 0) {
@@ -665,21 +689,40 @@ function canAct(bm, log) {
       const dmg = Math.max(1, Math.floor(effStat(bm, 'atk') * 40 / Math.max(1, effStat(bm, 'def')) / 5));
       m.hp -= dmg;
       log.push(m.name + ' 混乱了，攻击了自己！受到了 ' + dmg + ' 点伤害！');
-      if (m.hp <= 0) log.push(m.name + ' 倒下了！');
+      if (kinds) kinds.push(side);
+      if (m.hp <= 0) { log.push(m.name + ' 倒下了！'); if (kinds) kinds.push(side); }
       return false;
     }
     log.push(m.name + ' 混乱了，但仍然使出了招式！');
+    if (kinds) kinds.push(side);
   }
   return true;
 }
 
-function useMove(user, target, move, log) {
+function weatherFlavor(move, log) {
+  const w = getBattleWeather();
+  if (!w) return false;
+  if (w === '雨' && move.type === '火') log.push('大雨瓢泼，' + move.name + '的热量被雨水冲淡，显得十分微弱……');
+  else if (w === '晴' && move.type === '水') log.push('烈日当空，' + move.name + '激起的水花瞬间蒸发殆尽……');
+  else if (w === '雷阵雨' && move.type === '电') log.push('电闪雷鸣，' + move.name + '的光芒照亮了整片战场！');
+  else if (w === '沙暴') log.push('沙暴呼啸，飞沙走石让人几乎睁不开眼……');
+  else return false;
+  return true;
+}
+
+function useMove(user, target, move, log, kinds) {
   const m = user.m;
   const t = target.m;
-  if (!canAct(user, log)) return;
+  const side = user.side || '';
+  const foeKind = (target.side === 'player') ? 'bad' : 'good';
+  const L = function (text, kind) {
+    log.push(text);
+    if (kinds) kinds.push(kind || '');
+  };
+  if (!canAct(user, log, kinds)) return;
   if (user.recharge) {
     user.recharge = false;
-    log.push(m.name + ' 因为反作用力无法行动！');
+    L(m.name + ' 因为反作用力无法行动！', side);
     return;
   }
   // 命中判定
@@ -689,63 +732,64 @@ function useMove(user, target, move, log) {
     else if (Math.random() * 100 >= move.acc) hit = false;
   }
   if (!hit) {
-    log.push(m.name + ' 使用了【' + move.name + '】，但是没有命中！');
+    L(m.name + ' 使用了【' + move.name + '】，但是没有命中！', side);
     afterMove(user);
     return;
   }
-  log.push(m.name + ' 使用了【' + move.name + '】！');
+  L(m.name + ' 使用了【' + move.name + '】！', side);
 
   if (move.category === '变化') {
     if (move.effect && move.effect.kind === 'protect') {
       user.protect = true;
-      log.push(m.name + ' 摆出了守住的架势！');
+      L(m.name + ' 摆出了守住的架势！', side);
     } else if (move.effect && move.effect.kind === 'weather') {
       STATE.battle.weather = { type: move.effect.weather, turns: 5 };
-      log.push('天气变成了 ' + WEATHER[move.effect.weather].icon + ' ' + WEATHER[move.effect.weather].name + '！');
+      L('天气变成了 ' + WEATHER[move.effect.weather].icon + ' ' + WEATHER[move.effect.weather].name + '！', 'info');
     } else if (move.effect && move.effect.kind === 'leech') {
       if (t.speciesData.types.indexOf('草') !== -1) {
-        log.push('对 ' + t.name + ' 没有效果！');
+        L('对 ' + t.name + ' 没有效果！', 'info');
       } else {
         target.leech = true;
-        log.push(t.name + ' 被种下了寄生种子！');
+        L(t.name + ' 被种下了寄生种子！', target.side || '');
       }
     } else if (move.effect && move.effect.kind === 'heal') {
       const healed = Math.min(m.stats.hp - m.hp, Math.floor(m.stats.hp * move.effect.ratio));
       if (healed > 0) {
         m.hp += healed;
-        log.push(m.name + ' 回复了 ' + healed + ' 点HP！');
+        L(m.name + ' 回复了 ' + healed + ' 点HP！', 'good');
       } else {
-        log.push(m.name + ' 的HP是满的。');
+        L(m.name + ' 的HP是满的。', 'info');
       }
     } else if (move.effect) {
       if (move.effect.kind === 'stat') {
-        applyStatEffect(move.effect.target === 'self' ? user : target, move.effect, log);
+        applyStatEffect(move.effect.target === 'self' ? user : target, move.effect, log, kinds);
       } else if (move.effect.kind === 'status') {
-        applyStatus(target, move.effect.status, log, move.type);
+        applyStatus(target, move.effect.status, log, move.type, kinds);
       } else if (move.effect.kind === 'confuse') {
         if (!target.confuseTurns) {
           target.confuseTurns = randInt(2, 5);
-          log.push(target.m.name + ' 混乱了！');
+          L(target.m.name + ' 混乱了！', target.side || '');
         }
       } else {
-        log.push('但是什么都没有发生……');
+        L('但是什么都没有发生……', 'info');
       }
     } else {
-      log.push('但是什么都没有发生……');
+      L('但是什么都没有发生……', 'info');
     }
     afterMove(user);
     return;
   }
 
   // 伤害类招式
+  if (weatherFlavor(move, log) && kinds) kinds.push('info');
   if (target.protect) {
     target.protect = false;
-    log.push(t.name + ' 用守住挡下了攻击！');
+    L(t.name + ' 用守住挡下了攻击！', target.side || '');
     afterMove(user);
     return;
   }
   if (move.effect && move.effect.kind === 'dream' && t.status !== '睡眠') {
-    log.push('但是失败了……');
+    L('但是失败了……', 'info');
     afterMove(user);
     return;
   }
@@ -756,7 +800,7 @@ function useMove(user, target, move, log) {
   let hits = 1;
   if (move.effect && move.effect.kind === 'multi') {
     hits = move.effect.hits === 2 ? 2 : randInt(2, 5);
-    log.push('命中 ' + hits + ' 次！');
+    L('命中 ' + hits + ' 次！', side);
   }
   for (let h = 0; h < hits; h++) {
     let res;
@@ -767,7 +811,7 @@ function useMove(user, target, move, log) {
     } else {
       res = calcDamage(user, target, move, getBattleWeather());
       if (res.eff === 0) {
-        log.push('对 ' + t.name + ' 没有效果……');
+        L('对 ' + t.name + ' 没有效果……', 'info');
         afterMove(user);
         return;
       }
@@ -778,10 +822,10 @@ function useMove(user, target, move, log) {
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
   t.hp -= totalDmg;
-  log.push(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg);
+  L(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg, side);
   if (t.hp <= 0) {
     t.hp = 0;
-    log.push(t.name + ' 倒下了！');
+    L(t.name + ' 倒下了！', foeKind);
   }
 
   // 二次效果
@@ -793,51 +837,52 @@ function useMove(user, target, move, log) {
       applyStatEffect(move.effect.target === 'self' ? user : target, move.effect, log);
     }
     if (move.effect.kind === 'flinch' && move.effect.chance && t.hp > 0 && Math.random() < move.effect.chance) {
-      log.push(t.name + ' 畏缩了，无法行动！');
+      L(t.name + ' 畏缩了，无法行动！', target.side || '');
       target.flinch = true;
     }
     if (move.effect.kind === 'confuse' && move.effect.chance && t.hp > 0 && Math.random() < move.effect.chance) {
       if (!target.confuseTurns) {
         target.confuseTurns = randInt(2, 5);
-        log.push(t.name + ' 混乱了！');
+        L(t.name + ' 混乱了！', target.side || '');
       }
     }
     if (move.effect.kind === 'recoil') {
       const recoil = Math.max(1, Math.floor(totalDmg * move.effect.ratio));
       m.hp -= recoil;
-      log.push(m.name + ' 受到了反作用力 ' + recoil + ' 点伤害！');
-      if (m.hp <= 0) { m.hp = 0; log.push(m.name + ' 倒下了！'); }
+      L(m.name + ' 受到了反作用力 ' + recoil + ' 点伤害！', side);
+      if (m.hp <= 0) { m.hp = 0; L(m.name + ' 倒下了！', side); }
     }
     if (move.effect.kind === 'heal') {
       const base = move.effect.self ? m.stats.hp : totalDmg;
       const healed = Math.min(m.stats.hp - m.hp, Math.floor(base * move.effect.ratio));
       if (healed > 0) {
         m.hp += healed;
-        log.push(m.name + ' 回复了 ' + healed + ' 点HP！');
+        L(m.name + ' 回复了 ' + healed + ' 点HP！', 'good');
       }
     }
     if (move.effect.kind === 'trap' && t.hp > 0) {
       target.trapTurns = randInt(2, 5);
-      log.push(t.name + ' 被' + move.name + '困住了！');
+      L(t.name + ' 被' + move.name + '困住了！', target.side || '');
     }
     if (move.effect.kind === 'recharge') {
       user.recharge = true;
     }
     if (move.effect.kind === 'selfConfuse') {
       user.confuseTurns = randInt(2, 5);
-      log.push(m.name + ' 因为反作用力混乱了！');
+      L(m.name + ' 因为反作用力混乱了！', side);
     }
   }
   afterMove(user);
 }
 
-function applyStatEffect(passed, effect, log) {
+function applyStatEffect(passed, effect, log, kinds) {
   const apply = function (stat, stage) {
     if (Math.random() >= (effect.chance === undefined ? 1 : effect.chance)) return;
     const cur = passed.stages[stat] || 0;
     if (cur + stage > 6 || cur + stage < -6) return;
     passed.stages[stat] = cur + stage;
     log.push(passed.m.name + ' 的' + STAT_NAME[stat] + (stage > 0 ? '提升了！' : '降低了！'));
+    if (kinds) kinds.push(passed.side || '');
   };
   apply(effect.stat, effect.stage);
   if (effect.second) apply(effect.second.stat, effect.second.stage);
@@ -849,35 +894,40 @@ function afterMove(user) {
   if (user.confuseTurns > 0) user.confuseTurns--;
 }
 
-function endOfTurn(log) {
+function endOfTurn(log, kinds) {
   const b = STATE.battle;
   if (!b) return;
   const weather = b.weather && b.weather.turns > 0 ? b.weather.type : getBattleWeather();
   const sides = [b.player, b.foe];
+  const L = function (text, kind) {
+    log.push(text);
+    if (kinds) kinds.push(kind || '');
+  };
   for (let s = 0; s < sides.length; s++) {
     const bm = sides[s].mons[sides[s].active];
     if (!bm || bm.m.hp <= 0) continue;
     const m = bm.m;
+    const sideKind = (bm.side === 'player') ? 'bad' : 'good';
     if (m.status === '中毒' || m.status === '灼伤') {
       const chip = Math.max(1, Math.floor(m.stats.hp / 8));
       m.hp -= chip;
-      log.push(m.name + ' 受到了' + (m.status === '中毒' ? '中毒' : '灼伤') + '伤害 ' + chip + ' 点！');
+      L(m.name + ' 受到了' + (m.status === '中毒' ? '中毒' : '灼伤') + '伤害 ' + chip + ' 点！', sideKind);
     }
     if (m.status === '剧毒') {
       bm.poisonTurns++;
       const chip = Math.max(1, Math.floor(m.stats.hp / 16) * bm.poisonTurns);
       m.hp -= chip;
-      log.push(m.name + ' 的剧毒发作了，受到了 ' + chip + ' 点伤害！');
+      L(m.name + ' 的剧毒发作了，受到了 ' + chip + ' 点伤害！', sideKind);
     }
     if (weather === '沙暴' && !isSandImmune(m)) {
       const chip = Math.max(1, Math.floor(m.stats.hp / 16));
       m.hp -= chip;
-      log.push(m.name + ' 被沙暴刮伤，受到了 ' + chip + ' 点伤害！');
+      L(m.name + ' 被沙暴刮伤，受到了 ' + chip + ' 点伤害！', sideKind);
     }
     if (bm.leech) {
       const chip = Math.max(1, Math.floor(m.stats.hp / 8));
       m.hp -= chip;
-      log.push(m.name + ' 被寄生种子吸取了 ' + chip + ' 点HP！');
+      L(m.name + ' 被寄生种子吸取了 ' + chip + ' 点HP！', sideKind);
       const healer = sides[1 - s].mons[sides[1 - s].active];
       if (healer && healer.m.hp > 0) {
         healer.m.hp = Math.min(healer.m.stats.hp, healer.m.hp + chip);
@@ -887,21 +937,21 @@ function endOfTurn(log) {
       bm.trapTurns--;
       const chip = Math.max(1, Math.floor(m.stats.hp / 16));
       m.hp -= chip;
-      log.push(m.name + ' 被困住，受到了 ' + chip + ' 点伤害！');
+      L(m.name + ' 被困住，受到了 ' + chip + ' 点伤害！', sideKind);
     }
     if (m.held === '吃剩的东西' && m.hp > 0 && m.hp < m.stats.hp) {
       const heal = Math.max(1, Math.floor(m.stats.hp / 16));
       m.hp = Math.min(m.stats.hp, m.hp + heal);
-      log.push(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！');
+      L(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！', 'good');
     }
     if (m.hp <= 0) {
       m.hp = 0;
-      log.push(m.name + ' 倒下了！');
+      L(m.name + ' 倒下了！', sideKind);
     }
   }
   if (b.weather && b.weather.turns > 0) {
     b.weather.turns--;
-    if (b.weather.turns === 0) log.push('天气恢复了正常……');
+    if (b.weather.turns === 0) L('天气恢复了正常……', 'info');
   }
 }
 
@@ -910,17 +960,21 @@ function isSandImmune(mon) {
   return t.indexOf('岩石') !== -1 || t.indexOf('地面') !== -1 || t.indexOf('钢') !== -1;
 }
 
-function handleFaints(log) {
+function handleFaints(log, kinds) {
   const b = STATE.battle;
   const p = b.player;
   const f = b.foe;
+  const L = function (text, kind) {
+    log.push(text);
+    if (kinds) kinds.push(kind || '');
+  };
   if (f.mons[f.active].m.hp <= 0) {
     const foeMon = f.mons[f.active].m;
     const pActive = p.mons[p.active].m;
     if (pActive.hp > 0) {
       const gain = Math.floor(foeMon.speciesData.expYield * foeMon.level / 7) * (b.kind === 'wild' ? 1 : 1.5);
-      log.push(pActive.name + ' 获得了 ' + gain + ' 点经验值！');
-      grantExp(pActive, gain, log);
+      L(pActive.name + ' 获得了 ' + gain + ' 点经验值！', 'good');
+      grantExp(pActive, gain, log, kinds);
     }
     if (f.mons.every(function (bm) { return bm.m.hp <= 0; })) {
       // 双灭：最后一只宝可梦与敌方同回合倒下时按败北处理，避免留下全灭队伍
@@ -935,7 +989,7 @@ function handleFaints(log) {
     for (let i = 0; i < f.mons.length; i++) {
       if (f.mons[i].m.hp > 0) {
         f.active = i;
-        log.push('对方派出了 ' + f.mons[i].m.name + '！');
+        L('对方派出了 ' + f.mons[i].m.name + '！', 'info');
         break;
       }
     }
@@ -947,7 +1001,7 @@ function handleFaints(log) {
       return true;
     }
     p.active = next;
-    log.push('上吧，' + p.mons[next].m.name + '！');
+    L('上吧，' + p.mons[next].m.name + '！', 'info');
   }
   return false;
 }
@@ -964,57 +1018,60 @@ function battleMove(idx) {
   if (!pMove) { addLog(pm.m.name + ' 的招式数据异常，无法使用！'); return; }
   if (idx !== -1) {
     if (!pm.m.pp || pm.m.pp[idx] <= 0) {
-      addLog(pm.m.name + ' 的【' + pMove.name + '】PP 已经耗尽！');
+      addLog(pm.m.name + ' 的【' + pMove.name + '】PP 已经耗尽！', 'info');
       return;
     }
     pm.m.pp[idx]--;
   }
   const fMove = pickFoeMove(fm, pm);
   const log = [];
+  const kinds = [];
   b.turn++;
   const pPriority = pMove.effect && pMove.effect.kind === 'priority';
   const fPriority = fMove.effect && fMove.effect.kind === 'priority';
   const pFirst = pPriority ? true : (fPriority ? false : speedOf(pm) >= speedOf(fm));
   if (pFirst) {
-    useMove(pm, fm, pMove, log);
-    if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) useMove(fm, pm, fMove, log);
+    useMove(pm, fm, pMove, log, kinds);
+    if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) useMove(fm, pm, fMove, log, kinds);
   } else {
-    useMove(fm, pm, fMove, log);
-    if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) useMove(pm, fm, pMove, log);
+    useMove(fm, pm, fMove, log, kinds);
+    if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) useMove(pm, fm, pMove, log, kinds);
   }
-  log.forEach(addLog);
+  log.forEach(function (t, i) { addLog(t, kinds[i]); });
   if (!b.over) {
-    endOfTurn(log);
-    log.forEach(addLog);
-    handleFaints(log);
-    log.forEach(addLog);
+    endOfTurn(log, kinds);
+    log.forEach(function (t, i) { addLog(t, kinds[i]); });
+    handleFaints(log, kinds);
+    log.forEach(function (t, i) { addLog(t, kinds[i]); });
   }
   if (!b.over && b.kind === 'wild' && b.turn >= 35 && Math.random() < 0.2) {
-    addLog('野生的 ' + b.foe.mons[b.foe.active].m.name + ' 被你的气势吓到，逃走了！');
+    addLog('野生的 ' + b.foe.mons[b.foe.active].m.name + ' 被你的气势吓到，逃走了！', 'info');
     endBattle('run');
   }
 }
 
-function battleUseItem(itemName) {
+function battleUseItem(itemName, opts) {
   const b = STATE.battle;
   if (!b || b.over) return;
+  opts = opts || {};
   const item = ITEMS[itemName];
-  if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具……'); return; }
+  if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具……', 'info'); return; }
   const p = b.player;
   const f = b.foe;
   const pm = p.mons[p.active];
   const fm = f.mons[f.active];
   if (item.type === 'ball') {
-    if (b.kind !== 'wild') { addLog('训练家的宝可梦不能捕捉！'); return; }
+    if (b.kind !== 'wild') { addLog('训练家的宝可梦不能捕捉！', 'info'); return; }
     removeItem(itemName, 1);
-    addLog('你扔出了【' + itemName + '】！');
+    if (!opts.skipThrowLog) addLog('你扔出了【' + itemName + '】！', 'info');
     if (item.master) {
-      addLog('太棒了！' + fm.m.name + ' 被收服了！');
+      addLog('太棒了！' + fm.m.name + ' 被收服了！', 'good');
       addToPartyOrBox(fm.m);
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
       STATE.battle.outcome = 'caught';
       STATE.lastResult = 'caught';
+      STATE.lastBattleView = { player: p, foe: f, kind: b.kind, logStart: b.logStart };
       STATE.battle = null;
       STATE.screen = 'map';
       return;
@@ -1026,22 +1083,24 @@ function battleUseItem(itemName) {
     const finalA = Math.floor(a * statusMult);
     const chance = finalA >= 255 ? 1 : Math.pow(finalA / 255, 0.75);
     if (Math.random() < chance) {
-      addLog('太棒了！' + fm.m.name + ' 被收服了！');
+      addLog('太棒了！' + fm.m.name + ' 被收服了！', 'good');
       addToPartyOrBox(fm.m);
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
       STATE.battle.outcome = 'caught';
       STATE.lastResult = 'caught';
+      STATE.lastBattleView = { player: p, foe: f, kind: b.kind, logStart: b.logStart };
       STATE.battle = null;
       STATE.screen = 'map';
       return;
     }
-    addLog('哦不！' + fm.m.name + ' 挣脱了精灵球！');
+    addLog('哦不！' + fm.m.name + ' 挣脱了精灵球！', 'bad');
     const fMove = pickFoeMove(fm, pm);
     const log = [];
-    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log);
-    log.forEach(addLog);
-    if (!b.over) { endOfTurn(log); log.forEach(addLog); handleFaints(log); log.forEach(addLog); }
+    const kinds = [];
+    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
+    log.forEach(function (t, i) { addLog(t, kinds[i]); });
+    if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
     return;
   }
   if (item.type === 'heal' || item.type === 'cure') {
@@ -1049,40 +1108,41 @@ function battleUseItem(itemName) {
       removeItem(itemName, 1);
       pm.m.hp = pm.m.stats.hp;
       pm.m.status = null;
-      addLog(pm.m.name + ' 完全恢复了！');
+      addLog(pm.m.name + ' 完全恢复了！', 'good');
     } else if (item.heal) {
       const healed = Math.min(pm.m.stats.hp - pm.m.hp, item.heal);
       if (healed <= 0) {
-        addLog(pm.m.name + ' 的HP是满的！');
+        addLog(pm.m.name + ' 的HP是满的！', 'info');
         return;
       }
       removeItem(itemName, 1);
       pm.m.hp += healed;
-      addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！');
+      addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！', 'good');
     } else if (item.cure === 'all') {
       if (!pm.m.status) {
-        addLog(pm.m.name + ' 没有异常状态。');
+        addLog(pm.m.name + ' 没有异常状态。', 'info');
         return;
       }
       removeItem(itemName, 1);
       pm.m.status = null;
-      addLog(pm.m.name + ' 的异常状态被治愈了！');
+      addLog(pm.m.name + ' 的异常状态被治愈了！', 'good');
     } else if (item.cure && pm.m.status === item.cure) {
       removeItem(itemName, 1);
       pm.m.status = null;
-      addLog(pm.m.name + ' 的' + item.cure + '被治好了！');
+      addLog(pm.m.name + ' 的' + item.cure + '被治好了！', 'good');
     } else {
-      addLog(pm.m.name + ' 没有' + item.cure + '状态。');
+      addLog(pm.m.name + ' 没有' + item.cure + '状态。', 'info');
       return;
     }
     const fMove = pickFoeMove(fm, pm);
     const log = [];
-    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log);
-    log.forEach(addLog);
-    if (!b.over) { endOfTurn(log); log.forEach(addLog); handleFaints(log); log.forEach(addLog); }
+    const kinds = [];
+    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
+    log.forEach(function (t, i) { addLog(t, kinds[i]); });
+    if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
     return;
   }
-  addLog('这个道具不能在这里使用。');
+  addLog('这个道具不能在这里使用。', 'info');
 }
 
 function battleSwitch(idx) {
@@ -1096,23 +1156,25 @@ function battleSwitch(idx) {
   if (idx === p.active) { addLog('它已经在场上了！'); return; }
   if (pm.trapTurns > 0) { addLog(pm.m.name + ' 被困住，无法替换！'); return; }
   p.active = idx;
-  addLog('回来吧！上吧，' + target.m.name + '！');
+  addLog('回来吧！上吧，' + target.m.name + '！', 'info');
   const fm = f.mons[f.active];
   const fMove = pickFoeMove(fm, target);
   const log = [];
-  if (fm.m.hp > 0 && target.m.hp > 0) useMove(fm, target, fMove, log);
-  log.forEach(addLog);
-  if (!b.over) { endOfTurn(log); log.forEach(addLog); handleFaints(log); log.forEach(addLog); }
+  const kinds = [];
+  if (fm.m.hp > 0 && target.m.hp > 0) useMove(fm, target, fMove, log, kinds);
+  log.forEach(function (t, i) { addLog(t, kinds[i]); });
+  if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
 }
 
 function battleRun() {
   const b = STATE.battle;
   if (!b || b.over) return;
   if (!b.canRun) { addLog('不能逃跑！'); return; }
-  addLog('你成功逃走了！');
+  addLog('你成功逃走了！', 'info');
   b.over = true;
   b.outcome = 'run';
   STATE.lastResult = 'run';
+  STATE.lastBattleView = { player: b.player, foe: b.foe, kind: b.kind, logStart: b.logStart };
   STATE.screen = 'map';
   STATE.battle = null;
 }
@@ -1120,6 +1182,7 @@ function battleRun() {
 function endBattle(outcome) {
   const b = STATE.battle;
   if (!b) return;
+  STATE.lastBattleView = { player: b.player, foe: b.foe, kind: b.kind, logStart: b.logStart };
   b.over = true;
   b.outcome = outcome;
   STATE.lastResult = outcome;
@@ -1127,60 +1190,60 @@ function endBattle(outcome) {
   if (outcome === 'win') {
     if (b.prize > 0) {
       STATE.money += b.prize;
-      addLog('获得了 ' + b.prize + ' 金币！');
+      addLog('获得了 ' + b.prize + ' 金币！', 'good');
     }
     if (b.trainerId) STATE.trainersDefeated[b.trainerId] = true;
     if (b.rewardItem) {
       addItem(b.rewardItem, 1);
-      addLog('获得了道具【' + b.rewardItem + '】！');
+      addLog('获得了道具【' + b.rewardItem + '】！', 'good');
     }
     if (b.rewardMon) {
       const lv = MAP_NODES[STATE.nodeId].levels ? MAP_NODES[STATE.nodeId].levels[1] : 10;
       const mon = makeMon(b.rewardMon, lv);
       addToPartyOrBox(mon);
       STATE.caughtDex[b.rewardMon] = true;
-      addLog(b.rewardMonName || (mon.name + ' 加入了你的队伍！'));
+      addLog(b.rewardMonName || (mon.name + ' 加入了你的队伍！'), 'good');
     }
     if (b.badge) {
       if (STATE.badges.indexOf(b.badge) === -1) {
         STATE.badges.push(b.badge);
-        addLog('获得了道馆徽章【' + b.badge + '】！');
+        addLog('获得了道馆徽章【' + b.badge + '】！', 'good');
       }
     }
     if (b.tm) {
       addItem('TM' + b.tm, 1);
-      addLog('获得了【TM' + b.tm + '】！');
+      addLog('获得了【TM' + b.tm + '】！', 'good');
     }
     if (b.kind === 'rival' && b.rivalStep) {
       STATE.rivalWon.push(b.rivalStep);
-      addLog('小茂：哼，这次算你赢了！下次可不会这么简单！');
+      addLog('小茂：哼，这次算你赢了！下次可不会这么简单！', 'info');
     }
     if (b.kind === 'ssanne') {
       STATE.ssAnneDone = true;
-      addLog('水手：「不愧是优秀的训练家！这枚 TM 居合斩送给你了！」');
+      addLog('水手：「不愧是优秀的训练家！这枚 TM 居合斩送给你了！」', 'good');
     }
     const gym = MAP_NODES[STATE.nodeId] && MAP_NODES[STATE.nodeId].gym;
-    if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText);
+    if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText, 'good');
   } else if (outcome === 'lose') {
     if (b.kind === 'rocket_robbery') {
       const lost = Math.floor(STATE.money / 2);
       STATE.money -= lost;
-      addLog('火箭队抢走了你 ' + lost + ' 金币！');
+      addLog('火箭队抢走了你 ' + lost + ' 金币！', 'bad');
       const keys = Object.keys(STATE.bag).filter(function (k) {
         return ['精灵球', '伤药', '解毒药', '解麻药', '穿绳'].indexOf(k) === -1;
       });
       if (keys.length > 0) {
         const stolen = keys[randInt(0, keys.length - 1)];
         removeItem(stolen, 1);
-        addLog('火箭队还抢走了你的【' + stolen + '】！');
+        addLog('火箭队还抢走了你的【' + stolen + '】！', 'bad');
       }
     }
     if (b.kind === 'bandit') {
       const lost = Math.floor(STATE.money / 2);
       STATE.money -= lost;
-      addLog('强盗抢走了你 ' + lost + ' 金币！');
+      addLog('强盗抢走了你 ' + lost + ' 金币！', 'bad');
     }
-    addLog('眼前一黑……你回到了 ' + MAP_NODES[STATE.lastTown].name + ' 的宝可梦中心。');
+    addLog('眼前一黑……你回到了 ' + MAP_NODES[STATE.lastTown].name + ' 的宝可梦中心。', 'bad');
     healAll();
     STATE.nodeId = STATE.lastTown;
     STATE.weather = rollWeather(STATE.lastTown);
@@ -1188,7 +1251,7 @@ function endBattle(outcome) {
   }
   if (b.kind === 'gym_apprentice' && STATE.gymSession && outcome === 'win') {
     STATE.gymSession.step++;
-    addLog('你击败了道馆学徒！但连战还在继续，宝可梦们来不及休息……');
+    addLog('你击败了道馆学徒！但连战还在继续，宝可梦们来不及休息……', 'info');
     if (STATE.gymSession.step >= STATE.gymSession.steps.length) {
       STATE.gymSession = null;
     } else {
@@ -1212,7 +1275,7 @@ function boxSwap(boxIdx, partyIdx) {
   if (!boxMon || !partyMon) { addLog('宝可梦不存在。'); return; }
   STATE.party[partyIdx] = boxMon;
   STATE.box[boxIdx] = partyMon;
-  addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！');
+  addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！', 'good');
 }
 
 // ---------------- 探索 / 城镇 ----------------
@@ -1228,10 +1291,16 @@ function gotoNode(nodeId) {
   }
   STATE.nodeId = nodeId;
   STATE.weather = rollWeather(nodeId, STATE.weatherBias ? STATE.weatherBias.type : null);
-  if (node.type === 'town') STATE.lastTown = nodeId;
-  if (node.type === 'town') STATE.wanderUsed = false;
-  addLog('你来到了 ' + node.name + '。');
-  if (node.desc) addLog(node.desc);
+  if (node.type === 'town') {
+    STATE.lastTown = nodeId;
+    // 闲逛事件刷新：需要野外遭遇战次数达标后才重新激活（离开城镇不再直接重置）
+    if (STATE.wildBattles >= WANDER_REFRESH_BATTLES) {
+      STATE.wanderUsed = false;
+      STATE.wildBattles = 0;
+    }
+  }
+  addLog('你来到了 ' + node.name + '。', 'info');
+  if (node.desc) addLog(node.desc, 'info');
   const rival = rivalTriggerFor(nodeId);
   if (rival) startRivalBattle(rival);
 }
@@ -1239,26 +1308,26 @@ function gotoNode(nodeId) {
 function exploreOnce() {
   const node = MAP_NODES[STATE.nodeId];
   if (node.type === 'town') {
-    addLog('城镇里没有草丛，去野外探索吧！');
+    addLog('城镇里没有草丛，去野外探索吧！', 'info');
     return;
   }
   refreshWeather(false);
   // 雷阵雨落雷事件
   if (STATE.weather === '雷阵雨' && node.thunderEvent && Math.random() < node.thunderEvent.chance) {
-    addLog(node.thunderEvent.text);
+    addLog(node.thunderEvent.text, 'bad');
     const active = STATE.party.find(function (m) { return m.hp > 0; });
     if (active) {
       const dmg = Math.max(1, Math.floor(active.stats.hp * 0.1));
       active.hp -= dmg;
-      addLog(active.name + ' 受到了 ' + dmg + ' 点伤害！');
+      addLog(active.name + ' 受到了 ' + dmg + ' 点伤害！', 'bad');
     }
     addItem('雷之石', 1);
-    addLog('你捡到了【雷之石】！');
+    addLog('你捡到了【雷之石】！', 'good');
     return;
   }
   if (STATE.repel > 0) {
     STATE.repel--;
-    addLog('喷雾剂散发出令野生宝可梦讨厌的气味，你安全地走了一段路。（剩余 ' + STATE.repel + ' 次）');
+    addLog('喷雾剂散发出令野生宝可梦讨厌的气味，你安全地走了一段路。（剩余 ' + STATE.repel + ' 次）', 'info');
     return;
   }
   const r = randInt(1, 100);
@@ -1266,18 +1335,18 @@ function exploreOnce() {
     const pool = node.pools[STATE.weather] || node.pools['晴'];
     const pick = pickWeighted(pool);
     const level = randInt(node.levels[0], node.levels[1]);
-    addLog('你在草丛中发现了野生的 ' + POKEDEX[pick.id].name + '！');
+    addLog('你在草丛中发现了野生的 ' + POKEDEX[pick.id].name + '！', 'info');
     startWildBattle(pick.id, level);
     return;
   }
   if (r <= 64) {
     const undefeated = (node.trainers || []).filter(function (t) { return !STATE.trainersDefeated[t.id]; });
     if (undefeated.length === 0) {
-      addLog('草丛里安安静静的，没有训练家来挑战。');
+      addLog('草丛里安安静静的，没有训练家来挑战。', 'info');
       return;
     }
     const trainer = undefeated[randInt(0, undefeated.length - 1)];
-    addLog('草丛里突然窜出一个' + trainer.title + '！');
+    addLog('草丛里突然窜出一个' + trainer.title + '！', 'info');
     startTrainerBattle(trainer);
     return;
   }
@@ -1285,7 +1354,7 @@ function exploreOnce() {
     const gifts = ['伤药', '精灵球', '解毒药', '解麻药'];
     const item = gifts[randInt(0, gifts.length - 1)];
     addItem(item, 1);
-    addLog('你捡到了【' + item + '】！');
+    addLog('你捡到了【' + item + '】！', 'good');
     return;
   }
   if (r <= 72) {
@@ -1307,11 +1376,11 @@ function exploreOnce() {
   if (r <= 91) {
     const ev = ROCKET_EVENTS.sell;
     if (STATE.money < ev.price) {
-      addLog(ev.text + ' 但你的钱不够，小兵骂骂咧咧地走了。');
+      addLog(ev.text + ' 但你的钱不够，小兵骂骂咧咧地走了。', 'info');
       return;
     }
-    addLog(ev.text);
-    addLog('（可以付钱买下，也可以不理他）');
+    addLog(ev.text, 'info');
+    addLog('（可以付钱买下，也可以不理他）', 'info');
     STATE.rocketSell = true;
     return;
   }
@@ -1319,7 +1388,7 @@ function exploreOnce() {
     startRocketBattle('rescue');
     return;
   }
-  addLog('周围很安静，看来今天运气一般。');
+  addLog('周围很安静，看来今天运气一般。', 'info');
 }
 
 function explore() {
@@ -1327,7 +1396,7 @@ function explore() {
   if (!STATE.battle && !STATE.townTrade && !STATE.rocketSell && !STATE.merchantOffer &&
       !STATE.banditToll && !STATE.medicOffer && !STATE.magikarpOffer &&
       STATE.keyItems.indexOf('自行车') !== -1 && Math.random() < 0.3) {
-    addLog('骑着自行车，你很快来到了另一片草丛！');
+    addLog('骑着自行车，你很快来到了另一片草丛！', 'info');
     exploreOnce();
   }
 }
@@ -1336,39 +1405,39 @@ function explore() {
 
 function fish() {
   const node = MAP_NODES[STATE.nodeId];
-  if (!node.water) { addLog('这里没有水域，钓不了鱼。'); return; }
-  if (STATE.keyItems.indexOf('破旧钓竿') === -1) { addLog('你没有钓竿……去华蓝市找找看吧。'); return; }
+  if (!node.water) { addLog('这里没有水域，钓不了鱼。', 'info'); return; }
+  if (STATE.keyItems.indexOf('破旧钓竿') === -1) { addLog('你没有钓竿……去华蓝市找找看吧。', 'info'); return; }
   const r = Math.random();
   let id = 129;
   if (r >= 0.7 && r < 0.95) id = 120;
   else if (r >= 0.95 && r < 0.99) id = 147;
   else if (r >= 0.99) id = 130;
   const level = node.levels[0] + randInt(0, 2);
-  addLog('水面泛起了波纹……上钩了！是野生的 ' + POKEDEX[id].name + '！');
+  addLog('水面泛起了波纹……上钩了！是野生的 ' + POKEDEX[id].name + '！', 'info');
   startWildBattle(id, level);
 }
 
 function resolveRocketSell(pay) {
   const ev = ROCKET_EVENTS.sell;
   if (pay) {
-    if (STATE.money < ev.price) { addLog('钱不够……'); return; }
+    if (STATE.money < ev.price) { addLog('钱不够……', 'info'); return; }
     STATE.money -= ev.price;
-    addLog('你付了 ' + ev.price + ' 金币，接过了一个精灵球。');
+    addLog('你付了 ' + ev.price + ' 金币，接过了一个精灵球。', 'info');
     if (Math.random() < 0.5) {
       const monId = ev.rare[randInt(0, ev.rare.length - 1)];
       const lv = MAP_NODES[STATE.nodeId].levels ? MAP_NODES[STATE.nodeId].levels[1] : 10;
       const mon = makeMon(monId, lv);
       addToPartyOrBox(mon);
       STATE.caughtDex[monId] = true;
-      addLog('球里装的居然是 ' + mon.name + '！赚翻了！');
+      addLog('球里装的居然是 ' + mon.name + '！赚翻了！', 'good');
     } else {
       const mon = makeMon(ev.junk, 5);
       addToPartyOrBox(mon);
       STATE.caughtDex[ev.junk] = true;
-      addLog('球里是一条鲤鱼王……「嘻嘻，谢啦冤大头！」火箭队小兵跑没影了。');
+      addLog('球里是一条鲤鱼王……「嘻嘻，谢啦冤大头！」火箭队小兵跑没影了。', 'info');
     }
   } else {
-    addLog('你转身就走，火箭队小兵在后面喊：「不识货的家伙！」');
+    addLog('你转身就走，火箭队小兵在后面喊：「不识货的家伙！」', 'info');
   }
   STATE.rocketSell = false;
 }
@@ -1376,7 +1445,7 @@ function resolveRocketSell(pay) {
 // ---------- 圣安奴号（枯叶市一次性支线） ----------
 
 function startSSAnne() {
-  addLog('枯叶市的港口停靠着一艘豪华客轮「圣安奴号」，你登上了甲板。');
+  addLog('枯叶市的港口停靠着一艘豪华客轮「圣安奴号」，你登上了甲板。', 'info');
   startBattle('ssanne', {
     foe: [
       { id: 72, level: 24, moves: ['water_gun', 'bubble_beam', 'poison_sting'] },
@@ -1400,17 +1469,17 @@ function resolveMagikarpOffer(pay) {
   const price = 500;
   if (pay) {
     if (STATE.money < price) {
-      addLog('你身上的金币不够 500，鲤鱼王大叔扫兴地走了。');
+      addLog('你身上的金币不够 500，鲤鱼王大叔扫兴地走了。', 'info');
       return;
     }
     STATE.money -= price;
     const mon = makeMon(129, 5);
     addToPartyOrBox(mon);
     STATE.caughtDex[129] = true;
-    addLog('你花了 ' + price + ' 金币买下了鲤鱼王！鲤鱼王大叔心满意足地离开了。');
+    addLog('你花了 ' + price + ' 金币买下了鲤鱼王！鲤鱼王大叔心满意足地离开了。', 'good');
     STATE.magikarpDone = true;
   } else {
-    addLog('你摇摇头走开了，鲤鱼王大叔在后面喊：「不识货啊！」');
+    addLog('你摇摇头走开了，鲤鱼王大叔在后面喊：「不识货啊！」', 'info');
     STATE.magikarpDone = true;
   }
 }
@@ -1418,25 +1487,25 @@ function resolveMagikarpOffer(pay) {
 // ---------- 探索金币事件（神秘商人 / 强盗 / 旅行补给商） ----------
 
 function useRepel() {
-  if (bagCount('喷雾剂') <= 0) { addLog('没有喷雾剂。'); return; }
+  if (bagCount('喷雾剂') <= 0) { addLog('没有喷雾剂。', 'info'); return; }
   removeItem('喷雾剂', 1);
   STATE.repel = 10;
-  addLog('你使用了喷雾剂，接下来 10 次探索不会遇到野生宝可梦！');
+  addLog('你使用了喷雾剂，接下来 10 次探索不会遇到野生宝可梦！', 'info');
 }
 
 function useWeatherItem(itemName) {
   const item = ITEMS[itemName];
-  if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具。'); return; }
+  if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具。', 'info'); return; }
   if (item.type === 'weather') {
     removeItem(itemName, 1);
     STATE.weatherBias = { type: item.weather, steps: 10 };
-    addLog('你使用了【' + itemName + '】，接下来 10 次探索中 ' + WEATHER[item.weather].name + ' 出现的概率会大幅提升！');
+    addLog('你使用了【' + itemName + '】，接下来 10 次探索中 ' + WEATHER[item.weather].name + ' 出现的概率会大幅提升！', 'info');
   } else if (item.type === 'weatherboost') {
     removeItem(itemName, 1);
     STATE.weatherBoost = 10;
-    addLog('你使用了【' + itemName + '】，接下来 10 次探索天气刷新的概率翻倍！');
+    addLog('你使用了【' + itemName + '】，接下来 10 次探索天气刷新的概率翻倍！', 'info');
   } else {
-    addLog('这个道具不能这样使用。');
+    addLog('这个道具不能这样使用。', 'info');
   }
 }
 
@@ -1456,33 +1525,33 @@ function startMerchantOffer() {
   ];
   const all = itemDeals.concat(monDeals);
   STATE.merchantOffer = all[randInt(0, all.length - 1)];
-  addLog('神秘商人从草丛里冒了出来：「小伙子，我这里有件好东西，要不要看看？」');
+  addLog('神秘商人从草丛里冒了出来：「小伙子，我这里有件好东西，要不要看看？」', 'info');
 }
 
 function resolveMerchantOffer(buy) {
   const d = STATE.merchantOffer;
   STATE.merchantOffer = null;
   if (!d) return;
-  if (!buy) { addLog('你摇了摇头，神秘商人悻悻地走了。'); return; }
-  if (STATE.money < d.price) { addLog('你钱不够，神秘商人摆摆手走了。'); return; }
+  if (!buy) { addLog('你摇了摇头，神秘商人悻悻地走了。', 'info'); return; }
+  if (STATE.money < d.price) { addLog('你钱不够，神秘商人摆摆手走了。', 'info'); return; }
   STATE.money -= d.price;
   if (d.kind === 'item') {
     addItem(d.name, 1);
-    addLog('你花 ' + d.price + ' 金币买下了【' + d.name + '】！');
+    addLog('你花 ' + d.price + ' 金币买下了【' + d.name + '】！', 'good');
   } else {
     const node = MAP_NODES[STATE.nodeId];
     const lv = node.levels ? node.levels[1] : 10;
     const mon = makeMon(d.id, lv);
     addToPartyOrBox(mon);
     STATE.caughtDex[d.id] = true;
-    addLog('你花 ' + d.price + ' 金币买下了 ' + mon.name + '！');
+    addLog('你花 ' + d.price + ' 金币买下了 ' + mon.name + '！', 'good');
   }
 }
 
 function startBanditEvent() {
   STATE.banditToll = true;
   STATE.banditPrice = 800;
-  addLog('一个凶神恶煞的强盗拦住你：「此路是我开，想过去先交 800 金币！」');
+  addLog('一个凶神恶煞的强盗拦住你：「此路是我开，想过去先交 800 金币！」', 'bad');
 }
 
 function resolveBandit(pay) {
@@ -1491,11 +1560,11 @@ function resolveBandit(pay) {
   if (pay && STATE.money >= price) {
     STATE.banditToll = false;
     STATE.money -= price;
-    addLog('你交了 ' + price + ' 金币过路费，强盗让开了路。');
+    addLog('你交了 ' + price + ' 金币过路费，强盗让开了路。', 'info');
     return;
   }
   STATE.banditToll = false;
-  if (pay) addLog('你钱不够，只能应战！');
+  if (pay) addLog('你钱不够，只能应战！', 'bad');
   const node = MAP_NODES[STATE.nodeId];
   const top = node.levels ? node.levels[1] : 10;
   startBattle('bandit', {
@@ -1514,30 +1583,46 @@ function resolveBandit(pay) {
 
 function startMedicOffer() {
   STATE.medicOffer = true;
-  addLog('一位旅行补给商在路边招手：「需要补给吗？野外价格，童叟无欺！」');
+  addLog('一位旅行补给商在路边招手：「需要补给吗？野外价格，童叟无欺！」', 'info');
 }
 
 function resolveMedic(option) {
   if (!STATE.medicOffer) return;
   STATE.medicOffer = false;
   if (option === 'heal') {
-    if (STATE.money < 800) { addLog('钱不够……'); return; }
+    if (STATE.money < 800) { addLog('钱不够……', 'info'); return; }
     STATE.money -= 800;
     STATE.party.forEach(function (m) { m.hp = m.stats.hp; m.status = null; m.statusTurns = 0; });
-    addLog('你花了 800 金币，补给商帮你回复了全员 HP！');
+    addLog('你花了 800 金币，补给商帮你回复了全员 HP！', 'good');
   } else if (option === 'pp') {
-    if (STATE.money < 1500) { addLog('钱不够……'); return; }
+    if (STATE.money < 1500) { addLog('钱不够……', 'info'); return; }
     STATE.money -= 1500;
     STATE.party.forEach(function (m) { m.pp = m.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; }); });
-    addLog('你花了 1500 金币，补给商帮你回复了全员 PP！');
+    addLog('你花了 1500 金币，补给商帮你回复了全员 PP！', 'good');
   } else {
-    addLog('你谢绝了补给商。');
+    addLog('你谢绝了补给商。', 'info');
   }
 }
 
 function visitCenter() {
+  const cost = centerCost();
+  if (cost > 0) {
+    if (STATE.money >= cost) {
+      STATE.money -= cost;
+      addLog('乔伊小姐收取了 ' + cost + ' 金币的恢复费用。', 'info');
+    } else {
+      addLog('乔伊小姐看你囊中羞涩，这次免费帮你恢复了。', 'info');
+    }
+  }
   healAll();
-  addLog('宝可梦中心的乔伊小姐把你的宝可梦都恢复了！');
+  addLog('宝可梦中心的乔伊小姐把你的宝可梦都恢复了！', 'good');
+}
+
+// 宝可梦中心费用：按队伍平均等级 ×10 收取（等级越高越贵，作为软性续航成本）
+function centerCost() {
+  if (STATE.party.length === 0) return 0;
+  const total = STATE.party.reduce(function (s, m) { return s + m.level; }, 0);
+  return Math.floor(total / STATE.party.length * 10);
 }
 
 function healAll() {
@@ -1551,11 +1636,11 @@ function healAll() {
 
 // 设置队伍首发：把指定宝可梦移到队首，战斗默认先派出
 function setLeadMon(idx) {
-  if (!STATE.party[idx]) { addLog('这只宝可梦不存在。'); return; }
+  if (!STATE.party[idx]) { addLog('这只宝可梦不存在。', 'info'); return; }
   const mon = STATE.party[idx];
   STATE.party.splice(idx, 1);
   STATE.party.unshift(mon);
-  addLog(mon.name + ' 被设为队伍首发！');
+  addLog(mon.name + ' 被设为队伍首发！', 'info');
 }
 
 function getMartStock() {
@@ -1566,30 +1651,27 @@ function buyItem(name) {
   const item = ITEMS[name];
   if (!item) return;
   const stock = getMartStock();
-  if (stock.indexOf(name) === -1) { addLog('商店里没有这个商品。'); return; }
-  if (STATE.money < item.price) { addLog('金币不够……'); return; }
+  if (stock.indexOf(name) === -1) { addLog('商店里没有这个商品。', 'info'); return; }
+  if (STATE.money < item.price) { addLog('金币不够……', 'info'); return; }
   STATE.money -= item.price;
   addItem(name, 1);
-  addLog('购买了【' + name + '】，花费 ' + item.price + ' 金币。');
+  addLog('购买了【' + name + '】，花费 ' + item.price + ' 金币。', 'info');
 }
 
 function sellItem(name) {
-  if (bagCount(name) <= 0) { addLog('没有这个道具。'); return; }
+  if (bagCount(name) <= 0) { addLog('没有这个道具。', 'info'); return; }
   const item = ITEMS[name];
   const price = item.sell || Math.floor((item.price || 0) / 2);
-  if (price <= 0) { addLog('这个道具不能卖。'); return; }
+  if (price <= 0) { addLog('这个道具不能卖。', 'info'); return; }
   removeItem(name, 1);
   STATE.money += price;
-  addLog('卖掉了【' + name + '】，获得 ' + price + ' 金币。');
+  addLog('卖掉了【' + name + '】，获得 ' + price + ' 金币。', 'good');
 }
 
 function wanderTown() {
-  if (MAP_NODES[STATE.nodeId].type !== 'town') { addLog('这里不是城镇。'); return; }
+  if (MAP_NODES[STATE.nodeId].type !== 'town') { addLog('这里不是城镇。', 'info'); return; }
   if (STATE.wanderUsed) {
-    const r = randInt(1, 100);
-    if (r <= 40) addLog('镇上的居民都认识你了，热情地打着招呼。');
-    else if (r <= 70) addLog('你悠闲地在镇上逛了一圈，今天没什么特别的事。');
-    else addLog('远处传来宝可梦的叫声，镇上依然平静。');
+    addLog('你在镇上转了一圈，居民们都在各自忙碌，没有什么特别的发现。', 'info');
     return;
   }
   STATE.wanderUsed = true;
@@ -1601,33 +1683,33 @@ function wanderTown() {
   // 鲤鱼王大叔：华蓝市一次性支线（花 500 金买鲤鱼王）
   if (STATE.nodeId === 'cerulean' && !STATE.magikarpDone) {
     STATE.magikarpOffer = true;
-    addLog('鲤鱼王大叔凑过来：「小伙子，稀有宝可梦鲤鱼王，只要 500 金，怎么样？」');
+    addLog('鲤鱼王大叔凑过来：「小伙子，稀有宝可梦鲤鱼王，只要 500 金，怎么样？」', 'info');
     return;
   }
   // 关键道具：常磐市自行车店
   if (STATE.nodeId === 'viridian' && STATE.keyItems.indexOf('自行车') === -1 && Math.random() < 0.5) {
     STATE.keyItems.push('自行车');
-    addLog('常磐市的自行车店老板送你一辆【自行车】！野外探索时骑行更快！');
+    addLog('常磐市的自行车店老板送你一辆【自行车】！野外探索时骑行更快！', 'good');
     return;
   }
   // 关键道具：华蓝市钓鱼大叔
   if (STATE.nodeId === 'cerulean' && STATE.keyItems.indexOf('破旧钓竿') === -1 && Math.random() < 0.4) {
     STATE.keyItems.push('破旧钓竿');
-    addLog('华蓝市的钓鱼大叔看你顺眼，送了你一根【破旧钓竿】！去水边试试吧！');
+    addLog('华蓝市的钓鱼大叔看你顺眼，送了你一根【破旧钓竿】！去水边试试吧！', 'good');
     return;
   }
   // 垃圾桶寻宝：电气球（华蓝市，每档一次）
   if (STATE.nodeId === 'cerulean' && !STATE.heldObtained && Math.random() < 0.25) {
     addItem('电气球', 1);
     STATE.heldObtained = true;
-    addLog('你在华蓝市的垃圾桶后面翻出了【电气球】！只有皮卡丘能携带它。');
+    addLog('你在华蓝市的垃圾桶后面翻出了【电气球】！只有皮卡丘能携带它。', 'good');
     return;
   }
   // 垃圾桶寻宝：吃剩的东西（每档一次）
   if (!STATE.trashFound && Math.random() < 0.08) {
     STATE.trashFound = true;
     addItem('吃剩的东西', 1);
-    addLog('你在垃圾桶后面翻出了【吃剩的东西】！听说携带它每回合能恢复HP。');
+    addLog('你在垃圾桶后面翻出了【吃剩的东西】！听说携带它每回合能恢复HP。', 'good');
     return;
   }
   // NPC 交换（30%）
@@ -1640,13 +1722,13 @@ function wanderTown() {
     const gifts = ['伤药', '精灵球', '解毒药'];
     const item = gifts[randInt(0, gifts.length - 1)];
     addItem(item, 1);
-    addLog('热心居民送了你一个【' + item + '】！');
+    addLog('热心居民送了你一个【' + item + '】！', 'good');
   } else if (r <= 50) {
-    addLog('你在镇子里闲逛，看到一只野猫在追波波……');
+    addLog('你在镇子里闲逛，看到一只野猫在追波波……', 'info');
   } else if (r <= 70) {
-    addLog('你听到了远处传来的宝可梦叫声，听起来像是一只皮卡丘。');
+    addLog('你听到了远处传来的宝可梦叫声，听起来像是一只皮卡丘。', 'info');
   } else {
-    addLog('镇上很平静，大家都在过着安稳的日子。');
+    addLog('镇上很平静，大家都在过着安稳的日子。', 'info');
   }
 }
 
@@ -1663,76 +1745,76 @@ function startTradeEvent() {
   const t = TRADES[randInt(0, TRADES.length - 1)];
   const has = STATE.party.some(function (m) { return m.species === t.want; });
   if (!has) {
-    addLog('一位居民想和你交换宝可梦，但你手里没有他想要的 ' + POKEDEX[t.want].name + '。');
+    addLog('一位居民想和你交换宝可梦，但你手里没有他想要的 ' + POKEDEX[t.want].name + '。', 'info');
     return;
   }
   STATE.townTrade = t;
-  addLog('一位居民拦住你：「我用 ' + POKEDEX[t.give].name + ' 换你的 ' + POKEDEX[t.want].name + '，怎么样？」');
+  addLog('一位居民拦住你：「我用 ' + POKEDEX[t.give].name + ' 换你的 ' + POKEDEX[t.want].name + '，怎么样？」', 'info');
 }
 
 function doTownTrade(accept) {
   const t = STATE.townTrade;
   if (!t) return;
   STATE.townTrade = null;
-  if (!accept) { addLog('你婉拒了这次交换。'); return; }
+  if (!accept) { addLog('你婉拒了这次交换。', 'info'); return; }
   const idx = STATE.party.findIndex(function (m) { return m.species === t.want; });
-  if (idx === -1) { addLog('你手里没有 ' + POKEDEX[t.want].name + '。'); return; }
+  if (idx === -1) { addLog('你手里没有 ' + POKEDEX[t.want].name + '。', 'info'); return; }
   const level = STATE.party[idx].level;
   const mon = makeMon(t.give, level);
   mon.tradeBonus = true;
   STATE.party[idx] = mon;
-  addLog('交换成功！' + mon.name + ' 加入了你的队伍（交换来的宝可梦经验获取 1.5 倍）！');
+  addLog('交换成功！' + mon.name + ' 加入了你的队伍（交换来的宝可梦经验获取 1.5 倍）！', 'good');
 }
 
 function useEscapeRope() {
-  if (bagCount('穿绳') <= 0) { addLog('没有穿绳。'); return; }
+  if (bagCount('穿绳') <= 0) { addLog('没有穿绳。', 'info'); return; }
   removeItem('穿绳', 1);
   STATE.nodeId = STATE.lastTown;
   STATE.weather = rollWeather(STATE.lastTown);
-  addLog('你使用穿绳瞬间回到了 ' + MAP_NODES[STATE.lastTown].name + '！');
+  addLog('你使用穿绳瞬间回到了 ' + MAP_NODES[STATE.lastTown].name + '！', 'info');
 }
 
 function useBagItemOnMon(itemName, partyIdx) {
   const item = ITEMS[itemName];
   const mon = STATE.party[partyIdx];
   if (!item || !mon) return;
-  if (bagCount(itemName) <= 0) { addLog('没有这个道具。'); return; }
+  if (bagCount(itemName) <= 0) { addLog('没有这个道具。', 'info'); return; }
   if (item.type === 'heal') {
     removeItem(itemName, 1);
-    if (item.heal === 'full') { mon.hp = mon.stats.hp; mon.status = null; addLog(mon.name + ' 完全恢复了！'); }
+    if (item.heal === 'full') { mon.hp = mon.stats.hp; mon.status = null; addLog(mon.name + ' 完全恢复了！', 'good'); }
     else {
       const healed = Math.min(mon.stats.hp - mon.hp, item.heal);
-      if (healed <= 0) { addLog(mon.name + ' 的HP是满的！'); addItem(itemName, 1); return; }
+      if (healed <= 0) { addLog(mon.name + ' 的HP是满的！', 'info'); addItem(itemName, 1); return; }
       mon.hp += healed;
-      addLog(mon.name + ' 回复了 ' + healed + ' 点HP！');
+      addLog(mon.name + ' 回复了 ' + healed + ' 点HP！', 'good');
     }
     return;
   }
   if (item.type === 'cure') {
-    if (item.cure !== 'all' && mon.status !== item.cure) { addLog(mon.name + ' 没有' + item.cure + '状态。'); return; }
-    if (item.cure === 'all' && !mon.status) { addLog(mon.name + ' 没有异常状态。'); return; }
+    if (item.cure !== 'all' && mon.status !== item.cure) { addLog(mon.name + ' 没有' + item.cure + '状态。', 'info'); return; }
+    if (item.cure === 'all' && !mon.status) { addLog(mon.name + ' 没有异常状态。', 'info'); return; }
     removeItem(itemName, 1);
     mon.status = null;
-    addLog(item.cure === 'all' ? mon.name + ' 的异常状态被治愈了！' : mon.name + ' 的' + item.cure + '被治好了！');
+    addLog(item.cure === 'all' ? mon.name + ' 的异常状态被治愈了！' : mon.name + ' 的' + item.cure + '被治好了！', 'good');
     return;
   }
   if (item.type === 'pp') {
     if (!mon.pp) mon.pp = mon.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; });
     const allFull = mon.moves.every(function (id, i) { return mon.pp[i] >= (MOVES[id] ? MOVES[id].pp : 1); });
-    if (allFull) { addLog(mon.name + ' 的PP已经是满的！'); return; }
+    if (allFull) { addLog(mon.name + ' 的PP已经是满的！', 'info'); return; }
     removeItem(itemName, 1);
     for (let i = 0; i < mon.moves.length; i++) {
       const max = MOVES[mon.moves[i]] ? MOVES[mon.moves[i]].pp : 1;
       mon.pp[i] = item.pp === 'full' ? max : Math.min(max, (mon.pp[i] || 0) + item.pp);
     }
-    addLog(mon.name + ' 回复了PP！');
+    addLog(mon.name + ' 回复了PP！', 'good');
     return;
   }
   if (item.type === 'stone') {
     const evoLog = tryStoneEvolution(mon, item.stone);
-    if (!evoLog) { addLog(itemName + ' 对 ' + mon.name + ' 没有效果。'); return; }
+    if (!evoLog) { addLog(itemName + ' 对 ' + mon.name + ' 没有效果。', 'info'); return; }
     removeItem(itemName, 1);
-    evoLog.forEach(addLog);
+    evoLog.forEach(function (t) { addLog(t, 'good'); });
     return;
   }
   if (item.type === 'tm') {
@@ -1741,24 +1823,24 @@ function useBagItemOnMon(itemName, partyIdx) {
     const log = [];
     tryLearnMove(mon, item.move, log, false);
     if (log.length === 0) {
-      addLog(mon.name + ' 已经会【' + mv.name + '】了。');
+      addLog(mon.name + ' 已经会【' + mv.name + '】了。', 'info');
       addItem(itemName, 1);
     } else {
-      log.forEach(addLog);
+      log.forEach(function (t) { addLog(t, 'good'); });
     }
     return;
   }
   if (item.type === 'held') {
     const target = item.held;
-    if (!target) { addLog('这个携带道具无法使用。'); return; }
-    if (item.onlySpecies && mon.species !== item.onlySpecies) { addLog('只有' + POKEDEX[item.onlySpecies].name + '才能携带' + target + '！'); return; }
-    if (mon.held === target) { addLog(mon.name + ' 已经携带着' + target + '。'); return; }
+    if (!target) { addLog('这个携带道具无法使用。', 'info'); return; }
+    if (item.onlySpecies && mon.species !== item.onlySpecies) { addLog('只有' + POKEDEX[item.onlySpecies].name + '才能携带' + target + '！', 'info'); return; }
+    if (mon.held === target) { addLog(mon.name + ' 已经携带着' + target + '。', 'info'); return; }
     removeItem(itemName, 1);
     mon.held = target;
-    addLog(mon.name + ' 携带了' + target + '！');
+    addLog(mon.name + ' 携带了' + target + '！', 'good');
     return;
   }
-  addLog('这个道具不能对宝可梦使用。');
+  addLog('这个道具不能对宝可梦使用。', 'info');
 }
 
 // ---------------- 新游戏 / 存档 ----------------
@@ -1775,6 +1857,9 @@ function newGame(starterId) {
   STATE.party = [mon];
   STATE.box = [];
   STATE.log = [];
+  STATE.logKinds = [];
+  STATE.wildBattles = 0;
+  STATE.lastBattleView = null;
   STATE.battle = null;
   STATE.pendingLearn = [];
   STATE.seenDex = {};
@@ -1799,8 +1884,8 @@ function newGame(starterId) {
   STATE.weatherBias = null;
   STATE.weatherBoost = 0;
   STATE.seenDex[starterId] = true;
-  addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
-  addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
+  addLog('大木博士：好！从今天起你就是宝可梦训练家了！', 'info');
+  addLog('你带着 ' + mon.name + ' 从真新镇出发了！', 'info');
   save();
 }
 
@@ -1816,6 +1901,7 @@ function save() {
       badges: STATE.badges,
       party: STATE.party.map(serializeMon),
       box: STATE.box.map(serializeMon),
+      wildBattles: STATE.wildBattles,
       pendingLearn: STATE.pendingLearn.map(function (p) {
         return { where: p.where, idx: p.idx, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
       }),
@@ -1891,6 +1977,7 @@ function load() {
     STATE.trashFound = !!data.trashFound;
     STATE.ssAnneDone = !!data.ssAnneDone;
     STATE.magikarpDone = !!data.magikarpDone;
+    STATE.wildBattles = data.wildBattles || 0;
     STATE.magikarpOffer = false;
     STATE.merchantOffer = null;
     STATE.banditToll = false;
@@ -1900,12 +1987,14 @@ function load() {
     STATE.weatherBias = null;
     STATE.weatherBoost = 0;
     STATE.battle = null;
+    STATE.lastBattleView = null;
     STATE.log = [];
+    STATE.logKinds = [];
     STATE.rocketSell = false;
     STATE.gymSession = null;
     STATE.townTrade = null;
     STATE.wanderUsed = false;
-    addLog('欢迎回来，' + (data.name || '训练家') + '！存档读取成功。');
+    addLog('欢迎回来，' + (data.name || '训练家') + '！存档读取成功。', 'info');
     return true;
   } catch (e) {
     return false;
@@ -1915,7 +2004,10 @@ function load() {
 function resetGame() {
   try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   STATE.battle = null;
+  STATE.lastBattleView = null;
   STATE.pendingLearn = [];
+  STATE.logKinds = [];
+  STATE.wildBattles = 0;
   STATE.rocketSell = false;
   STATE.lastResult = null;
   STATE.gymSession = null;
