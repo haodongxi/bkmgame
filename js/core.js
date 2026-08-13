@@ -1037,12 +1037,17 @@ function battleMove(idx) {
     useMove(fm, pm, fMove, log, kinds);
     if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) useMove(pm, fm, pMove, log, kinds);
   }
-  log.forEach(function (t, i) { addLog(t, kinds[i]); });
+  let logPos = 0;
+  function flushLog() {
+    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+    logPos = log.length;
+  }
+  flushLog();
   if (!b.over) {
     endOfTurn(log, kinds);
-    log.forEach(function (t, i) { addLog(t, kinds[i]); });
+    flushLog();
     handleFaints(log, kinds);
-    log.forEach(function (t, i) { addLog(t, kinds[i]); });
+    flushLog();
   }
   if (!b.over && b.kind === 'wild' && b.turn >= 35 && Math.random() < 0.2) {
     addLog('野生的 ' + b.foe.mons[b.foe.active].m.name + ' 被你的气势吓到，逃走了！', 'info');
@@ -1098,9 +1103,14 @@ function battleUseItem(itemName, opts) {
     const fMove = pickFoeMove(fm, pm);
     const log = [];
     const kinds = [];
+    let logPos = 0;
+    function flushLog() {
+      for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+      logPos = log.length;
+    }
     if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
-    log.forEach(function (t, i) { addLog(t, kinds[i]); });
-    if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
+    flushLog();
+    if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
     return;
   }
   if (item.type === 'heal' || item.type === 'cure') {
@@ -1137,9 +1147,14 @@ function battleUseItem(itemName, opts) {
     const fMove = pickFoeMove(fm, pm);
     const log = [];
     const kinds = [];
+    let logPos = 0;
+    function flushLog() {
+      for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+      logPos = log.length;
+    }
     if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
-    log.forEach(function (t, i) { addLog(t, kinds[i]); });
-    if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
+    flushLog();
+    if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
     return;
   }
   addLog('这个道具不能在这里使用。', 'info');
@@ -1161,9 +1176,14 @@ function battleSwitch(idx) {
   const fMove = pickFoeMove(fm, target);
   const log = [];
   const kinds = [];
+  let logPos = 0;
+  function flushLog() {
+    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+    logPos = log.length;
+  }
   if (fm.m.hp > 0 && target.m.hp > 0) useMove(fm, target, fMove, log, kinds);
-  log.forEach(function (t, i) { addLog(t, kinds[i]); });
-  if (!b.over) { endOfTurn(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); handleFaints(log, kinds); log.forEach(function (t, i) { addLog(t, kinds[i]); }); }
+  flushLog();
+  if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
 }
 
 function battleRun() {

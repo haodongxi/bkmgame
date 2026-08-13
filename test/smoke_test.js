@@ -986,6 +986,25 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   ok(s.logKinds.some(function (k) { return k === 'foe'; }), '日志含敌方侧着色标记');
   ok(s.logKinds.some(function (k) { return k === 'good'; }), '日志含正向反馈着色标记');
 }
+{
+  // 回合日志不重复输出（此前 log.forEach 对累积数组重复 flush，每行输出 3 遍）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 15, { nature: '勤奋' })];
+  s.party[0].moves = ['ember'];
+  s.party[0].pp = [25];
+  T.startWildBattle(74, 10); // 小拳石抗火，保证双方都会出手
+  const start = s.log.length;
+  T.battleMove(0);
+  const turn = s.log.slice(start);
+  const used = turn.filter(function (l) { return l.indexOf('使用了') !== -1; });
+  ok(used.length === 2, '单回合双方出招各记录一次（used=' + used.length + '）');
+  const seen = {};
+  let dup = 0;
+  turn.forEach(function (l) { seen[l] = (seen[l] || 0) + 1; });
+  for (const k in seen) if (seen[k] > 1) dup++;
+  ok(dup === 0, '回合日志无重复行');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);
