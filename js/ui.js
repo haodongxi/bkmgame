@@ -378,12 +378,16 @@ function doTravel(nodeId) {
 // ---------------- 商店 ----------------
 
 function showShopModal() {
-  const stock = getMartStock();
   let html = '<div class="shop-hint">持有徽章：' + STATE.badges.length + ' 枚，金钱：' + STATE.money + '</div>';
-  for (let i = 0; i < stock.length; i++) {
-    const item = ITEMS[stock[i]];
-    html += '<div class="shop-row"><span>' + item.name + '（' + item.price + '金）</span>' +
-      '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\')">购买</button></div>';
+  for (let i = 0; i < MART_STOCK.length; i++) {
+    const entry = MART_STOCK[i];
+    const item = ITEMS[entry.name];
+    if (!item) continue;
+    const locked = entry.minBadges > STATE.badges.length;
+    html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span>' + item.name + '（' + item.price + '金）' +
+      (locked ? ' <span class="shop-lock">需 ' + entry.minBadges + ' 徽章</span>' : '') + '</span>' +
+      (locked ? '<button class="btn btn-sm" disabled>未解锁</button>' :
+        '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\')">购买</button>') + '</div>';
   }
   html += '<div class="shop-hint">—— 出售 ——</div>';
   const keys = Object.keys(STATE.bag).filter(function (k) { return bagCount(k) > 0; });
