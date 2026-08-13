@@ -38,6 +38,9 @@ function playBattleResult(from, battleRef) {
   const total = STATE.log.length;
   if (total <= from) { render(); return; }
   if (_uiPlaying) return;
+  // 战斗已结束（切回地图）：先暂留战斗画面播完尾部文本，再切回地图，避免地图日志框出现“没信息”的空窗
+  const endedBattle = STATE.screen === 'map' && STATE.battle === null;
+  if (endedBattle) STATE.screen = 'battle';
   const hpSteps = battleRef ? battleRef.hpSteps : [];
   const hpOffset = battleRef ? battleRef.logStart : 0;
   _uiPlaying = true;
@@ -47,13 +50,13 @@ function playBattleResult(from, battleRef) {
     const hint = actions.querySelector('.turn-hint');
     if (hint) hint.textContent = '……结算中……';
   }
-  const box = document.querySelector('#screen-battle.active') ? $id('battle-log') : $id('log-box');
   const n = total - from;
   const interval = n > 12 ? 200 : (n > 6 ? 300 : 380);
   let i = 0;
   (function tick() {
     if (i >= n) {
       _uiPlaying = false;
+      if (endedBattle) STATE.screen = 'map';
       render();
       return;
     }
@@ -64,6 +67,7 @@ function playBattleResult(from, battleRef) {
     const div = document.createElement('div');
     div.className = 'log-line' + (kind ? ' log-' + kind : '');
     div.textContent = line;
+    const box = document.querySelector('#screen-battle.active') ? $id('battle-log') : $id('log-box');
     if (box) {
       box.appendChild(div);
       box.scrollTop = box.scrollHeight;
