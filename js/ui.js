@@ -715,6 +715,7 @@ function showMonDetail(idx) {
     '<div><div class="detail-name">' + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
     '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
+    '<div class="shop-hint">羁绊：' + bondTier(mon.bond || 0) + '</div>' +
     '<div class="shop-hint">携带：' + (mon.held || '无') + (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
     '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
     expPoolBtn +
@@ -723,6 +724,14 @@ function showMonDetail(idx) {
   openModal(mon.name, html);
   const iconBox = $id('detail-icon');
   if (iconBox) iconBox.appendChild(monIcon(mon.species, 48));
+}
+
+// 羁绊评级（隐藏数值，只展示阶段）
+function bondTier(bond) {
+  if (bond >= 90) return '🌟 生死与共的搭档';
+  if (bond >= 60) return '💖 亲密的伙伴';
+  if (bond >= 30) return '💛 熟悉的伙伴';
+  return '🤍 初见';
 }
 
 // 万能经验池分配弹窗

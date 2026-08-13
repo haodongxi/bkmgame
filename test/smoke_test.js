@@ -22,6 +22,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
+  '  addBond: addBond,\n' +
   '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
   '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
@@ -1155,6 +1156,174 @@ section('MVP11.1：喂养系统');
   ok(T.load(), '读档成功');
   ok(T.getState().expPool === 500, '经验池随存档保存');
   ok(T.getState().party[0].candyBonus.hp === 3, '糖果加成随存档保存');
+}
+
+// ---------- 15. MVP11.2：羁绊系统 ----------
+section('MVP11.2：羁绊系统');
+{
+  T.newGame(4);
+  ok(T.getState().party[0].bond === 20, '御三家初始羁绊 20');
+  ok(T.makeMon(16, 5).bond === 0, '野生/生成的宝可梦初始羁绊 0');
+}
+{
+  // 每次战斗：首发 +3、队伍其他 +1（打赢野生战）
+  T.newGame(4);
+  const s = T.getState();
+  s.party.push(T.makeMon(16, 5));
+  s.party[0].bond = 0;
+  s.party[1].bond = 0;
+  s.party[0] = T.makeMon(6, 30, { nature: '勤奋' });
+  s.party[0].moves = ['flamethrower'];
+  s.party[0].pp = [15];
+  s.party[0].bond = 0;
+  T.startWildBattle(16, 2);
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 30) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(s.lastResult === 'win', '战斗胜利');
+  ok(s.party[0].bond === 3 && s.party[1].bond === 1, '首发 +3、队伍其他 +1');
+}
+{
+  // 道馆胜利全队 +5
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(6, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['flamethrower'];
+  s.party[0].pp = [15];
+  s.party[0].bond = 0;
+  T.startGymBattle(T.MAP_NODES.pewter.gym);
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 60) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(s.badges.indexOf('灰色徽章') !== -1, '道馆胜利');
+  ok(s.party[0].bond === 8, '馆主战首发：+3（战斗）+5（道馆）');
+}
+{
+  // 探索 10 步 +1
+  T.newGame(4);
+  const s = T.getState();
+  s.party[0].bond = 0;
+  s.party[0].exploreSteps = 9;
+  s.nodeId = 'route1';
+  T.explore();
+  ok(s.party[0].bond === 1 && s.party[0].exploreSteps === 0, '探索 10 步触发羁绊 +1');
+}
+{
+  // 低血用高价值道具 +1；满血恶意喂药不加
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.bond = 0;
+  mon.hp = Math.floor(mon.stats.hp / 3);
+  s.bag['好伤药'] = 2;
+  T.useBagItemOnMon('好伤药', 0);
+  ok(mon.bond === 1, '低血用高价值道具羁绊 +1');
+  mon.hp = mon.stats.hp;
+  T.useBagItemOnMon('好伤药', 0);
+  ok(mon.bond === 1 && s.bag['好伤药'] === 1, '满血喂药不涨羁绊且不消耗');
+}
+{
+  // 濒死 -5（战败净变化）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(129, 5, { nature: '勤奋' })]; // 鲤鱼王
+  s.party[0].bond = 20;
+  T.startWildBattle(16, 20); // 高等级波波
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 30) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  ok(s.lastResult === 'lose', '战败');
+  ok(s.party[0].bond < 20, '濒死后羁绊下降（战败 +3 后仍低于初始 20）');
+}
+{
+  // 存入电脑 -10
+  T.newGame(4);
+  const s = T.getState();
+  s.party.push(T.makeMon(16, 5));
+  s.box = [T.makeMon(19, 5)];
+  s.party[0].bond = 50;
+  T.boxSwap(0, 0);
+  ok(s.party[0].species === 19 && s.box[0].species === 4, '交换成功');
+  ok(s.box[0].bond === 40, '存入电脑的宝可梦羁绊 -10');
+}
+{
+  // 阶段二：经验 ×1.1
+  T.newGame(4);
+  const mon = T.makeMon(16, 100);
+  mon.bond = 50;
+  const exp0 = mon.exp;
+  T.grantExp(mon, 100, []);
+  ok(mon.exp - exp0 === 110, '羁绊 30+ 经验 ×1.1');
+}
+{
+  // 阶段三：暴击率提升（统计）
+  T.newGame(4);
+  const mk = function (bond) {
+    const mon = T.makeMon(4, 50, { nature: '勤奋' });
+    mon.bond = bond;
+    return mon;
+  };
+  const def = T.makeMon(16, 50, { nature: '勤奋' });
+  let critHigh = 0, critLow = 0;
+  for (let i = 0; i < 600; i++) {
+    if (T.calcDamage({ m: mk(70), stages: {} }, { m: def, stages: {} }, T.MOVES.ember, null).crit) critHigh++;
+    if (T.calcDamage({ m: mk(0), stages: {} }, { m: def, stages: {} }, T.MOVES.ember, null).crit) critLow++;
+  }
+  ok(critHigh > critLow, '羁绊 60+ 暴击次数明显更多（' + critHigh + ' vs ' + critLow + '）');
+}
+{
+  // 阶段四：20% 毅力锁血（每场一次）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 30, { nature: '勤奋' })]; // 卡比兽（慢）
+  const mon = s.party[0];
+  mon.moves = ['growl'];
+  mon.pp = [40];
+  mon.hp = 3;
+  mon.bond = 95;
+  T.startWildBattle(16, 10);
+  seq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 覆盖命中/效果/暴击/浮动/锁血判定
+  T.battleMove(0);
+  seq = [];
+  ok(s.battle && s.battle.player.mons[0].m.hp === 1 && s.battle.player.mons[0].enduredThisBattle === true, '濒死时毅力锁血到 1 点（本场仅一次）');
+  T.battleMove(0); // 第二次命中不再锁血 → 倒下
+  ok(s.lastResult === 'lose', '锁血后再次被击倒则正常败北');
+}
+{
+  // 阶段四：10% 回合末自愈异常
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 30, { nature: '勤奋' })];
+  const mon = s.party[0];
+  mon.moves = ['growl'];
+  mon.pp = [40];
+  mon.status = '中毒';
+  mon.bond = 95;
+  T.startWildBattle(16, 5);
+  seq = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; // 覆盖命中/效果/伤害/自愈判定
+  T.battleMove(0);
+  seq = [];
+  ok(s.battle && s.battle.player.mons[0].m.status === null, '羁绊 90+ 回合末自愈异常');
+  while (s.battle && !s.battle.over && s.battle.turn < 10) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+}
+{
+  // 羁绊随存档保存
+  T.newGame(4);
+  const s = T.getState();
+  s.party[0].bond = 77;
+  T.save();
+  s.party = [];
+  T.load();
+  ok(T.getState().party[0].bond === 77, '羁绊随存档保存');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

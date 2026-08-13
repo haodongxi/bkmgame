@@ -190,9 +190,16 @@ function makeMon(speciesId, level, opts) {
     moves: moves.slice(0, 4),
     pp: moves.slice(0, 4).map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; }),
     stats: stats,
-    candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 }
+    candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 },
+    bond: 0,
+    exploreSteps: 0
   };
   return mon;
+}
+
+// 羁绊值增减：严格限制在 0~100
+function addBond(mon, delta) {
+  mon.bond = Math.max(0, Math.min(100, (mon.bond || 0) + delta));
 }
 
 function recalcStats(mon) {
@@ -216,6 +223,7 @@ function grantExp(mon, amount, log, kinds) {
   let mult = 1;
   if (mon.tradeBonus) mult *= 1.5;
   if (mon.held === '幸运蛋') mult *= 1.5;
+  if ((mon.bond || 0) >= 30) mult *= 1.1; // 羁绊阶段二：心意相通经验加成
   let remain = Math.floor(amount * mult);
   const L = function (text) {
     log.push(text);
@@ -404,7 +412,9 @@ function calcDamage(attacker, defender, move, weather) {
   }
   if (attacker.m.status === '灼伤' && move.category === '物理') mod *= 0.5;
   let crit = false;
-  if (randInt(1, 16) === 1) { crit = true; mod *= 1.5; }
+  // 羁绊阶段三：暴击率 1/16 → 1/8
+  const critChance = (attacker.m.bond || 0) >= 60 ? 1 / 8 : 1 / 16;
+  if (Math.random() < critChance) { crit = true; mod *= 1.5; }
   mod *= 0.85 + Math.random() * 0.15;
   const dmg = Math.max(1, Math.floor(base * mod));
   return { dmg: dmg, eff: eff, crit: crit };
@@ -443,7 +453,8 @@ function makeBattleMon(mon) {
     trapTurns: 0,
     leech: false,
     poisonTurns: 0,
-    sleepTurns: 0
+    sleepTurns: 0,
+    enduredThisBattle: false
   };
 }
 
@@ -817,6 +828,7 @@ function useMove(user, target, move, log, kinds) {
   let effMsg = '';
   let critMsg = '';
   let hits = 1;
+  let bondCritLogged = false;
   if (move.effect && move.effect.kind === 'multi') {
     hits = move.effect.hits === 2 ? 2 : randInt(2, 5);
     L('命中 ' + hits + ' 次！', side);
@@ -837,11 +849,21 @@ function useMove(user, target, move, log, kinds) {
     }
     if (res.crit) critMsg = ' 会心一击！';
     totalDmg += res.dmg;
+    if (res.crit && (user.m.bond || 0) >= 60 && !bondCritLogged) {
+      bondCritLogged = true;
+      L(user.m.name + ' 想要回应你的期待，它的攻击变得更加凌厉了！', 'good');
+    }
     if (res.eff > 1) effMsg = ' 效果拔群！';
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
   t.hp -= totalDmg;
   L(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg, side);
+  // 羁绊阶段四：20% 毅力锁血（每场最多一次）
+  if (t.hp <= 0 && target.side === 'player' && (t.bond || 0) >= 90 && !target.enduredThisBattle && Math.random() < 0.2) {
+    t.hp = 1;
+    target.enduredThisBattle = true;
+    L(t.name + ' 即将倒下之际，想起了与你的点点滴滴，靠着毅力强行撑了下来！', 'good');
+  }
   if (t.hp <= 0) {
     t.hp = 0;
     L(t.name + ' 倒下了！', foeKind);
@@ -963,6 +985,11 @@ function endOfTurn(log, kinds) {
       m.hp = Math.min(m.stats.hp, m.hp + heal);
       L(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！', 'good');
     }
+    // 羁绊阶段四：10% 概率回合末自愈异常
+    if (bm.side === 'player' && (m.bond || 0) >= 90 && m.status && Math.random() < 0.1) {
+      m.status = null;
+      L(m.name + ' 为了不让你担心，强行抖擞精神，身上的异常状态解除了！', 'good');
+    }
     if (m.hp <= 0) {
       m.hp = 0;
       L(m.name + ' 倒下了！', sideKind);
@@ -979,6 +1006,13 @@ function isSandImmune(mon) {
   return t.indexOf('岩石') !== -1 || t.indexOf('地面') !== -1 || t.indexOf('钢') !== -1;
 }
 
+// 羁绊：我方宝可梦濒死 -5（仅在首次倒下时）
+function onPartyFaint(bm) {
+  if (bm && bm.side === 'player' && bm.m.hp <= 0 && STATE.party.indexOf(bm.m) !== -1) {
+    addBond(bm.m, -5);
+  }
+}
+
 function handleFaints(log, kinds) {
   const b = STATE.battle;
   const p = b.player;
@@ -993,11 +1027,13 @@ function handleFaints(log, kinds) {
     if (pActive.hp > 0) {
       const gain = Math.floor(foeMon.speciesData.expYield * foeMon.level / 7) * (b.kind === 'wild' ? 1 : 1.5);
       L(pActive.name + ' 获得了 ' + gain + ' 点经验值！', 'good');
+      if ((pActive.bond || 0) >= 30) L(pActive.name + ' 因为与你心意相通，获得了更多经验！', 'good');
       grantExp(pActive, gain, log, kinds);
     }
     if (f.mons.every(function (bm) { return bm.m.hp <= 0; })) {
       // 双灭：最后一只宝可梦与敌方同回合倒下时按败北处理，避免留下全灭队伍
       if (p.mons.every(function (bm) { return bm.m.hp <= 0; })) {
+        p.mons.forEach(onPartyFaint);
         endBattle('lose');
         return true;
       }
@@ -1014,6 +1050,7 @@ function handleFaints(log, kinds) {
     }
   }
   if (p.mons[p.active].m.hp <= 0) {
+    onPartyFaint(p.mons[p.active]);
     const next = firstAlive(p.mons.map(function (bm) { return bm.m; }));
     if (next === -1) {
       endBattle('lose');
@@ -1237,6 +1274,13 @@ function endBattle(outcome) {
   b.outcome = outcome;
   STATE.lastResult = outcome;
   STATE.screen = 'map';
+  // 羁绊：每次战斗（胜/负）首发 +3、队伍其他 +1；道馆胜利全队 +5
+  if (outcome === 'win' || outcome === 'lose') {
+    STATE.party.forEach(function (m, i) { addBond(m, i === 0 ? 3 : 1); });
+  }
+  if (outcome === 'win' && b.kind === 'gym') {
+    STATE.party.forEach(function (m) { addBond(m, 5); });
+  }
   if (outcome === 'win') {
     if (b.prize > 0) {
       STATE.money += b.prize;
@@ -1326,6 +1370,8 @@ function boxSwap(boxIdx, partyIdx) {
   STATE.party[partyIdx] = boxMon;
   STATE.box[boxIdx] = partyMon;
   addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！', 'good');
+  addBond(partyMon, -10);
+  addLog(partyMon.name + ' 看起来有些失落地进入了电脑盒子……', 'info');
 }
 
 // 属性糖果掉落：按最高种族值决定，同分按 体力 > 速度 > 物攻 > 特攻 > 物防 > 特防
@@ -1408,6 +1454,16 @@ function exploreOnce() {
   if (node.type === 'town') {
     addLog('城镇里没有草丛，去野外探索吧！', 'info');
     return;
+  }
+  // 羁绊：首发宝可梦每次探索 +1 步，累计 10 步 +1 点羁绊
+  const lead = STATE.party[0];
+  if (lead) {
+    lead.exploreSteps = (lead.exploreSteps || 0) + 1;
+    if (lead.exploreSteps >= 10) {
+      lead.exploreSteps = 0;
+      addBond(lead, 1);
+      addLog(lead.name + ' 与你越来越默契了……', 'good');
+    }
   }
   refreshWeather(false);
   // 雷阵雨落雷事件
@@ -1878,22 +1934,26 @@ function useBagItemOnMon(itemName, partyIdx) {
   if (!item || !mon) return;
   if (bagCount(itemName) <= 0) { addLog('没有这个道具。', 'info'); return; }
   if (item.type === 'heal') {
+    const bondItem = ['好伤药', '全复药', '万灵药'].indexOf(itemName) !== -1 && mon.hp < Math.floor(mon.stats.hp / 2);
     removeItem(itemName, 1);
-    if (item.heal === 'full') { mon.hp = mon.stats.hp; mon.status = null; addLog(mon.name + ' 完全恢复了！', 'good'); }
+    if (item.heal === 'full') { mon.hp = mon.stats.hp; mon.status = null; addLog(mon.name + ' 完全恢复了！', 'good'); if (bondItem) addBond(mon, 1); }
     else {
       const healed = Math.min(mon.stats.hp - mon.hp, item.heal);
       if (healed <= 0) { addLog(mon.name + ' 的HP是满的！', 'info'); addItem(itemName, 1); return; }
       mon.hp += healed;
       addLog(mon.name + ' 回复了 ' + healed + ' 点HP！', 'good');
+      if (bondItem) addBond(mon, 1);
     }
     return;
   }
   if (item.type === 'cure') {
+    const bondCure = itemName === '万灵药' && mon.hp < Math.floor(mon.stats.hp / 2);
     if (item.cure !== 'all' && mon.status !== item.cure) { addLog(mon.name + ' 没有' + item.cure + '状态。', 'info'); return; }
     if (item.cure === 'all' && !mon.status) { addLog(mon.name + ' 没有异常状态。', 'info'); return; }
     removeItem(itemName, 1);
     mon.status = null;
     addLog(item.cure === 'all' ? mon.name + ' 的异常状态被治愈了！' : mon.name + ' 的' + item.cure + '被治好了！', 'good');
+    if (bondCure) addBond(mon, 1);
     return;
   }
   if (item.type === 'pp') {
@@ -1957,6 +2017,7 @@ function useBagItemOnMon(itemName, partyIdx) {
 
 function newGame(starterId) {
   const mon = makeMon(starterId, 5);
+  mon.bond = 20; // 御三家初始羁绊
   STATE.screen = 'map';
   STATE.nodeId = 'pallet';
   STATE.weather = '晴';
@@ -2037,7 +2098,7 @@ function serializeMon(m) {
     species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
-    candyBonus: m.candyBonus
+    candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0
   };
 }
 
@@ -2056,6 +2117,8 @@ function deserializeMon(d) {
   mon.nature = d.nature || '勤奋';
   mon.held = d.held || null;
   mon.tradeBonus = !!d.tradeBonus;
+  mon.bond = d.bond === undefined ? 0 : Math.max(0, Math.min(100, d.bond));
+  mon.exploreSteps = d.exploreSteps || 0;
   return mon;
 }
 
@@ -2158,6 +2221,7 @@ if (typeof module !== 'undefined' && module.exports) {
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
     transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    addBond: addBond,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,
     startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,
