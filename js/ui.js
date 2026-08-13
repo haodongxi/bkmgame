@@ -176,11 +176,24 @@ function renderStarter() {
 
 // ---------------- 地图界面 ----------------
 
+function goalHint() {
+  const order = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  for (let i = 0; i < order.length; i++) {
+    const node = MAP_NODES[order[i]];
+    const g = node.gym;
+    if (STATE.badges.indexOf(g.badge) === -1) {
+      return '当前目标：前往' + node.name + '挑战' + g.leader + '（首发 Lv.' + g.minLevel + '+）';
+    }
+  }
+  return '当前目标：前往 22 号道路，挺进冠军之路！';
+}
+
 function renderMap() {
   const node = MAP_NODES[STATE.nodeId];
   $id('loc-label').textContent = '[当前位置：' + node.name + ']';
   $id('weather-label').textContent = '[当前天气：' + WEATHER[STATE.weather].icon + ' ' + WEATHER[STATE.weather].name + ']';
   $id('meta-label').textContent = '💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151';
+  $id('goal-label').textContent = goalHint();
 
   const logBox = $id('log-box');
   logBox.innerHTML = STATE.log.map(function (s) { return '<div>' + s + '</div>'; }).join('');
@@ -405,6 +418,15 @@ function doItemOnMon(name, idx) {
 
 // ---------------- 战斗界面 ----------------
 
+function effHint(mv, foeTypes) {
+  if (!mv || mv.power <= 0) return '';
+  const eff = typeEffectiveness(mv.type, foeTypes);
+  if (eff === 0) return '<span class="move-eff no">没有效果</span>';
+  if (eff < 1) return '<span class="move-eff weak">效果不佳</span>';
+  if (eff > 1) return '<span class="move-eff super">效果拔群</span>';
+  return '';
+}
+
 function renderBattle() {
   const b = STATE.battle;
   if (!b) { STATE.screen = 'map'; render(); return; }
@@ -429,12 +451,12 @@ function renderBattle() {
 
   let html = '';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
+  const foeTypes = foe.m.speciesData.types;
   for (let i = 0; i < validMoves.length; i++) {
     const mv = MOVES[validMoves[i]];
     html += '<button class="btn move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
-      mv.name + '<span class="move-type">' + mv.type + '</span></button>';
+      mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) + '</button>';
   }
-  const foeTypes = foe.m.speciesData.types;
   const hasEffective = validMoves.some(function (id) {
     const mv = MOVES[id];
     return mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0;

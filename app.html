@@ -83,6 +83,7 @@
     #screen-map.active { display: flex !important; }
     .scene-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; flex-wrap: wrap; gap: 4px; }
     .meta-line { font-size: 10px; color: var(--gold); margin-bottom: 8px; }
+    .goal-line { font-size: 10px; color: var(--blue); margin-bottom: 6px; }
     .log-box {
       flex: 1;
       min-height: 120px;
@@ -132,6 +133,10 @@
     #battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .move-btn { position: relative; }
     .move-type { display: block; font-size: 9px; color: var(--tc); margin-top: 3px; }
+    .move-eff { display: block; font-size: 9px; margin-top: 2px; }
+    .move-eff.super { color: var(--green); }
+    .move-eff.weak { color: #e8a33d; }
+    .move-eff.no { color: var(--text-dim); }
 
     /* ---------- 弹窗 ---------- */
     .overlay {
@@ -183,6 +188,7 @@
         <span id="weather-label"></span>
       </div>
       <div class="meta-line" id="meta-label"></div>
+      <div class="goal-line" id="goal-label"></div>
       <div id="log-box" class="log-box"></div>
       <div id="party-strip"></div>
       <div id="action-panel"></div>
