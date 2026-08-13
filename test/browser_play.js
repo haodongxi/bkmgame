@@ -63,6 +63,11 @@ async function main() {
   await evaljs('uiPickStarter(4);');
   ok(await evaljs("document.querySelector('#screen-map').classList.contains('active')"), '地图页激活');
   ok(await evaljs("STATE.party[0].name === '小火龙' && STATE.party[0].level === 5"), '开局小火龙 Lv5');
+  await evaljs('STATE.party.push(makeMon(16, 5, { nature: "勤奋" })); doMapAction(\'party\');');
+  ok(await evaljs("document.querySelectorAll('#modal-root .party-row').length === 2"), '队伍弹窗显示两只宝可梦');
+  ok(await evaljs("document.querySelector('#modal-root .lead-tag') !== null"), '首发宝可梦有标记');
+  await evaljs("document.querySelector('#modal-root .party-row:nth-child(2) .btn').click()");
+  ok(await evaljs("STATE.party[0].name === '波波'"), '点击设为首发后队首变为波波');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');

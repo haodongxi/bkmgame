@@ -190,7 +190,7 @@ function renderMap() {
     const m = STATE.party[i];
     strip += '<div class="party-card pixel-frame">' +
       '<div class="party-icon" id="party-icon-' + i + '"></div>' +
-      '<div class="party-info"><div class="party-name">' + m.name + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + (i === 0 ? '⭐ ' : '') + m.name + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + '</div>' + hpBar(m) + '</div></div>';
   }
   $id('party-strip').innerHTML = strip;
@@ -359,9 +359,11 @@ function showPartyModal(mode, itemName) {
   const isItem = mode === 'item';
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
-    const btn = isSwitch
-      ? '<button class="btn btn-sm" onclick="doSwitch(' + i + ')">上场</button>'
-      : (isItem ? '<button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button>' : '');
+    let btn = '';
+    if (isSwitch) btn = '<button class="btn btn-sm" onclick="doSwitch(' + i + ')">上场</button>';
+    else if (isItem) btn = '<button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button>';
+    else if (i === 0) btn = '<span class="lead-tag">首发</span>';
+    else btn = '<button class="btn btn-sm" onclick="doSetLead(' + i + ')">设为首发</button>';
     html += '<div class="party-row pixel-frame">' +
       '<div class="party-icon" id="modal-icon-' + i + '"></div>' +
       '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
@@ -377,6 +379,13 @@ function showPartyModal(mode, itemName) {
 
 function doSwitch(idx) {
   battleSwitch(idx);
+  save();
+  closeModal();
+  render();
+}
+
+function doSetLead(idx) {
+  setLeadMon(idx);
   save();
   closeModal();
   render();

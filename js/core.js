@@ -1275,6 +1275,15 @@ function healAll() {
   });
 }
 
+// 设置队伍首发：把指定宝可梦移到队首，战斗默认先派出
+function setLeadMon(idx) {
+  if (!STATE.party[idx]) { addLog('这只宝可梦不存在。'); return; }
+  const mon = STATE.party[idx];
+  STATE.party.splice(idx, 1);
+  STATE.party.unshift(mon);
+  addLog(mon.name + ' 被设为队伍首发！');
+}
+
 function getMartStock() {
   return MART_STOCK.filter(function (s) { return s.minBadges <= STATE.badges.length; }).map(function (s) { return s.name; });
 }
@@ -1599,6 +1608,7 @@ if (typeof module !== 'undefined' && module.exports) {
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
+    setLeadMon: setLeadMon,
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,

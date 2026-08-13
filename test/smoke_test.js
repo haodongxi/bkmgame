@@ -20,6 +20,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
+  '  setLeadMon: setLeadMon,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle,\n' +
@@ -552,6 +553,18 @@ ok(T.POKEDEX[11].learnset[1].indexOf('tackle') !== -1 && T.POKEDEX[14].learnset[
   ok(bad === 0, '500 场随机战斗无在场怪血量为 0 的卡死');
   ok(crash === 0, '500 场随机战斗无崩溃');
   ok(timeout === 0, '500 场随机战斗无 60 回合拖死');
+}
+
+// ---------- 9.9.5 队伍首发设置 ----------
+section('队伍首发设置');
+{
+  T.newGame(4);
+  T.getState().party.push(T.makeMon(16, 5, { nature: '勤奋' })); // 波波
+  ok(T.getState().party[0].species === 4, '初始首发为小火龙');
+  T.setLeadMon(1);
+  ok(T.getState().party[0].species === 16, '设置后首发变为波波');
+  T.startWildBattle(19, 3);
+  ok(T.getState().battle.player.mons[0].m.species === 16, '战斗默认派出首发波波');
 }
 
 // ---------- 10. 存档读档 ----------
