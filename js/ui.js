@@ -366,6 +366,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'center\')">🏥 宝可梦中心(恢复)</button>';
     html += '<button class="btn" onclick="doMapAction(\'mart\')">🏪 友好商店</button>';
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
+    html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
@@ -384,6 +385,7 @@ function renderMap() {
     }
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 打开背包</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
+    html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
     if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
@@ -408,6 +410,7 @@ function doMapAction(type) {
     case 'fish': fish(); break;
     case 'bag': showBagModal(false); return;
     case 'party': showPartyModal('view'); return;
+    case 'box': showBoxModal(); return;
     case 'pokedex': showPokedexModal(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
@@ -601,7 +604,7 @@ function showPartyModal(mode, itemName) {
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       btn + '</div>';
   }
-  if (!isSwitch && !isItem && !isBoxSwap && STATE.box.length > 0) {
+  if (!isSwitch && !isItem && !isBoxSwap) {
     html += '<button class="btn" onclick="showBoxModal()">📦 电脑箱（' + STATE.box.length + '只）</button>';
   }
   openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : (isBoxSwap ? '选择要存入箱子的宝可梦' : '精灵队伍')), html);
