@@ -8,8 +8,6 @@ const SAVE_KEY = 'bkm_poke_save_v1';
 const GAME_VERSION = 1;
 // 闲逛事件重新激活所需的野外遭遇战次数（离开城镇不再重置，需要打够次数）
 const WANDER_REFRESH_BATTLES = 3;
-// 阴阳师式行动条：行动条满 100 即获得一次行动，速度快的行动次数更多
-const ACTION_BAR_MAX = 100;
 
 const STATE = {
   version: GAME_VERSION,
@@ -434,8 +432,6 @@ function makeBattleMon(mon) {
   return {
     m: mon,
     stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 },
-    gauge: 0,          // 行动条 0~ACTION_BAR_MAX
-    actedThisRound: false,
     protect: false,
     recharge: false,
     confuseTurns: 0,
@@ -481,9 +477,7 @@ function startBattle(kind, opts) {
     trainerId: opts.trainerId || null,
     player: { active: playerActive, mons: playerMons },
     foe: { active: 0, mons: foeMons },
-    waitingPlayer: false,
-    playerActedMoveThisRound: false, // 本回合玩家是否出过招（出招后不能再用药）
-    playerEndedRound: false,         // 本回合玩家是否已使用道具/换人（行动结束，不再获得行动机会）
+    waitingPlayer: true,
     weather: null,
     over: false,
     outcome: null,
@@ -494,8 +488,6 @@ function startBattle(kind, opts) {
   const pActive = STATE.battle.player.mons[STATE.battle.player.active];
   addLog(opts.opening || ('野生的 ' + foeMons[0].m.name + ' 出现了！'), 'info');
   addLog('就决定是你了，' + pActive.m.name + '！', 'info');
-  // 推进行动条，直到轮到玩家输入（速度快的可能先动，其行动自动结算）
-  battleTick();
 }
 
 function startWildBattle(speciesId, level) {
@@ -903,148 +895,64 @@ function afterMove(user) {
   if (user.confuseTurns > 0) user.confuseTurns--;
 }
 
-// 行动后结算：该单位行动结束时的持续状态/回复（中毒/灼伤/剧毒/沙暴/寄生种子/束缚/吃剩的东西）
-function endOfAction(bm, log, kinds) {
+function endOfTurn(log, kinds) {
   const b = STATE.battle;
   if (!b) return;
-  if (!bm || bm.m.hp <= 0) return;
-  const m = bm.m;
+  const weather = b.weather && b.weather.turns > 0 ? b.weather.type : getBattleWeather();
+  const sides = [b.player, b.foe];
   const L = function (text, kind) {
     log.push(text);
     if (kinds) kinds.push(kind || '');
   };
-  const sideKind = (bm.side === 'player') ? 'bad' : 'good';
-  const weather = b.weather && b.weather.turns > 0 ? b.weather.type : getBattleWeather();
-  const other = bm.side === 'player' ? b.foe : b.player;
-  const otherActive = other.mons[other.active];
-  if (m.status === '中毒' || m.status === '灼伤') {
-    const chip = Math.max(1, Math.floor(m.stats.hp / 8));
-    m.hp -= chip;
-    L(m.name + ' 受到了' + (m.status === '中毒' ? '中毒' : '灼伤') + '伤害 ' + chip + ' 点！', sideKind);
-  }
-  if (m.status === '剧毒') {
-    bm.poisonTurns++;
-    const chip = Math.max(1, Math.floor(m.stats.hp / 16) * bm.poisonTurns);
-    m.hp -= chip;
-    L(m.name + ' 的剧毒发作了，受到了 ' + chip + ' 点伤害！', sideKind);
-  }
-  if (weather === '沙暴' && !isSandImmune(m)) {
-    const chip = Math.max(1, Math.floor(m.stats.hp / 16));
-    m.hp -= chip;
-    L(m.name + ' 被沙暴刮伤，受到了 ' + chip + ' 点伤害！', sideKind);
-  }
-  if (bm.leech) {
-    const chip = Math.max(1, Math.floor(m.stats.hp / 8));
-    m.hp -= chip;
-    L(m.name + ' 被寄生种子吸取了 ' + chip + ' 点HP！', sideKind);
-    if (otherActive && otherActive.m.hp > 0) {
-      otherActive.m.hp = Math.min(otherActive.m.stats.hp, otherActive.m.hp + chip);
+  for (let s = 0; s < sides.length; s++) {
+    const bm = sides[s].mons[sides[s].active];
+    if (!bm || bm.m.hp <= 0) continue;
+    const m = bm.m;
+    const sideKind = (bm.side === 'player') ? 'bad' : 'good';
+    if (m.status === '中毒' || m.status === '灼伤') {
+      const chip = Math.max(1, Math.floor(m.stats.hp / 8));
+      m.hp -= chip;
+      L(m.name + ' 受到了' + (m.status === '中毒' ? '中毒' : '灼伤') + '伤害 ' + chip + ' 点！', sideKind);
     }
-  }
-  if (bm.trapTurns > 0) {
-    bm.trapTurns--;
-    const chip = Math.max(1, Math.floor(m.stats.hp / 16));
-    m.hp -= chip;
-    L(m.name + ' 被困住，受到了 ' + chip + ' 点伤害！', sideKind);
-  }
-  if (m.held === '吃剩的东西' && m.hp > 0 && m.hp < m.stats.hp) {
-    const heal = Math.max(1, Math.floor(m.stats.hp / 16));
-    m.hp = Math.min(m.stats.hp, m.hp + heal);
-    L(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！', 'good');
-  }
-  if (m.hp <= 0) {
-    m.hp = 0;
-    L(m.name + ' 倒下了！', sideKind);
-  }
-}
-
-// 行动速度：由速度种族值派生（速度快=行动条涨得快=出招次数多）
-function actionSpeed(bm) {
-  return Math.max(1, Math.round(bm.m.stats.spe * 0.7 + 20));
-}
-
-// 下一名行动者：行动条满的单位中，条最高者先动；平局比行动速度；再平局随机
-function nextActor(b) {
-  const p = b.player.mons[b.player.active];
-  const f = b.foe.mons[b.foe.active];
-  const cands = [];
-  // 玩家使用道具/换人后本回合行动结束，不再获得行动机会
-  if (p && p.m.hp > 0 && p.gauge >= ACTION_BAR_MAX && !b.playerEndedRound) cands.push(p);
-  if (f && f.m.hp > 0 && f.gauge >= ACTION_BAR_MAX) cands.push(f);
-  if (cands.length === 0) return null;
-  if (cands.length === 1) return cands[0];
-  if (cands[0].gauge !== cands[1].gauge) return cands[0].gauge > cands[1].gauge ? cands[0] : cands[1];
-  if (actionSpeed(cands[0]) !== actionSpeed(cands[1])) return actionSpeed(cands[0]) > actionSpeed(cands[1]) ? cands[0] : cands[1];
-  return Math.random() < 0.5 ? cands[0] : cands[1];
-}
-
-// 双方各行动过至少一次 → 回合数 +1（天气倒计时、野生逃跑判定在这里）
-function checkRoundEnd(b) {
-  const p = b.player.mons[b.player.active];
-  const f = b.foe.mons[b.foe.active];
-  if (!p || !f || b.over) return;
-  if (p.actedThisRound && f.actedThisRound) {
-    b.turn++;
-    p.actedThisRound = false;
-    f.actedThisRound = false;
-    b.playerActedMoveThisRound = false;
-    b.playerEndedRound = false;
-    if (b.weather && b.weather.turns > 0) {
-      b.weather.turns--;
-      if (b.weather.turns === 0) addLog('天气恢复了正常……', 'info');
+    if (m.status === '剧毒') {
+      bm.poisonTurns++;
+      const chip = Math.max(1, Math.floor(m.stats.hp / 16) * bm.poisonTurns);
+      m.hp -= chip;
+      L(m.name + ' 的剧毒发作了，受到了 ' + chip + ' 点伤害！', sideKind);
     }
-    if (b.kind === 'wild' && b.turn >= 35 && Math.random() < 0.2) {
-      addLog('野生的 ' + f.m.name + ' 被你的气势吓到，逃走了！', 'info');
-      endBattle('run');
+    if (weather === '沙暴' && !isSandImmune(m)) {
+      const chip = Math.max(1, Math.floor(m.stats.hp / 16));
+      m.hp -= chip;
+      L(m.name + ' 被沙暴刮伤，受到了 ' + chip + ' 点伤害！', sideKind);
     }
-  }
-}
-
-// 敌方行动：消耗行动条 → 出招 → 行动后结算 → 处理倒下
-function resolveFoeAction() {
-  const b = STATE.battle;
-  if (!b || b.over) return;
-  const fm = b.foe.mons[b.foe.active];
-  const pm = b.player.mons[b.player.active];
-  fm.gauge -= ACTION_BAR_MAX;
-  fm.actedThisRound = true;
-  const log = [];
-  const kinds = [];
-  const fMove = pickFoeMove(fm, pm);
-  useMove(fm, pm, fMove, log, kinds);
-  let logPos = 0;
-  function flushLog() {
-    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
-    logPos = log.length;
-  }
-  flushLog();
-  if (!b.over) {
-    endOfAction(fm, log, kinds);
-    flushLog();
-    handleFaints(log, kinds);
-    flushLog();
-  }
-  if (!b.over) checkRoundEnd(b);
-}
-
-// 行动条推进：双方行动条按速度累加，满 100 就行动；直到轮到玩家输入或战斗结束
-function battleTick() {
-  const b = STATE.battle;
-  if (!b || b.over) return;
-  let guard = 0;
-  while (!b.over && !b.waitingPlayer && guard++ < 10000) {
-    b.player.mons.forEach(function (bm) { if (bm.m.hp > 0) bm.gauge += actionSpeed(bm); });
-    b.foe.mons.forEach(function (bm) { if (bm.m.hp > 0) bm.gauge += actionSpeed(bm); });
-    while (!b.over) {
-      const next = nextActor(b);
-      if (!next) break;
-      if (next.side === 'player') {
-        b.waitingPlayer = true;
-        return;
+    if (bm.leech) {
+      const chip = Math.max(1, Math.floor(m.stats.hp / 8));
+      m.hp -= chip;
+      L(m.name + ' 被寄生种子吸取了 ' + chip + ' 点HP！', sideKind);
+      const healer = sides[1 - s].mons[sides[1 - s].active];
+      if (healer && healer.m.hp > 0) {
+        healer.m.hp = Math.min(healer.m.stats.hp, healer.m.hp + chip);
       }
-      resolveFoeAction();
-      if (b.over) return;
     }
+    if (bm.trapTurns > 0) {
+      bm.trapTurns--;
+      const chip = Math.max(1, Math.floor(m.stats.hp / 16));
+      m.hp -= chip;
+      L(m.name + ' 被困住，受到了 ' + chip + ' 点伤害！', sideKind);
+    }
+    if (m.held === '吃剩的东西' && m.hp > 0 && m.hp < m.stats.hp) {
+      const heal = Math.max(1, Math.floor(m.stats.hp / 16));
+      m.hp = Math.min(m.stats.hp, m.hp + heal);
+      L(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！', 'good');
+    }
+    if (m.hp <= 0) {
+      m.hp = 0;
+      L(m.name + ' 倒下了！', sideKind);
+    }
+  }
+  if (b.weather && b.weather.turns > 0) {
+    b.weather.turns--;
+    if (b.weather.turns === 0) L('天气恢复了正常……', 'info');
   }
 }
 
@@ -1082,8 +990,6 @@ function handleFaints(log, kinds) {
     for (let i = 0; i < f.mons.length; i++) {
       if (f.mons[i].m.hp > 0) {
         f.active = i;
-        f.mons[i].gauge = 0;
-        f.mons[i].actedThisRound = false;
         L('对方派出了 ' + f.mons[i].m.name + '！', 'info');
         break;
       }
@@ -1096,8 +1002,6 @@ function handleFaints(log, kinds) {
       return true;
     }
     p.active = next;
-    p.mons[next].gauge = 0;
-    p.mons[next].actedThisRound = false;
     L('上吧，' + p.mons[next].m.name + '！', 'info');
   }
   return false;
@@ -1106,12 +1010,6 @@ function handleFaints(log, kinds) {
 function battleMove(idx) {
   const b = STATE.battle;
   if (!b || b.over) return;
-  if (b.playerEndedRound) { addLog('本回合已经使用过道具/换人，行动结束。', 'info'); return; }
-  // 兼容：若尚未轮到玩家（速度慢时敌方先动），先自动推进到玩家行动
-  if (!b.waitingPlayer) {
-    battleTick();
-    if (b.over || !b.waitingPlayer) return;
-  }
   const p = b.player;
   const f = b.foe;
   const pm = p.mons[p.active];
@@ -1126,42 +1024,43 @@ function battleMove(idx) {
     }
     pm.m.pp[idx]--;
   }
-  // 消耗本次行动
-  b.waitingPlayer = false;
-  pm.gauge -= ACTION_BAR_MAX;
-  pm.actedThisRound = true;
-  b.playerActedMoveThisRound = true;
+  const fMove = pickFoeMove(fm, pm);
   const log = [];
   const kinds = [];
+  b.turn++;
+  const pPriority = pMove.effect && pMove.effect.kind === 'priority';
+  const fPriority = fMove.effect && fMove.effect.kind === 'priority';
+  const pFirst = pPriority ? true : (fPriority ? false : speedOf(pm) >= speedOf(fm));
+  if (pFirst) {
+    useMove(pm, fm, pMove, log, kinds);
+    if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) useMove(fm, pm, fMove, log, kinds);
+  } else {
+    useMove(fm, pm, fMove, log, kinds);
+    if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) useMove(pm, fm, pMove, log, kinds);
+  }
   let logPos = 0;
   function flushLog() {
     for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
     logPos = log.length;
   }
-  useMove(pm, fm, pMove, log, kinds);
   flushLog();
   if (!b.over) {
-    endOfAction(pm, log, kinds);
+    endOfTurn(log, kinds);
     flushLog();
     handleFaints(log, kinds);
     flushLog();
   }
-  if (!b.over) checkRoundEnd(b);
-  // 推进到下一次玩家行动（期间敌方按行动条自动出手）或战斗结束
-  if (!b.over) battleTick();
+  if (!b.over && b.kind === 'wild' && b.turn >= 35 && Math.random() < 0.2) {
+    addLog('野生的 ' + b.foe.mons[b.foe.active].m.name + ' 被你的气势吓到，逃走了！', 'info');
+    endBattle('run');
+  }
+  if (!b.over) b.waitingPlayer = true;
 }
 
 function battleUseItem(itemName, opts) {
   const b = STATE.battle;
   if (!b || b.over) return;
   opts = opts || {};
-  // 兼容：若尚未轮到玩家，先自动推进到玩家行动
-  if (!b.waitingPlayer) {
-    battleTick();
-    if (b.over || !b.waitingPlayer) return;
-  }
-  if (b.playerActedMoveThisRound) { addLog('本回合已经出招，不能使用道具！', 'info'); return; }
-  if (b.playerEndedRound) { addLog('本回合的行动已经结束。', 'info'); return; }
   const item = ITEMS[itemName];
   if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具……', 'info'); return; }
   const p = b.player;
@@ -1170,10 +1069,6 @@ function battleUseItem(itemName, opts) {
   const fm = f.mons[f.active];
   if (item.type === 'ball') {
     if (b.kind !== 'wild') { addLog('训练家的宝可梦不能捕捉！', 'info'); return; }
-    b.waitingPlayer = false;
-    pm.gauge -= ACTION_BAR_MAX;
-    pm.actedThisRound = true;
-    b.playerEndedRound = true;
     removeItem(itemName, 1);
     if (!opts.skipThrowLog) addLog('你扔出了【' + itemName + '】！', 'info');
     if (item.master) {
@@ -1207,6 +1102,7 @@ function battleUseItem(itemName, opts) {
       return;
     }
     addLog('哦不！' + fm.m.name + ' 挣脱了精灵球！', 'bad');
+    const fMove = pickFoeMove(fm, pm);
     const log = [];
     const kinds = [];
     let logPos = 0;
@@ -1214,18 +1110,14 @@ function battleUseItem(itemName, opts) {
       for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
       logPos = log.length;
     }
-    endOfAction(pm, log, kinds);
+    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
     flushLog();
-    if (!b.over) { handleFaints(log, kinds); flushLog(); }
-    if (!b.over) { checkRoundEnd(b); battleTick(); }
+    if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
+    if (!b.over) b.waitingPlayer = true;
     return;
   }
   if (item.type === 'heal' || item.type === 'cure') {
     if (item.heal === 'full') {
-      b.waitingPlayer = false;
-      pm.gauge -= ACTION_BAR_MAX;
-      pm.actedThisRound = true;
-      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.hp = pm.m.stats.hp;
       pm.m.status = null;
@@ -1236,10 +1128,6 @@ function battleUseItem(itemName, opts) {
         addLog(pm.m.name + ' 的HP是满的！', 'info');
         return;
       }
-      b.waitingPlayer = false;
-      pm.gauge -= ACTION_BAR_MAX;
-      pm.actedThisRound = true;
-      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.hp += healed;
       addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！', 'good');
@@ -1248,18 +1136,10 @@ function battleUseItem(itemName, opts) {
         addLog(pm.m.name + ' 没有异常状态。', 'info');
         return;
       }
-      b.waitingPlayer = false;
-      pm.gauge -= ACTION_BAR_MAX;
-      pm.actedThisRound = true;
-      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.status = null;
       addLog(pm.m.name + ' 的异常状态被治愈了！', 'good');
     } else if (item.cure && pm.m.status === item.cure) {
-      b.waitingPlayer = false;
-      pm.gauge -= ACTION_BAR_MAX;
-      pm.actedThisRound = true;
-      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.status = null;
       addLog(pm.m.name + ' 的' + item.cure + '被治好了！', 'good');
@@ -1267,6 +1147,7 @@ function battleUseItem(itemName, opts) {
       addLog(pm.m.name + ' 没有' + item.cure + '状态。', 'info');
       return;
     }
+    const fMove = pickFoeMove(fm, pm);
     const log = [];
     const kinds = [];
     let logPos = 0;
@@ -1274,10 +1155,10 @@ function battleUseItem(itemName, opts) {
       for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
       logPos = log.length;
     }
-    endOfAction(pm, log, kinds);
+    if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
     flushLog();
-    if (!b.over) { handleFaints(log, kinds); flushLog(); }
-    if (!b.over) { checkRoundEnd(b); battleTick(); }
+    if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
+    if (!b.over) b.waitingPlayer = true;
     return;
   }
   addLog('这个道具不能在这里使用。', 'info');
@@ -1286,26 +1167,28 @@ function battleUseItem(itemName, opts) {
 function battleSwitch(idx) {
   const b = STATE.battle;
   if (!b || b.over) return;
-  if (b.playerEndedRound) { addLog('本回合的行动已经结束。', 'info'); return; }
-  if (!b.waitingPlayer) {
-    battleTick();
-    if (b.over || !b.waitingPlayer) return;
-  }
   const p = b.player;
+  const f = b.foe;
   const pm = p.mons[p.active];
   const target = p.mons[idx];
   if (!target || target.m.hp <= 0) { addLog('这只宝可梦已经没有体力了！'); return; }
   if (idx === p.active) { addLog('它已经在场上了！'); return; }
   if (pm.trapTurns > 0) { addLog(pm.m.name + ' 被困住，无法替换！'); return; }
-  // 换人消耗本次行动，新上场的宝可梦行动条从 0 开始
-  b.waitingPlayer = false;
-  pm.gauge -= ACTION_BAR_MAX;
-  pm.actedThisRound = true;
   p.active = idx;
-  target.gauge = 0;
-  target.actedThisRound = false;
   addLog('回来吧！上吧，' + target.m.name + '！', 'info');
-  if (!b.over) { checkRoundEnd(b); battleTick(); }
+  const fm = f.mons[f.active];
+  const fMove = pickFoeMove(fm, target);
+  const log = [];
+  const kinds = [];
+  let logPos = 0;
+  function flushLog() {
+    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+    logPos = log.length;
+  }
+  if (fm.m.hp > 0 && target.m.hp > 0) useMove(fm, target, fMove, log, kinds);
+  flushLog();
+  if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
+  if (!b.over) b.waitingPlayer = true;
 }
 
 function battleRun() {
@@ -2175,7 +2058,6 @@ if (typeof module !== 'undefined' && module.exports) {
     startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle,
     startRocketBattle: startRocketBattle, startGymBattle: startGymBattle,
     battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,
-    battleTick: battleTick, actionSpeed: actionSpeed,
     resolveRocketSell: resolveRocketSell, resolvePendingLearn: resolvePendingLearn,
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,

@@ -27,7 +27,6 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  useWeatherItem: useWeatherItem,\n' +
   '  rollWeather: rollWeather, refreshWeather: refreshWeather,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
-  '  battleTick: battleTick, actionSpeed: actionSpeed,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
   '  wanderTown: wanderTown\n' +
@@ -1007,96 +1006,63 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   ok(dup === 0, '回合日志无重复行');
 }
 
-// ---------- 13. MVP-A：行动条速度系统 ----------
-section('行动条速度系统');
+// ---------- 13. 经典回合制（你一下我一下，速度决定先手） ----------
+section('经典回合制');
 {
   T.newGame(4);
   const s = T.getState();
-  s.party = [T.makeMon(16, 50, { nature: '勤奋' })]; // 波波（快）
+  s.party = [T.makeMon(16, 60, { nature: '勤奋' })]; // 波波（快）
   s.party[0].moves = ['gust'];
   s.party[0].pp = [35];
-  T.startWildBattle(11, 50); // 铁甲蛹（慢且弱，保证能打多回合）
+  T.startWildBattle(11, 40); // 铁甲蛹（慢）
   s.battle.foe.mons[0].m.moves = ['tackle'];
   s.battle.foe.mons[0].m.pp = [35];
-  ok(T.actionSpeed(s.battle.player.mons[0]) > T.actionSpeed(s.battle.foe.mons[0]), '波波行动速度高于卡比兽');
-  ok(s.battle.waitingPlayer === true, '速度快的波波先行动');
+  ok(s.party[0].stats.spe > s.battle.foe.mons[0].m.stats.spe, '波波速度高于铁甲蛹');
+  const start = s.log.length;
+  T.battleMove(0);
+  const firstMove = s.log.slice(start).filter(function (l) { return l.indexOf('使用了') !== -1; })[0] || '';
+  ok(firstMove.indexOf('波波') === 0, '速度快的一方先出手（首条出招为波波）');
   let guard = 0;
   while (s.battle && !s.battle.over && s.battle.turn < 4 && guard++ < 200) {
-    if (s.battle.waitingPlayer) {
-      const active = s.battle.player.mons[s.battle.player.active];
-      T.battleMove(damageMoveIdx(active));
-    } else {
-      T.battleTick();
-    }
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
   }
-  const playerActs = s.log.filter(function (l) { return l.indexOf('波波 使用了') !== -1; }).length;
-  const foeActs = s.log.filter(function (l) { return l.indexOf('铁甲蛹 使用了') !== -1; }).length;
-  ok(playerActs > foeActs, '速度快的波波行动次数更多（' + playerActs + ' vs ' + foeActs + '）');
 }
 {
   T.newGame(4);
   const s = T.getState();
   s.party = [T.makeMon(143, 50, { nature: '勤奋' })]; // 卡比兽（慢）
   T.startWildBattle(16, 50); // 波波（快）
-  ok(s.battle && s.battle.waitingPlayer === true, '速度慢的卡比兽后行动（波波先行）');
-  ok(s.log.some(function (l) { return l.indexOf('波波 使用了') !== -1; }), '开局由速度快的波波自动先出手');
+  ok(s.party[0].stats.spe < s.battle.foe.mons[0].m.stats.spe, '卡比兽速度低于波波');
+  const start = s.log.length;
+  T.battleMove(damageMoveIdx(s.battle.player.mons[0]));
+  const firstMove = s.log.slice(start).filter(function (l) { return l.indexOf('使用了') !== -1; })[0] || '';
+  ok(firstMove.indexOf('波波') === 0, '速度慢的一方后出手（首条出招为敌方的波波）');
   while (s.battle && !s.battle.over && s.battle.turn < 10) {
-    if (s.battle.waitingPlayer) {
-      const active = s.battle.player.mons[s.battle.player.active];
-      T.battleMove(damageMoveIdx(active));
-    } else {
-      T.battleTick();
-    }
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
   }
 }
 {
-  // 道具与攻击互斥：出招后本回合不能再用药（快攻手同回合二次行动时道具被禁）
+  // 道具与攻击互斥（一回合一个指令）：用药 = 本回合行动，随后敌方同回合反击；下一回合才可出招
   T.newGame(4);
   const s = T.getState();
-  s.party = [T.makeMon(26, 40, { nature: '勤奋' })]; // 雷丘（很快）
-  s.party[0].moves = ['thundershock'];
-  s.party[0].pp = [30];
-  s.party[0].hp = 10;
+  s.party = [T.makeMon(143, 30, { nature: '勤奋' })]; // 卡比兽（皮糙肉厚）
+  s.party[0].hp = 20;
   s.bag['伤药'] = 2;
-  T.startWildBattle(11, 40); // 铁甲蛹（很慢）
-  s.battle.foe.mons[0].m.moves = ['tackle'];
-  s.battle.foe.mons[0].m.pp = [35];
-  ok(s.battle.waitingPlayer === true, '快攻手先行动');
-  T.battleMove(0);
-  ok(s.battle && s.battle.waitingPlayer === true && s.battle.playerActedMoveThisRound === true, '同一回合内玩家再次获得行动机会（已出招标记保持）');
+  T.startWildBattle(16, 8); // 波波（弱）
+  const start = s.log.length;
   T.battleUseItem('伤药');
-  ok(s.bag['伤药'] === 2, '出招后本回合道具被禁用（未消耗）');
-  ok(s.log.some(function (l) { return l.indexOf('本回合已经出招') !== -1; }), '有互斥提示');
-  while (s.battle && !s.battle.over && s.battle.turn < 10) {
-    if (s.battle.waitingPlayer) T.battleMove(0);
-    else T.battleTick();
-  }
-}
-{
-  // 用药后本回合行动结束：不能出招，下一回合恢复
-  T.newGame(4);
-  const s = T.getState();
-  s.party = [T.makeMon(16, 40, { nature: '勤奋' })];
-  s.party[0].moves = ['gust'];
-  s.party[0].pp = [35];
-  T.startWildBattle(11, 40);
-  s.battle.foe.mons[0].m.moves = ['tackle'];
-  s.battle.foe.mons[0].m.pp = [35];
-  s.battle.waitingPlayer = true;
-  s.battle.playerEndedRound = true;
-  s.battle.player.mons[0].actedThisRound = true;
+  const itemTurn = s.log.slice(start);
+  ok(s.bag['伤药'] === 1, '使用道具消耗 1 个');
+  ok(itemTurn.some(function (l) { return l.indexOf('回复了') !== -1; }), '道具生效');
+  ok(itemTurn.some(function (l) { return l.indexOf('波波 使用了') !== -1; }), '用药后敌方同回合反击（你一下我一下）');
   const ppBefore = s.battle.player.mons[0].m.pp[0];
-  T.battleMove(0);
-  ok(s.battle.player.mons[0].m.pp[0] === ppBefore, '用药后本回合无法出招（PP 未消耗）');
-  ok(s.log.some(function (l) { return l.indexOf('行动结束') !== -1; }), '有回合结束提示');
-  s.battle.waitingPlayer = false; // 真实流程中用药后 waitingPlayer 已是 false，这里手动还原
-  T.battleTick(); // 敌方行动 → 回合结束 → 下一回合轮到玩家
-  ok(s.battle && s.battle.playerEndedRound === false && s.battle.waitingPlayer === true, '下一回合行动恢复');
   T.battleMove(0);
   ok(s.battle.player.mons[0].m.pp[0] === ppBefore - 1, '下一回合可正常出招');
   while (s.battle && !s.battle.over && s.battle.turn < 10) {
-    if (s.battle.waitingPlayer) T.battleMove(0);
-    else T.battleTick();
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
   }
 }
 

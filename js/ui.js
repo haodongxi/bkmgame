@@ -29,13 +29,11 @@ function syncBattleBars() {
     const pct = Math.max(0, Math.round(m.hp / m.stats.hp * 100));
     const fill = sides[i].el.querySelector('.hpbar-fill');
     const text = sides[i].el.querySelector('.hp-text');
-    const bar = sides[i].el.querySelector('.bar-fill');
     if (fill) {
       fill.style.width = pct + '%';
       fill.style.background = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
     }
     if (text) text.textContent = 'HP ' + Math.max(0, m.hp) + '/' + m.stats.hp;
-    if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round(sides[i].bm.gauge))) + '%';
   }
 }
 
@@ -765,8 +763,7 @@ function renderBattle() {
   bLog.scrollTop = bLog.scrollHeight;
 
   let html = '';
-  const moveUsedHint = b.playerActedMoveThisRound ? '（本回合已出招，不能用道具）' : '';
-  html += '<div class="turn-hint">' + (b.waitingPlayer ? ('✦ 轮到你了！选择指令' + moveUsedHint) : '……对方行动中……') + '</div>';
+  html += '<div class="turn-hint">' + (b.waitingPlayer ? '✦ 轮到你了！选择指令' : '……对方行动中……') + '</div>';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
   const foeTypes = foe.m.speciesData.types;
   let usableDamaging = false;
@@ -781,8 +778,7 @@ function renderBattle() {
   if (!usableDamaging) {
     html += '<button class="btn move-btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
-  const itemBlocked = b.playerActedMoveThisRound;
-  html += '<button class="btn"' + ((!b.waitingPlayer || itemBlocked) ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具' + (itemBlocked ? '（本回合已出招）' : '') + '</button>';
+  html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具</button>';
   html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleParty()">🔄 更换精灵</button>';
   html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
   $id('battle-actions').innerHTML = html;
@@ -790,12 +786,10 @@ function renderBattle() {
 
 function battleCard(bm, side, hit) {
   const m = bm.m;
-  const gaugePct = Math.max(0, Math.min(100, Math.round(bm.gauge)));
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
     '<div class="battle-info"><div class="battle-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
-    '<div class="battle-bar"><span>行动条</span><div class="bar-track"><div class="bar-fill" style="width:' + gaugePct + '%"></div></div><b>' + gaugePct + '</b></div>' +
     '</div></div>';
 }
 
