@@ -1065,6 +1065,28 @@ section('经典回合制');
     T.battleMove(damageMoveIdx(active));
   }
 }
+{
+  // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(16, 40, { nature: '勤奋' })]; // 波波（快）
+  s.party[0].moves = ['gust'];
+  s.party[0].pp = [35];
+  T.startWildBattle(11, 40); // 铁甲蛹（慢）
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  const start = s.log.length;
+  const foeHpBefore = s.battle.foe.mons[0].m.hp;
+  T.battleMove(0);
+  const newLines = s.log.length - start;
+  ok(s.battle && s.battle.hpSteps.length >= newLines, 'HP 快照覆盖本回合日志（' + (s.battle ? s.battle.hpSteps.length : '-') + ' >= ' + newLines + '）');
+  const firstSnapIdx = start - s.battle.logStart;
+  ok(s.battle && s.battle.hpSteps[firstSnapIdx].foe < foeHpBefore, '玩家先手时首行快照敌方已掉血（分步结算）');
+  while (s.battle && !s.battle.over && s.battle.turn < 10) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);

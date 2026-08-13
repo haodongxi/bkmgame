@@ -15,33 +15,31 @@ function logLineHtml(text, i) {
   return '<div class="log-line' + (kind ? ' log-' + kind : '') + '">' + text + '</div>';
 }
 
-// 把 HP / 行动条直接更新到最终值（配合 CSS 过渡产生平滑动画，不做整页重绘）
-function syncBattleBars() {
-  const b = STATE.battle || STATE.lastBattleView;
-  if (!b) return;
-  const sides = [
-    { el: $id('battle-foe'), bm: b.foe.mons[b.foe.active] },
-    { el: $id('battle-player'), bm: b.player.mons[b.player.active] }
-  ];
-  for (let i = 0; i < sides.length; i++) {
-    if (!sides[i].el || !sides[i].bm) continue;
-    const m = sides[i].bm.m;
-    const pct = Math.max(0, Math.round(m.hp / m.stats.hp * 100));
-    const fill = sides[i].el.querySelector('.hpbar-fill');
-    const text = sides[i].el.querySelector('.hp-text');
+// 按 HP 快照更新一侧血条（配合 CSS 过渡产生平滑动画，不做整页重绘）
+function applyHpSnapshot(snap) {
+  if (!snap) return;
+  const setBar = function (el, hp, max) {
+    if (!el) return;
+    const pct = Math.max(0, Math.round(hp / max * 100));
+    const fill = el.querySelector('.hpbar-fill');
+    const text = el.querySelector('.hp-text');
     if (fill) {
       fill.style.width = pct + '%';
       fill.style.background = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
     }
-    if (text) text.textContent = 'HP ' + Math.max(0, m.hp) + '/' + m.stats.hp;
-  }
+    if (text) text.textContent = 'HP ' + Math.max(0, hp) + '/' + max;
+  };
+  setBar($id('battle-foe'), snap.foe, snap.foeMax);
+  setBar($id('battle-player'), snap.player, snap.playerMax);
 }
 
 // 战斗行动播放：新增日志逐条滚动 + HP/行动条动画，期间仅禁用按钮（快、轻量、不整页重绘）
-function playBattleResult(from) {
+function playBattleResult(from, battleRef) {
   const total = STATE.log.length;
   if (total <= from) { render(); return; }
   if (_uiPlaying) return;
+  const hpSteps = battleRef ? battleRef.hpSteps : [];
+  const hpOffset = battleRef ? battleRef.logStart : 0;
   _uiPlaying = true;
   const actions = $id('battle-actions');
   if (actions) {
@@ -49,10 +47,9 @@ function playBattleResult(from) {
     const hint = actions.querySelector('.turn-hint');
     if (hint) hint.textContent = '……结算中……';
   }
-  syncBattleBars();
   const box = document.querySelector('#screen-battle.active') ? $id('battle-log') : $id('log-box');
   const n = total - from;
-  const interval = n > 12 ? 160 : (n > 6 ? 240 : 320);
+  const interval = n > 12 ? 200 : (n > 6 ? 300 : 380);
   let i = 0;
   (function tick() {
     if (i >= n) {
@@ -62,6 +59,8 @@ function playBattleResult(from) {
     }
     const line = STATE.log[from + i];
     const kind = STATE.logKinds[from + i];
+    const snap = hpSteps[from + i - hpOffset];
+    if (snap) applyHpSnapshot(snap);
     const div = document.createElement('div');
     div.className = 'log-line' + (kind ? ' log-' + kind : '');
     div.textContent = line;
@@ -539,10 +538,11 @@ function doBagUse(name, inBattle) {
   const item = ITEMS[name];
   if (inBattle) {
     const from = STATE.log.length;
+    const battleRef = STATE.battle;
     battleUseItem(name);
     save();
     closeModal();
-    playBattleResult(from);
+    playBattleResult(from, battleRef);
     return;
   }
   if (item.type === 'repel') {
@@ -648,10 +648,11 @@ function doBoxSwapConfirm(partyIdx) {
 function doSwitch(idx) {
   if (_uiPlaying) return;
   const from = STATE.log.length;
+  const battleRef = STATE.battle;
   battleSwitch(idx);
   save();
   closeModal();
-  playBattleResult(from);
+  playBattleResult(from, battleRef);
 }
 
 function doSetLead(idx) {
@@ -796,9 +797,10 @@ function battleCard(bm, side, hit) {
 function doBattleMove(i) {
   if (_uiPlaying) return;
   const from = STATE.log.length;
+  const battleRef = STATE.battle;
   battleMove(i);
   save();
-  playBattleResult(from);
+  playBattleResult(from, battleRef);
 }
 
 function doBattleBag() {
@@ -814,9 +816,10 @@ function doBattleParty() {
 function doBattleRun() {
   if (_uiPlaying) return;
   const from = STATE.log.length;
+  const battleRef = STATE.battle;
   battleRun();
   save();
-  playBattleResult(from);
+  playBattleResult(from, battleRef);
 }
 
 // ---------------- 弹窗：学招 / 火箭队 ----------------

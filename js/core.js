@@ -66,6 +66,8 @@ function pickWeighted(pool) {
 function addLog(text, kind) {
   STATE.log.push(text);
   STATE.logKinds.push(kind || '');
+  // 战斗内每行日志都记录一份当前 HP 快照，供播放层血条分步结算
+  if (STATE.battle && STATE.battle.hpSteps) STATE.battle.hpSteps.push(battleHpSnapshot());
   if (STATE.log.length > 2000) STATE.log.splice(0, STATE.log.length - 2000);
   if (STATE.logKinds.length > 2000) STATE.logKinds.splice(0, STATE.logKinds.length - 2000);
 }
@@ -478,6 +480,7 @@ function startBattle(kind, opts) {
     player: { active: playerActive, mons: playerMons },
     foe: { active: 0, mons: foeMons },
     waitingPlayer: true,
+    hpSteps: [],   // 每行战斗日志对应的 HP 快照（用于播放时血条分步结算）
     weather: null,
     over: false,
     outcome: null,
@@ -488,6 +491,18 @@ function startBattle(kind, opts) {
   const pActive = STATE.battle.player.mons[STATE.battle.player.active];
   addLog(opts.opening || ('野生的 ' + foeMons[0].m.name + ' 出现了！'), 'info');
   addLog('就决定是你了，' + pActive.m.name + '！', 'info');
+}
+
+// 当前在场双方 HP 快照（供播放层逐条对齐）
+function battleHpSnapshot() {
+  const b = STATE.battle;
+  if (!b) return null;
+  const p = b.player.mons[b.player.active];
+  const f = b.foe.mons[b.foe.active];
+  return {
+    player: p ? p.m.hp : 0, playerMax: p ? p.m.stats.hp : 1,
+    foe: f ? f.m.hp : 0, foeMax: f ? f.m.stats.hp : 1
+  };
 }
 
 function startWildBattle(speciesId, level) {
@@ -1027,23 +1042,30 @@ function battleMove(idx) {
   const fMove = pickFoeMove(fm, pm);
   const log = [];
   const kinds = [];
+  let logPos = 0;
+  function flushLog() {
+    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+    logPos = log.length;
+  }
   b.turn++;
   const pPriority = pMove.effect && pMove.effect.kind === 'priority';
   const fPriority = fMove.effect && fMove.effect.kind === 'priority';
   const pFirst = pPriority ? true : (fPriority ? false : speedOf(pm) >= speedOf(fm));
   if (pFirst) {
     useMove(pm, fm, pMove, log, kinds);
-    if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) useMove(fm, pm, fMove, log, kinds);
+    flushLog();
+    if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) {
+      useMove(fm, pm, fMove, log, kinds);
+      flushLog();
+    }
   } else {
     useMove(fm, pm, fMove, log, kinds);
-    if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) useMove(pm, fm, pMove, log, kinds);
+    flushLog();
+    if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) {
+      useMove(pm, fm, pMove, log, kinds);
+      flushLog();
+    }
   }
-  let logPos = 0;
-  function flushLog() {
-    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
-    logPos = log.length;
-  }
-  flushLog();
   if (!b.over) {
     endOfTurn(log, kinds);
     flushLog();
