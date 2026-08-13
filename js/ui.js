@@ -384,7 +384,7 @@ function showShopModal() {
     const item = ITEMS[entry.name];
     if (!item) continue;
     const locked = entry.minBadges > STATE.badges.length;
-    html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span>' + item.name + '（' + item.price + '金）' +
+    html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span title="' + item.desc + '">' + item.name + '（' + item.price + '金）' +
       (locked ? ' <span class="shop-lock">需 ' + entry.minBadges + ' 徽章</span>' : '') + '</span>' +
       (locked ? '<button class="btn btn-sm" disabled>未解锁</button>' :
         '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\')">购买</button>') + '</div>';
@@ -397,7 +397,7 @@ function showShopModal() {
     if (!item) continue;
     const price = item.sell || Math.floor((item.price || 0) / 2);
     if (price <= 0) continue;
-    html += '<div class="shop-row"><span>' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
+    html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
       '<button class="btn btn-sm" onclick="doSell(\'' + keys[i] + '\')">卖出</button></div>';
   }
   openModal('友好商店', html);
@@ -437,7 +437,7 @@ function showBagModal(inBattle) {
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
     if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost')) usable = true;
-    html += '<div class="shop-row"><span>' + name + ' ×' + bagCount(name) + '</span>' +
+    html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
   }
