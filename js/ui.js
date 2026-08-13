@@ -420,7 +420,7 @@ function showBagModal(inBattle) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost')) usable = true;
     html += '<div class="shop-row"><span>' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
@@ -439,6 +439,13 @@ function doBagUse(name, inBattle) {
   }
   if (item.type === 'repel') {
     useRepel();
+    save();
+    closeModal();
+    render();
+    return;
+  }
+  if (item.type === 'weather' || item.type === 'weatherboost') {
+    useWeatherItem(name);
     save();
     closeModal();
     render();

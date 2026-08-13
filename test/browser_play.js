@@ -117,6 +117,7 @@ async function main() {
   await evaljs('closeModal();');
   await evaljs("STATE.badges = ['灰色徽章','蓝色徽章','橙色徽章','彩虹徽章','金色徽章','粉红徽章','深红徽章','绿色徽章']; doMapAction('mart');");
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('大师球') !== -1; })"), '8徽章商店有大师球');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('求雨符') !== -1; })"), '商店有天气符');
   await evaljs('closeModal();');
   await evaljs('STATE.badges = [];');
 

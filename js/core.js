@@ -38,7 +38,9 @@ const STATE = {
   banditToll: false,
   banditPrice: 800,
   medicOffer: false,
-  repel: 0
+  repel: 0,
+  weatherBias: null,
+  weatherBoost: 0
 };
 
 // ---------------- 基础工具 ----------------
@@ -305,22 +307,38 @@ function tryStoneEvolution(mon, stoneName) {
 
 // ---------------- 状态 / 天气 ----------------
 
-function rollWeather(nodeId) {
+function rollWeather(nodeId, biasType) {
   const node = MAP_NODES[nodeId];
   const weights = node.weatherWeights || { '晴': 100 };
   const keys = Object.keys(weights);
   const pool = keys.map(function (k) { return { w: weights[k], weather: k }; });
+  if (biasType) {
+    const baseTotal = pool.reduce(function (s, p) { return s + p.w; }, 0);
+    let target = null;
+    for (let i = 0; i < pool.length; i++) {
+      if (pool[i].weather === biasType) { target = pool[i]; break; }
+    }
+    if (target) target.w = Math.max(target.w, baseTotal * 2);
+    else pool.push({ w: baseTotal * 2, weather: biasType });
+  }
   return pickWeighted(pool).weather;
 }
 
 function refreshWeather(force) {
   if (STATE.battle) return;
-  if (force || Math.random() < 0.25) {
-    const next = rollWeather(STATE.nodeId);
+  const biasType = STATE.weatherBias ? STATE.weatherBias.type : null;
+  if (STATE.weatherBoost > 0) STATE.weatherBoost--;
+  const chance = STATE.weatherBoost > 0 ? 0.5 : 0.25;
+  if (force || Math.random() < chance) {
+    const next = rollWeather(STATE.nodeId, biasType);
     if (next !== STATE.weather) {
       STATE.weather = next;
       addLog('天气变成了 ' + WEATHER[next].icon + ' ' + WEATHER[next].name + '！');
     }
+  }
+  if (STATE.weatherBias) {
+    STATE.weatherBias.steps--;
+    if (STATE.weatherBias.steps <= 0) STATE.weatherBias = null;
   }
 }
 
@@ -1177,7 +1195,7 @@ function gotoNode(nodeId) {
     return;
   }
   STATE.nodeId = nodeId;
-  STATE.weather = rollWeather(nodeId);
+  STATE.weather = rollWeather(nodeId, STATE.weatherBias ? STATE.weatherBias.type : null);
   if (node.type === 'town') STATE.lastTown = nodeId;
   if (node.type === 'town') STATE.wanderUsed = false;
   addLog('你来到了 ' + node.name + '。');
@@ -1372,6 +1390,22 @@ function useRepel() {
   removeItem('喷雾剂', 1);
   STATE.repel = 10;
   addLog('你使用了喷雾剂，接下来 10 次探索不会遇到野生宝可梦！');
+}
+
+function useWeatherItem(itemName) {
+  const item = ITEMS[itemName];
+  if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具。'); return; }
+  if (item.type === 'weather') {
+    removeItem(itemName, 1);
+    STATE.weatherBias = { type: item.weather, steps: 10 };
+    addLog('你使用了【' + itemName + '】，接下来 10 次探索中 ' + WEATHER[item.weather].name + ' 出现的概率会大幅提升！');
+  } else if (item.type === 'weatherboost') {
+    removeItem(itemName, 1);
+    STATE.weatherBoost = 10;
+    addLog('你使用了【' + itemName + '】，接下来 10 次探索天气刷新的概率翻倍！');
+  } else {
+    addLog('这个道具不能这样使用。');
+  }
 }
 
 function startMerchantOffer() {
@@ -1730,6 +1764,8 @@ function newGame(starterId) {
   STATE.banditPrice = 800;
   STATE.medicOffer = false;
   STATE.repel = 0;
+  STATE.weatherBias = null;
+  STATE.weatherBoost = 0;
   STATE.seenDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
@@ -1821,6 +1857,8 @@ function load() {
     STATE.banditPrice = 800;
     STATE.medicOffer = false;
     STATE.repel = 0;
+    STATE.weatherBias = null;
+    STATE.weatherBoost = 0;
     STATE.battle = null;
     STATE.pendingLearn = [];
     STATE.log = [];
@@ -1848,6 +1886,8 @@ function resetGame() {
   STATE.banditToll = false;
   STATE.medicOffer = false;
   STATE.repel = 0;
+  STATE.weatherBias = null;
+  STATE.weatherBoost = 0;
   STATE.wanderUsed = false;
   STATE.screen = 'title';
 }
@@ -1872,9 +1912,11 @@ if (typeof module !== 'undefined' && module.exports) {
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,
     startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,
     startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,
+    useWeatherItem: useWeatherItem,
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,
-    expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle
+    expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
+    rollWeather: rollWeather, refreshWeather: refreshWeather
   };
 }

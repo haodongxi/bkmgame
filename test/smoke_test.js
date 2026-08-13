@@ -24,6 +24,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
   '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
+  '  useWeatherItem: useWeatherItem,\n' +
+  '  rollWeather: rollWeather, refreshWeather: refreshWeather,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
@@ -816,6 +818,25 @@ section('MVP8：商店提价与探索金币事件');
   T.getState().medicOffer = true;
   T.resolveMedic('pp');
   ok(T.getState().money === 3500 && mon.pp[0] > 0, '旅行补给商回PP');
+}
+
+// ---------- 10.7 MVP8.1：天气偏向道具 ----------
+section('MVP8.1：天气偏向道具');
+{
+  T.newGame(4);
+  T.getState().bag['求雨符'] = 1;
+  T.useWeatherItem('求雨符');
+  ok(T.getState().weatherBias && T.getState().weatherBias.type === '雨' && T.getState().weatherBias.steps === 10, '求雨符设置天气偏向');
+  ok(T.getState().bag['求雨符'] === undefined, '求雨符被消耗');
+  for (let i = 0; i < 10; i++) T.refreshWeather(false);
+  ok(T.getState().weatherBias === null, '天气偏向 10 次探索后结束');
+}
+{
+  T.newGame(4);
+  T.getState().bag['气象罗盘'] = 1;
+  T.useWeatherItem('气象罗盘');
+  ok(T.getState().weatherBoost === 10 && T.getState().bag['气象罗盘'] === undefined, '气象罗盘设置刷新概率翻倍');
+  ok(['晴', '雨', '雷阵雨', '沙暴'].indexOf(T.rollWeather('pallet', '沙暴')) !== -1, '偏向天气 roll 正常');
 }
 
 // ---------- 11. 商店 ----------
