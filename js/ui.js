@@ -116,6 +116,17 @@ function hpBar(mon) {
     '<div class="hp-text">HP ' + Math.max(0, mon.hp) + '/' + mon.stats.hp + '</div>';
 }
 
+function ppSummary(mon) {
+  let left = 0, max = 0;
+  for (let i = 0; i < mon.moves.length; i++) {
+    const mv = MOVES[mon.moves[i]];
+    if (!mv) continue;
+    max += mv.pp;
+    left += (mon.pp && mon.pp[i] !== undefined) ? Math.max(0, mon.pp[i]) : mv.pp;
+  }
+  return { left: left, max: max };
+}
+
 function scrollLogToBottom() {
   const box = $id('log-box');
   if (box) box.scrollTop = box.scrollHeight;
@@ -274,7 +285,8 @@ function renderMap() {
     strip += '<div class="party-card pixel-frame">' +
       '<div class="party-icon" id="party-icon-' + i + '"></div>' +
       '<div class="party-info"><div class="party-name">' + (i === 0 ? '⭐ ' : '') + m.name + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
-      '<div class="party-lv">Lv.' + m.level + '</div>' + hpBar(m) + '</div></div>';
+      '<div class="party-lv">Lv.' + m.level + '</div>' + hpBar(m) +
+      '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div></div>';
   }
   $id('party-strip').innerHTML = strip;
   for (let i = 0; i < STATE.party.length; i++) {
@@ -475,7 +487,8 @@ function showPartyModal(mode, itemName) {
       '<div class="party-icon" id="modal-icon-' + i + '"></div>' +
       '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
-      (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) + '</div>' +
+      (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
+      '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       btn + '</div>';
   }
   openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : '精灵队伍'), html);
@@ -677,8 +690,9 @@ function doLearn(replaceIdx) {
 
 function showRocketSellModal() {
   const ev = ROCKET_EVENTS.sell;
-  openModal('火箭队小兵', '<div class="shop-hint">' + ev.text + '</div>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doRocketSell(true)">付 ' + ev.price + ' 金买下</button>' +
+  const canBuy = STATE.money >= ev.price;
+  openModal('火箭队小兵', '<div class="shop-hint">' + ev.text + '（你当前有 ' + STATE.money + ' 金币）</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" ' + (canBuy ? '' : 'disabled ') + 'onclick="doRocketSell(true)">付 ' + ev.price + ' 金买下' + (canBuy ? '' : '（金币不足）') + '</button>' +
     '<button class="btn" onclick="doRocketSell(false)">不理他</button></div>');
 }
 
@@ -692,8 +706,9 @@ function doRocketSell(pay) {
 // ---------------- 弹窗：鲤鱼王大叔 ----------------
 
 function showMagikarpModal() {
-  openModal('鲤鱼王大叔', '<div class="shop-hint">稀有宝可梦鲤鱼王，只要 500 金！</div>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doMagikarpBuy(true)">付 500 金买下</button>' +
+  const canBuy = STATE.money >= 500;
+  openModal('鲤鱼王大叔', '<div class="shop-hint">稀有宝可梦鲤鱼王，只要 500 金！（你当前有 ' + STATE.money + ' 金币）</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" ' + (canBuy ? '' : 'disabled ') + 'onclick="doMagikarpBuy(true)">付 500 金买下' + (canBuy ? '' : '（金币不足）') + '</button>' +
     '<button class="btn" onclick="doMagikarpBuy(false)">不买</button></div>');
 }
 
@@ -710,8 +725,9 @@ function showMerchantModal() {
   const d = STATE.merchantOffer;
   if (!d) return;
   const label = d.kind === 'item' ? '【' + d.name + '】' : POKEDEX[d.id].name;
-  openModal('神秘商人', '<div class="shop-hint">神秘商人拿出一件东西：「只要 ' + d.price + ' 金币，' + label + ' 就是你的了！」</div>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doMerchantBuy(true)">付 ' + d.price + ' 金买下</button>' +
+  const canBuy = STATE.money >= d.price;
+  openModal('神秘商人', '<div class="shop-hint">神秘商人拿出一件东西：「只要 ' + d.price + ' 金币，' + label + ' 就是你的了！」（你当前有 ' + STATE.money + ' 金币）</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" ' + (canBuy ? '' : 'disabled ') + 'onclick="doMerchantBuy(true)">付 ' + d.price + ' 金买下' + (canBuy ? '' : '（金币不足）') + '</button>' +
     '<button class="btn" onclick="doMerchantBuy(false)">不买</button></div>');
 }
 
@@ -724,8 +740,9 @@ function doMerchantBuy(buy) {
 
 function showBanditModal() {
   const price = STATE.banditPrice || 800;
-  openModal('拦路强盗', '<div class="shop-hint">「此路是我开，想过去先交 ' + price + ' 金币！」</div>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doBandit(true)">付 ' + price + ' 金过路</button>' +
+  const canPay = STATE.money >= price;
+  openModal('拦路强盗', '<div class="shop-hint">「此路是我开，想过去先交 ' + price + ' 金币！」（你当前有 ' + STATE.money + ' 金币）</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" ' + (canPay ? '' : 'disabled ') + 'onclick="doBandit(true)">付 ' + price + ' 金过路' + (canPay ? '' : '（金币不足）') + '</button>' +
     '<button class="btn" onclick="doBandit(false)">不给，开战</button></div>');
 }
 
@@ -737,10 +754,12 @@ function doBandit(pay) {
 }
 
 function showMedicModal() {
-  openModal('旅行补给商', '<div class="shop-hint">「需要补给吗？野外价格，童叟无欺！」</div>' +
+  const canHeal = STATE.money >= 800;
+  const canPp = STATE.money >= 1500;
+  openModal('旅行补给商', '<div class="shop-hint">「需要补给吗？野外价格，童叟无欺！」（你当前有 ' + STATE.money + ' 金币）</div>' +
     '<div class="modal-btns">' +
-    '<button class="btn btn-primary" onclick="doMedic(\'heal\')">全员回满 HP（800金）</button>' +
-    '<button class="btn btn-primary" onclick="doMedic(\'pp\')">全员回满 PP（1500金）</button>' +
+    '<button class="btn btn-primary" ' + (canHeal ? '' : 'disabled ') + 'onclick="doMedic(\'heal\')">全员回满 HP（800金）' + (canHeal ? '' : '（金币不足）') + '</button>' +
+    '<button class="btn btn-primary" ' + (canPp ? '' : 'disabled ') + 'onclick="doMedic(\'pp\')">全员回满 PP（1500金）' + (canPp ? '' : '（金币不足）') + '</button>' +
     '<button class="btn" onclick="doMedic(\'no\')">不需要</button></div>');
 }
 

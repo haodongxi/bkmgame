@@ -65,6 +65,7 @@ async function main() {
   ok(await evaljs("STATE.party[0].name === '小火龙' && STATE.party[0].level === 5"), '开局小火龙 Lv5');
   await evaljs('STATE.party.push(makeMon(16, 5, { nature: "勤奋" })); doMapAction(\'party\');');
   ok(await evaljs("document.querySelectorAll('#modal-root .party-row').length === 2"), '队伍弹窗显示两只宝可梦');
+  ok(await evaljs("document.querySelector('#modal-root .party-pp') !== null"), '队伍弹窗显示 PP 状态');
   ok(await evaljs("document.querySelector('#modal-root .lead-tag') !== null"), '首发宝可梦有标记');
   await evaljs("document.querySelector('#modal-root .party-row:nth-child(2) .btn').click()");
   ok(await evaljs("STATE.party[0].name === '波波'"), '点击设为首发后队首变为波波');
@@ -138,8 +139,9 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('挑战道馆') !== -1; })"), '道馆按钮带等级门槛提示');
 
   // 神秘商人弹窗
-  await evaljs("STATE.merchantOffer = {kind:'item', name:'高级球', price:3000}; render();");
+  await evaljs("STATE.money = 100; STATE.merchantOffer = {kind:'item', name:'高级球', price:3000}; render();");
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('3000') !== -1"), '神秘商人弹窗');
+  ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn[disabled]') !== null"), '金币不足时购买按钮禁用');
   await evaljs('closeModal(); STATE.merchantOffer = null;');
 
   // 存档导出 / 导入
