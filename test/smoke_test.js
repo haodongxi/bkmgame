@@ -77,9 +77,9 @@ function ok(cond, name) {
 function section(name) { console.log('\n[' + name + ']'); }
 function damageMoveIdx(mon) {
   for (let i = 0; i < mon.m.moves.length; i++) {
-    if (T.MOVES[mon.m.moves[i]].power > 0) return i;
+    if (T.MOVES[mon.m.moves[i]].power > 0 && (!mon.m.pp || mon.m.pp[i] > 0)) return i;
   }
-  return 0;
+  return -1;
 }
 function strongMoveIdx(b) {
   const a = b.player.mons[b.player.active];
@@ -87,7 +87,7 @@ function strongMoveIdx(b) {
   let best = -1, bp = -1;
   for (let i = 0; i < a.m.moves.length; i++) {
     const mv = T.MOVES[a.m.moves[i]];
-    if (mv && mv.power > 0 && T.typeEffectiveness(mv.type, foeTypes) > 0 && mv.power > bp) {
+    if (mv && mv.power > 0 && (!a.m.pp || a.m.pp[i] > 0) && T.typeEffectiveness(mv.type, foeTypes) > 0 && mv.power > bp) {
       bp = mv.power;
       best = i;
     }
@@ -433,6 +433,7 @@ section('MVP4：全图鉴与完整关都');
       T.battleMove(damageMoveIdx(active));
     }
     if (T.getState().lastResult !== 'win') allWin = false;
+    T.visitCenter();
   }
   ok(allWin, '8 大道馆全部挑战成功');
   ok(T.getState().badges.length === 8, '集齐 8 枚徽章');
@@ -691,6 +692,32 @@ ok(before === after, '读档后队伍一致');
 ok(T.getState().nodeId === 'route1', '读档后位置一致');
 T.resetGame();
 ok(!T.getState().battle && T.getState().screen === 'title' && !T.hasSave(), '重置回标题并清除存档');
+
+// ---------- 10.5 MVP7：招式 PP ----------
+section('MVP7：招式 PP');
+{
+  T.newGame(4);
+  const mon = T.getState().party[0];
+  const maxPp = mon.pp[0];
+  ok(mon.pp && mon.pp.length === mon.moves.length, '生成招式时带 PP');
+  T.startWildBattle(16, 2);
+  T.battleMove(0);
+  ok(mon.pp[0] === maxPp - 1, '使用招式后 PP -1');
+  mon.pp = mon.moves.map(function () { return 0; });
+  const turnBefore = T.getState().battle.turn;
+  T.battleMove(0);
+  ok(T.getState().battle.turn === turnBefore, 'PP 耗尽时无法出招');
+  T.visitCenter();
+  ok(mon.pp[0] === maxPp, '宝可梦中心回复 PP');
+}
+{
+  T.newGame(4);
+  T.getState().party[0].pp[0] = 3;
+  T.save();
+  T.getState().party = [];
+  T.load();
+  ok(T.getState().party[0].pp[0] === 3, '存档读档保留 PP');
+}
 
 // ---------- 11. 商店 ----------
 section('商店');

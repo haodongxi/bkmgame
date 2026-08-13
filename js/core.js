@@ -171,6 +171,7 @@ function makeMon(speciesId, level, opts) {
     held: null,
     ivs: ivs,
     moves: moves.slice(0, 4),
+    pp: moves.slice(0, 4).map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; }),
     stats: stats
   };
   return mon;
@@ -215,10 +216,12 @@ function tryLearnMove(mon, moveId, log, autoReplace) {
   if (mon.moves.indexOf(moveId) !== -1) return;
   if (mon.moves.length < 4) {
     mon.moves.push(moveId);
+    if (mon.pp) mon.pp.push(mv.pp);
     log.push(mon.name + ' 学会了新招式【' + mv.name + '】！');
   } else if (autoReplace) {
     const old = mon.moves[0];
     mon.moves[0] = moveId;
+    if (mon.pp) mon.pp[0] = mv.pp;
     log.push(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + mv.name + '】！');
   } else {
     const where = STATE.party.indexOf(mon) !== -1 ? 'party' : 'box';
@@ -240,6 +243,7 @@ function resolvePendingLearn(moveId, replaceIdx) {
   }
   const old = mon.moves[replaceIdx];
   mon.moves[replaceIdx] = moveId;
+  if (mon.pp) mon.pp[replaceIdx] = MOVES[moveId].pp;
   addLog(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + MOVES[moveId].name + '】！');
   return { ok: true };
 }
@@ -922,6 +926,13 @@ function battleMove(idx) {
   const validMoves = (pm.m.moves || []).filter(function (id) { return MOVES[id]; });
   const pMove = idx === -1 ? STRUGGLE : MOVES[validMoves[idx]];
   if (!pMove) { addLog(pm.m.name + ' 的招式数据异常，无法使用！'); return; }
+  if (idx !== -1) {
+    if (!pm.m.pp || pm.m.pp[idx] <= 0) {
+      addLog(pm.m.name + ' 的【' + pMove.name + '】PP 已经耗尽！');
+      return;
+    }
+    pm.m.pp[idx]--;
+  }
   const fMove = pickFoeMove(fm, pm);
   const log = [];
   b.turn++;
@@ -1321,6 +1332,7 @@ function healAll() {
     m.hp = m.stats.hp;
     m.status = null;
     m.statusTurns = 0;
+    m.pp = m.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; });
   });
 }
 
@@ -1588,7 +1600,7 @@ function serializeMon(m) {
   return {
     species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
-    nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus
+    pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus
   };
 }
 
@@ -1600,6 +1612,8 @@ function deserializeMon(d) {
   mon.statusTurns = d.statusTurns || 0;
   mon.moves = (d.moves || []).filter(function (id) { return MOVES[id]; }).slice(0, 4);
   if (mon.moves.length === 0) mon.moves = ['tackle'];
+  const savedPp = (d.pp && d.pp.length === mon.moves.length) ? d.pp : null;
+  mon.pp = savedPp ? savedPp.slice(0, 4) : mon.moves.map(function (id) { return MOVES[id] ? MOVES[id].pp : 1; });
   mon.nature = d.nature || '勤奋';
   mon.held = d.held || null;
   mon.tradeBonus = !!d.tradeBonus;

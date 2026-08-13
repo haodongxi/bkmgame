@@ -100,6 +100,7 @@ async function main() {
   ok(await evaljs("getComputedStyle(document.querySelector('#screen-map')).display === 'none'"), '战斗中地图屏隐藏');
   ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display !== 'none'"), '战斗屏可见');
   ok(await evaljs("document.querySelectorAll('#battle-actions .btn').length === STATE.battle.player.mons[0].m.moves.length + 3"), '战斗按钮 = 招式+道具+换人+逃跑');
+  ok(await evaljs("document.querySelector('#battle-actions .move-pp') !== null"), '招式按钮显示 PP');
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
   ok(await evaljs("effHint({type:'火', power:40}, ['虫']).indexOf('效果拔群') !== -1"), '克制提示：火对虫效果拔群');
   ok(await evaljs("effHint({type:'电', power:40}, ['地面']).indexOf('没有效果') !== -1"), '克制提示：电对地面没有效果');
@@ -129,6 +130,15 @@ async function main() {
   ok(await evaljs("STATE.party.some(function(m){ return m.species === 16 && m.tradeBonus; })"), '交换完成且带 1.5 倍经验标记');
   await evaljs('STATE.nodeId = \'pewter\'; render();');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('挑战道馆') !== -1; })"), '道馆按钮带等级门槛提示');
+
+  // 存档导出 / 导入
+  const beforeLen = await evaljs("STATE.party.length");
+  await evaljs('exportSave();');
+  ok(await evaljs("document.querySelector('#save-code') !== null && document.querySelector('#save-code').value.length > 0"), '导出存档生成存档码');
+  ok(await evaljs("JSON.parse(decodeURIComponent(escape(atob(document.querySelector('#save-code').value)))).version === 1"), '存档码可解码');
+  const saveCode = await evaljs("document.querySelector('#save-code').value");
+  await evaljs('closeModal(); showImportSave(); document.querySelector(\'#import-code\').value = ' + JSON.stringify(saveCode) + '; doImportSave();');
+  ok(await evaljs("STATE.screen === 'map' && STATE.party.length === " + beforeLen), '导入存档成功并恢复进度');
 
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });

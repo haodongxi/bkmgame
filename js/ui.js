@@ -160,6 +160,58 @@ function uiReset() {
   }
 }
 
+function exportSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) { alert('还没有存档可以导出。'); return; }
+    const code = btoa(unescape(encodeURIComponent(raw)));
+    openModal('导出存档', '<div class="shop-hint">复制下面的存档码，粘贴到另一台设备即可导入：</div>' +
+      '<textarea id="save-code" class="save-code" readonly>' + code + '</textarea>' +
+      '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button></div>');
+  } catch (e) {
+    alert('导出失败：' + e.message);
+  }
+}
+
+function copySaveCode() {
+  const ta = $id('save-code');
+  if (!ta) return;
+  ta.select();
+  try {
+    document.execCommand('copy');
+    closeModal();
+    alert('存档码已复制！');
+  } catch (e) {
+    alert('复制失败，请手动全选复制。');
+  }
+}
+
+function showImportSave() {
+  openModal('导入存档', '<div class="shop-hint">粘贴存档码后点击导入（会覆盖当前存档）：</div>' +
+    '<textarea id="import-code" class="save-code" placeholder="粘贴存档码..."></textarea>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入</button></div>');
+}
+
+function doImportSave() {
+  const ta = $id('import-code');
+  const code = ta ? ta.value.trim() : '';
+  if (!code) return;
+  try {
+    const json = decodeURIComponent(escape(atob(code)));
+    const data = JSON.parse(json);
+    if (!data || data.version !== GAME_VERSION) {
+      alert('存档码无效或版本不匹配。');
+      return;
+    }
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    closeModal();
+    if (!load()) alert('导入失败，请检查存档码。');
+    else render();
+  } catch (e) {
+    alert('导入失败：存档码无效。');
+  }
+}
+
 function uiPickStarter(id) {
   newGame(id);
   save();
@@ -256,6 +308,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
   }
+  html += '<button class="btn" onclick="exportSave()">📤 导出存档</button>';
   html += '<button class="btn btn-danger" onclick="doMapAction(\'reset\')">🗑️ 重开</button>';
   $id('action-panel').innerHTML = html;
 }
@@ -449,8 +502,9 @@ function showMonDetail(idx) {
   for (let i = 0; i < mon.moves.length; i++) {
     const mv = MOVES[mon.moves[i]];
     if (!mv) continue;
+    const left = (mon.pp && mon.pp[i] !== undefined) ? mon.pp[i] : mv.pp;
     movesHtml += '<div class="detail-row"><span>' + mv.name + ' · ' + mv.type + '</span><span>' +
-      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + mv.pp + '</span></div>';
+      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp + '</span></div>';
   }
   let evoHtml = '不会进化';
   if (d.evo) {
@@ -531,16 +585,16 @@ function renderBattle() {
   let html = '';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
   const foeTypes = foe.m.speciesData.types;
+  let usableDamaging = false;
   for (let i = 0; i < validMoves.length; i++) {
     const mv = MOVES[validMoves[i]];
-    html += '<button class="btn move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
-      mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) + '</button>';
+    const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
+    if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
+    html += '<button class="btn move-btn" ' + (left <= 0 ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
+      mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) +
+      '<span class="move-pp">PP ' + left + '/' + mv.pp + '</span></button>';
   }
-  const hasEffective = validMoves.some(function (id) {
-    const mv = MOVES[id];
-    return mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0;
-  });
-  if (!hasEffective) {
+  if (!usableDamaging) {
     html += '<button class="btn move-btn" onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
   html += '<button class="btn" onclick="doBattleBag()">🎒 道具</button>';
