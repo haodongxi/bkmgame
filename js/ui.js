@@ -699,6 +699,7 @@ function renderBattle() {
   bLog.scrollTop = bLog.scrollHeight;
 
   let html = '';
+  html += '<div class="turn-hint">' + (b.waitingPlayer ? '✦ 轮到你了！选择指令' : '……对方行动中……') + '</div>';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
   const foeTypes = foe.m.speciesData.types;
   let usableDamaging = false;
@@ -706,25 +707,28 @@ function renderBattle() {
     const mv = MOVES[validMoves[i]];
     const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
     if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
-    html += '<button class="btn move-btn" ' + (left <= 0 ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
+    html += '<button class="btn move-btn" ' + ((left <= 0 || !b.waitingPlayer) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) +
       '<span class="move-pp">PP ' + left + '/' + mv.pp + '</span></button>';
   }
   if (!usableDamaging) {
-    html += '<button class="btn move-btn" onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
+    html += '<button class="btn move-btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
-  html += '<button class="btn" onclick="doBattleBag()">🎒 道具</button>';
-  html += '<button class="btn" onclick="doBattleParty()">🔄 更换精灵</button>';
-  html += '<button class="btn" onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
+  html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具</button>';
+  html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleParty()">🔄 更换精灵</button>';
+  html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
   $id('battle-actions').innerHTML = html;
 }
 
 function battleCard(bm, side, hit) {
   const m = bm.m;
+  const gaugePct = Math.max(0, Math.min(100, Math.round(bm.gauge)));
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
     '<div class="battle-info"><div class="battle-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
-    '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) + '</div></div>';
+    '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
+    '<div class="battle-bar"><span>行动条</span><div class="bar-track"><div class="bar-fill" style="width:' + gaugePct + '%"></div></div><b>' + gaugePct + '</b></div>' +
+    '</div></div>';
 }
 
 function doBattleMove(i) {

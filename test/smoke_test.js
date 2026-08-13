@@ -27,6 +27,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  useWeatherItem: useWeatherItem,\n' +
   '  rollWeather: rollWeather, refreshWeather: refreshWeather,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
+  '  battleTick: battleTick, actionSpeed: actionSpeed,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
   '  wanderTown: wanderTown\n' +
@@ -1004,6 +1005,49 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   turn.forEach(function (l) { seen[l] = (seen[l] || 0) + 1; });
   for (const k in seen) if (seen[k] > 1) dup++;
   ok(dup === 0, '回合日志无重复行');
+}
+
+// ---------- 13. MVP-A：行动条速度系统 ----------
+section('行动条速度系统');
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(16, 50, { nature: '勤奋' })]; // 波波（快）
+  s.party[0].moves = ['gust'];
+  s.party[0].pp = [35];
+  T.startWildBattle(11, 50); // 铁甲蛹（慢且弱，保证能打多回合）
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  ok(T.actionSpeed(s.battle.player.mons[0]) > T.actionSpeed(s.battle.foe.mons[0]), '波波行动速度高于卡比兽');
+  ok(s.battle.waitingPlayer === true, '速度快的波波先行动');
+  let guard = 0;
+  while (s.battle && !s.battle.over && s.battle.turn < 4 && guard++ < 200) {
+    if (s.battle.waitingPlayer) {
+      const active = s.battle.player.mons[s.battle.player.active];
+      T.battleMove(damageMoveIdx(active));
+    } else {
+      T.battleTick();
+    }
+  }
+  const playerActs = s.log.filter(function (l) { return l.indexOf('波波 使用了') !== -1; }).length;
+  const foeActs = s.log.filter(function (l) { return l.indexOf('铁甲蛹 使用了') !== -1; }).length;
+  ok(playerActs > foeActs, '速度快的波波行动次数更多（' + playerActs + ' vs ' + foeActs + '）');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 50, { nature: '勤奋' })]; // 卡比兽（慢）
+  T.startWildBattle(16, 50); // 波波（快）
+  ok(s.battle && s.battle.waitingPlayer === true, '速度慢的卡比兽后行动（波波先行）');
+  ok(s.log.some(function (l) { return l.indexOf('波波 使用了') !== -1; }), '开局由速度快的波波自动先出手');
+  while (s.battle && !s.battle.over && s.battle.turn < 10) {
+    if (s.battle.waitingPlayer) {
+      const active = s.battle.player.mons[s.battle.player.active];
+      T.battleMove(damageMoveIdx(active));
+    } else {
+      T.battleTick();
+    }
+  }
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
