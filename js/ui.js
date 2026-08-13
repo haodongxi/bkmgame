@@ -8,10 +8,72 @@ function $id(id) { return document.getElementById(id); }
 let _lastBattle = null, _foeHp = null, _playerHp = null, _foeIdx = null, _playerIdx = null;
 let _bagTab = 'heal';
 let _boxSwapIdx = -1;
+let _uiPlaying = false; // 行动播放期间锁定操作（仅禁用按钮，不锁全页、不转圈）
 
 function logLineHtml(text, i) {
   const kind = STATE.logKinds && STATE.logKinds[i];
   return '<div class="log-line' + (kind ? ' log-' + kind : '') + '">' + text + '</div>';
+}
+
+// 把 HP / 行动条直接更新到最终值（配合 CSS 过渡产生平滑动画，不做整页重绘）
+function syncBattleBars() {
+  const b = STATE.battle || STATE.lastBattleView;
+  if (!b) return;
+  const sides = [
+    { el: $id('battle-foe'), bm: b.foe.mons[b.foe.active] },
+    { el: $id('battle-player'), bm: b.player.mons[b.player.active] }
+  ];
+  for (let i = 0; i < sides.length; i++) {
+    if (!sides[i].el || !sides[i].bm) continue;
+    const m = sides[i].bm.m;
+    const pct = Math.max(0, Math.round(m.hp / m.stats.hp * 100));
+    const fill = sides[i].el.querySelector('.hpbar-fill');
+    const text = sides[i].el.querySelector('.hp-text');
+    const bar = sides[i].el.querySelector('.bar-fill');
+    if (fill) {
+      fill.style.width = pct + '%';
+      fill.style.background = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
+    }
+    if (text) text.textContent = 'HP ' + Math.max(0, m.hp) + '/' + m.stats.hp;
+    if (bar) bar.style.width = Math.max(0, Math.min(100, Math.round(sides[i].bm.gauge))) + '%';
+  }
+}
+
+// 战斗行动播放：新增日志逐条滚动 + HP/行动条动画，期间仅禁用按钮（快、轻量、不整页重绘）
+function playBattleResult(from) {
+  const total = STATE.log.length;
+  if (total <= from) { render(); return; }
+  if (_uiPlaying) return;
+  _uiPlaying = true;
+  const actions = $id('battle-actions');
+  if (actions) {
+    Array.prototype.forEach.call(actions.querySelectorAll('.btn'), function (b) { b.disabled = true; });
+    const hint = actions.querySelector('.turn-hint');
+    if (hint) hint.textContent = '……结算中……';
+  }
+  syncBattleBars();
+  const box = document.querySelector('#screen-battle.active') ? $id('battle-log') : $id('log-box');
+  const n = total - from;
+  const interval = n > 12 ? 160 : (n > 6 ? 240 : 320);
+  let i = 0;
+  (function tick() {
+    if (i >= n) {
+      _uiPlaying = false;
+      render();
+      return;
+    }
+    const line = STATE.log[from + i];
+    const kind = STATE.logKinds[from + i];
+    const div = document.createElement('div');
+    div.className = 'log-line' + (kind ? ' log-' + kind : '');
+    div.textContent = line;
+    if (box) {
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+    i++;
+    setTimeout(tick, interval);
+  })();
 }
 
 function mulberry32(seed) {
@@ -475,12 +537,14 @@ function showBagModal(inBattle, tab) {
 }
 
 function doBagUse(name, inBattle) {
+  if (_uiPlaying) return;
   const item = ITEMS[name];
   if (inBattle) {
+    const from = STATE.log.length;
     battleUseItem(name);
     save();
     closeModal();
-    render();
+    playBattleResult(from);
     return;
   }
   if (item.type === 'repel') {
@@ -584,10 +648,12 @@ function doBoxSwapConfirm(partyIdx) {
 }
 
 function doSwitch(idx) {
+  if (_uiPlaying) return;
+  const from = STATE.log.length;
   battleSwitch(idx);
   save();
   closeModal();
-  render();
+  playBattleResult(from);
 }
 
 function doSetLead(idx) {
@@ -732,23 +798,29 @@ function battleCard(bm, side, hit) {
 }
 
 function doBattleMove(i) {
+  if (_uiPlaying) return;
+  const from = STATE.log.length;
   battleMove(i);
   save();
-  render();
+  playBattleResult(from);
 }
 
 function doBattleBag() {
+  if (_uiPlaying) return;
   showBagModal(true);
 }
 
 function doBattleParty() {
+  if (_uiPlaying) return;
   showPartyModal('switch');
 }
 
 function doBattleRun() {
+  if (_uiPlaying) return;
+  const from = STATE.log.length;
   battleRun();
   save();
-  render();
+  playBattleResult(from);
 }
 
 // ---------------- 弹窗：学招 / 火箭队 ----------------
