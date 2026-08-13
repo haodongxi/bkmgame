@@ -435,7 +435,12 @@ function firstAlive(partyMons) {
 function startBattle(kind, opts) {
   opts = opts || {};
   const playerMons = STATE.party.map(makeBattleMon);
-  const playerActive = firstAlive(STATE.party);
+  let playerActive = firstAlive(STATE.party);
+  if (playerActive === -1) {
+    // 兜底：队伍全灭时不允许带着 0 血队伍开战，先恢复（正常情况下不会走到这里）
+    healAll();
+    playerActive = firstAlive(STATE.party);
+  }
   const foeMons = opts.foe.map(function (fd) {
     const statMult = fd.statMult || 1;
     return makeBattleMon(makeMon(fd.id, fd.level, { statMult: statMult, moves: fd.moves }));
@@ -918,6 +923,11 @@ function handleFaints(log) {
       grantExp(pActive, gain, log);
     }
     if (f.mons.every(function (bm) { return bm.m.hp <= 0; })) {
+      // 双灭：最后一只宝可梦与敌方同回合倒下时按败北处理，避免留下全灭队伍
+      if (p.mons.every(function (bm) { return bm.m.hp <= 0; })) {
+        endBattle('lose');
+        return true;
+      }
       endBattle('win');
       return true;
     }
@@ -1004,6 +1014,8 @@ function battleUseItem(itemName) {
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
       STATE.battle.outcome = 'caught';
+      STATE.lastResult = 'caught';
+      STATE.battle = null;
       STATE.screen = 'map';
       return;
     }
@@ -1019,6 +1031,8 @@ function battleUseItem(itemName) {
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
       STATE.battle.outcome = 'caught';
+      STATE.lastResult = 'caught';
+      STATE.battle = null;
       STATE.screen = 'map';
       return;
     }
@@ -1031,27 +1045,35 @@ function battleUseItem(itemName) {
     return;
   }
   if (item.type === 'heal' || item.type === 'cure') {
-    removeItem(itemName, 1);
     if (item.heal === 'full') {
+      removeItem(itemName, 1);
       pm.m.hp = pm.m.stats.hp;
       pm.m.status = null;
       addLog(pm.m.name + ' 完全恢复了！');
     } else if (item.heal) {
       const healed = Math.min(pm.m.stats.hp - pm.m.hp, item.heal);
+      if (healed <= 0) {
+        addLog(pm.m.name + ' 的HP是满的！');
+        return;
+      }
+      removeItem(itemName, 1);
       pm.m.hp += healed;
       addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！');
     } else if (item.cure === 'all') {
-      if (pm.m.status) {
-        pm.m.status = null;
-        addLog(pm.m.name + ' 的异常状态被治愈了！');
-      } else {
-        addLog('但是没有效果……');
+      if (!pm.m.status) {
+        addLog(pm.m.name + ' 没有异常状态。');
+        return;
       }
+      removeItem(itemName, 1);
+      pm.m.status = null;
+      addLog(pm.m.name + ' 的异常状态被治愈了！');
     } else if (item.cure && pm.m.status === item.cure) {
+      removeItem(itemName, 1);
       pm.m.status = null;
       addLog(pm.m.name + ' 的' + item.cure + '被治好了！');
     } else {
-      addLog('但是没有效果……');
+      addLog(pm.m.name + ' 没有' + item.cure + '状态。');
+      return;
     }
     const fMove = pickFoeMove(fm, pm);
     const log = [];
@@ -1181,6 +1203,16 @@ function endBattle(outcome) {
 function addToPartyOrBox(mon) {
   if (STATE.party.length < 6) STATE.party.push(mon);
   else STATE.box.push(mon);
+}
+
+// 电脑箱取回：用队伍里的一只宝可梦与箱内宝可梦交换
+function boxSwap(boxIdx, partyIdx) {
+  const boxMon = STATE.box[boxIdx];
+  const partyMon = STATE.party[partyIdx];
+  if (!boxMon || !partyMon) { addLog('宝可梦不存在。'); return; }
+  STATE.party[partyIdx] = boxMon;
+  STATE.box[boxIdx] = partyMon;
+  addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！');
 }
 
 // ---------------- 探索 / 城镇 ----------------
@@ -1784,6 +1816,9 @@ function save() {
       badges: STATE.badges,
       party: STATE.party.map(serializeMon),
       box: STATE.box.map(serializeMon),
+      pendingLearn: STATE.pendingLearn.map(function (p) {
+        return { where: p.where, idx: p.idx, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
+      }),
       seenDex: STATE.seenDex,
       caughtDex: STATE.caughtDex,
       trainersDefeated: STATE.trainersDefeated,
@@ -1841,6 +1876,11 @@ function load() {
     STATE.badges = data.badges || [];
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
+    STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
+      if (!p || !p.moveId || !MOVES[p.moveId]) return false;
+      const holder = p.where === 'party' ? STATE.party : STATE.box;
+      return p.idx >= 0 && p.idx < holder.length;
+    });
     STATE.seenDex = data.seenDex || {};
     STATE.caughtDex = data.caughtDex || {};
     STATE.trainersDefeated = data.trainersDefeated || {};
@@ -1860,7 +1900,6 @@ function load() {
     STATE.weatherBias = null;
     STATE.weatherBoost = 0;
     STATE.battle = null;
-    STATE.pendingLearn = [];
     STATE.log = [];
     STATE.rocketSell = false;
     STATE.gymSession = null;
@@ -1908,6 +1947,7 @@ if (typeof module !== 'undefined' && module.exports) {
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
+    boxSwap: boxSwap,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,
     startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,

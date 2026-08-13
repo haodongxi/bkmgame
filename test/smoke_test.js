@@ -20,7 +20,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
-  '  setLeadMon: setLeadMon, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
+  '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
   '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
@@ -850,6 +850,102 @@ T.buyItem('好伤药');
 ok(T.getState().bag['好伤药'] === 1 && T.getState().money === 5000 - 700, '购买成功');
 T.sellItem('精灵球');
 ok(T.getState().money === 5000 - 700 + 100 && T.getState().bag['精灵球'] === 4, '半价出售成功');
+
+// ---------- 12. 2026-08-13 bug 修复回归 ----------
+section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / 学招存档）');
+{
+  // 双灭：最后一只宝可梦与敌方同回合倒下 → 判负并回城恢复，不会留下全灭队伍
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 30, { nature: '勤奋' })];
+  const mon = s.party[0];
+  mon.moves = ['double_edge'];
+  mon.pp = [15];
+  mon.hp = 8; // 压低血量保证反伤致死
+  T.startWildBattle(129, 2);
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 30) T.battleMove(0);
+  ok(s.lastResult === 'lose', '双灭判定为败北（last=' + s.lastResult + '）');
+  ok(s.party.every(function (m) { return m.hp === m.stats.hp; }), '双灭后队伍在宝可梦中心恢复');
+  T.startWildBattle(16, 2);
+  ok(!!s.battle && !s.battle.over, '双灭后仍可正常探索开战');
+  while (s.battle && !s.battle.over && g++ < 30) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+}
+{
+  // 捕获成功后清空战斗状态（大师球 / 普通球）
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['大师球'] = 1;
+  T.startWildBattle(16, 2);
+  T.battleUseItem('大师球');
+  ok(s.battle === null && s.lastResult === 'caught', '大师球捕获后战斗状态清空');
+  T.newGame(4);
+  const s2 = T.getState();
+  T.startWildBattle(16, 2);
+  seq = [0]; // 捕获必成功
+  T.battleUseItem('精灵球');
+  seq = [];
+  ok(s2.battle === null && s2.lastResult === 'caught', '精灵球捕获后战斗状态清空');
+}
+{
+  // 战斗内满血/无异常用药不消耗
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['伤药'] = 2;
+  s.party[0].hp = s.party[0].stats.hp;
+  T.startWildBattle(16, 2);
+  T.battleUseItem('伤药');
+  ok(s.bag['伤药'] === 2, '战斗内满血使用伤药不消耗');
+  while (s.battle && !s.battle.over && s.battle.turn < 30) {
+    const active = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(active));
+  }
+  T.newGame(4);
+  const s2 = T.getState();
+  s2.bag['解毒药'] = 1;
+  T.startWildBattle(16, 2);
+  T.battleUseItem('解毒药');
+  ok(s2.bag['解毒药'] === 1, '战斗内无异常使用解毒药不消耗');
+  T.newGame(4);
+  const s3 = T.getState();
+  s3.bag['万灵药'] = 1;
+  T.startWildBattle(16, 2);
+  T.battleUseItem('万灵药');
+  ok(s3.bag['万灵药'] === 1, '战斗内无异常使用万灵药不消耗');
+}
+{
+  // 电脑箱：队伍满时捕获进箱，可取回交换
+  T.newGame(4);
+  const s = T.getState();
+  for (let i = 0; i < 5; i++) s.party.push(T.makeMon(16 + i, 5));
+  s.bag['大师球'] = 1;
+  T.startWildBattle(25, 3);
+  T.battleUseItem('大师球');
+  ok(s.box.length === 1 && s.party.length === 6, '队伍满时捕获进电脑箱');
+  T.boxSwap(0, 0);
+  ok(s.party[0].species === 25 && s.box[0].species === 4, '电脑箱取回交换成功');
+  T.boxSwap(0, 1);
+  ok(s.box[0].species === 16 && s.party[1].species === 4, '再次交换回队伍');
+}
+{
+  // 学招待选随存档保存
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.moves = ['tackle', 'growl', 'tail_whip', 'leer'];
+  mon.pp = [35, 40, 30, 30];
+  T.grantExp(mon, T.expForLevel(mon.speciesData.growth, 6) - mon.exp + 1, []);
+  const learnCount = s.pendingLearn.length;
+  ok(learnCount >= 1, '4 招满时升级产生学招待选（' + learnCount + ' 个）');
+  T.save();
+  s.party = [];
+  s.pendingLearn = [];
+  ok(T.load(), '读档成功');
+  ok(T.getState().pendingLearn.length === learnCount, '学招待选随存档保存并在读档后恢复');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);

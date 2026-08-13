@@ -424,7 +424,7 @@ function showBagModal(inBattle) {
     html += '<div class="shop-hint">—— 关键道具 ——</div>';
     for (let i = 0; i < STATE.keyItems.length; i++) {
       const item = ITEMS[STATE.keyItems[i]];
-      html += '<div class="shop-row"><span>' + STATE.keyItems[i] + '</span></div>' +
+      html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + STATE.keyItems[i] + '</span></div>' +
         '<div class="shop-desc">' + (item.desc || '') + '</div>';
     }
   }
@@ -436,7 +436,7 @@ function showBagModal(inBattle) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape')) usable = true;
     html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
@@ -460,6 +460,13 @@ function doBagUse(name, inBattle) {
     render();
     return;
   }
+  if (item.type === 'escape') {
+    useEscapeRope();
+    save();
+    closeModal();
+    render();
+    return;
+  }
   if (item.type === 'weather' || item.type === 'weatherboost') {
     useWeatherItem(name);
     save();
@@ -476,10 +483,17 @@ function showPartyModal(mode, itemName) {
   let html = '';
   const isSwitch = mode === 'switch';
   const isItem = mode === 'item';
+  const isBoxSwap = mode === 'boxswap';
+  const activeIdx = (isSwitch && STATE.battle) ? STATE.battle.player.active : -1;
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
     let btn = '';
-    if (isSwitch) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doSwitch(' + i + ')">上场</button></div>';
+    if (isSwitch) {
+      const unusable = m.hp <= 0 || i === activeIdx;
+      btn = '<div class="row-btns"><button class="btn btn-sm"' + (unusable ? ' disabled' : '') + ' onclick="doSwitch(' + i + ')">' +
+        (m.hp <= 0 ? '已倒下' : (i === activeIdx ? '在场' : '上场')) + '</button></div>';
+    }
+    else if (isBoxSwap) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doBoxSwapConfirm(' + i + ')">换入</button></div>';
     else if (isItem) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
     else {
       btn = '<div class="row-btns">';
@@ -495,10 +509,50 @@ function showPartyModal(mode, itemName) {
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       btn + '</div>';
   }
-  openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : '精灵队伍'), html);
+  if (!isSwitch && !isItem && !isBoxSwap && STATE.box.length > 0) {
+    html += '<button class="btn" onclick="showBoxModal()">📦 电脑箱（' + STATE.box.length + '只）</button>';
+  }
+  openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : (isBoxSwap ? '选择要存入箱子的宝可梦' : '精灵队伍')), html);
   for (let i = 0; i < STATE.party.length; i++) {
     $id('modal-icon-' + i).appendChild(monIcon(STATE.party[i].species, 36));
   }
+}
+
+let _boxSwapIdx = -1;
+
+function showBoxModal() {
+  let html = '';
+  if (STATE.box.length === 0) {
+    html = '<div class="shop-hint">电脑箱空空如也</div>';
+  }
+  for (let i = 0; i < STATE.box.length; i++) {
+    const m = STATE.box[i];
+    html += '<div class="party-row pixel-frame">' +
+      '<div class="party-icon" id="box-icon-' + i + '"></div>' +
+      '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
+      (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
+      '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
+      '<div class="row-btns"><button class="btn btn-sm" onclick="doBoxSwap(' + i + ')">取回</button></div></div>';
+  }
+  openModal('电脑箱（' + STATE.box.length + '只）', html);
+  for (let i = 0; i < STATE.box.length; i++) {
+    $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36));
+  }
+}
+
+function doBoxSwap(idx) {
+  _boxSwapIdx = idx;
+  showPartyModal('boxswap');
+}
+
+function doBoxSwapConfirm(partyIdx) {
+  if (_boxSwapIdx < 0) { closeModal(); render(); return; }
+  boxSwap(_boxSwapIdx, partyIdx);
+  _boxSwapIdx = -1;
+  save();
+  closeModal();
+  render();
 }
 
 function doSwitch(idx) {
