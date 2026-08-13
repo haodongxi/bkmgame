@@ -482,6 +482,8 @@ function startBattle(kind, opts) {
     player: { active: playerActive, mons: playerMons },
     foe: { active: 0, mons: foeMons },
     waitingPlayer: false,
+    playerActedMoveThisRound: false, // 本回合玩家是否出过招（出招后不能再用药）
+    playerEndedRound: false,         // 本回合玩家是否已使用道具/换人（行动结束，不再获得行动机会）
     weather: null,
     over: false,
     outcome: null,
@@ -966,7 +968,8 @@ function nextActor(b) {
   const p = b.player.mons[b.player.active];
   const f = b.foe.mons[b.foe.active];
   const cands = [];
-  if (p && p.m.hp > 0 && p.gauge >= ACTION_BAR_MAX) cands.push(p);
+  // 玩家使用道具/换人后本回合行动结束，不再获得行动机会
+  if (p && p.m.hp > 0 && p.gauge >= ACTION_BAR_MAX && !b.playerEndedRound) cands.push(p);
   if (f && f.m.hp > 0 && f.gauge >= ACTION_BAR_MAX) cands.push(f);
   if (cands.length === 0) return null;
   if (cands.length === 1) return cands[0];
@@ -984,6 +987,8 @@ function checkRoundEnd(b) {
     b.turn++;
     p.actedThisRound = false;
     f.actedThisRound = false;
+    b.playerActedMoveThisRound = false;
+    b.playerEndedRound = false;
     if (b.weather && b.weather.turns > 0) {
       b.weather.turns--;
       if (b.weather.turns === 0) addLog('天气恢复了正常……', 'info');
@@ -1101,6 +1106,7 @@ function handleFaints(log, kinds) {
 function battleMove(idx) {
   const b = STATE.battle;
   if (!b || b.over) return;
+  if (b.playerEndedRound) { addLog('本回合已经使用过道具/换人，行动结束。', 'info'); return; }
   // 兼容：若尚未轮到玩家（速度慢时敌方先动），先自动推进到玩家行动
   if (!b.waitingPlayer) {
     battleTick();
@@ -1124,6 +1130,7 @@ function battleMove(idx) {
   b.waitingPlayer = false;
   pm.gauge -= ACTION_BAR_MAX;
   pm.actedThisRound = true;
+  b.playerActedMoveThisRound = true;
   const log = [];
   const kinds = [];
   let logPos = 0;
@@ -1153,6 +1160,8 @@ function battleUseItem(itemName, opts) {
     battleTick();
     if (b.over || !b.waitingPlayer) return;
   }
+  if (b.playerActedMoveThisRound) { addLog('本回合已经出招，不能使用道具！', 'info'); return; }
+  if (b.playerEndedRound) { addLog('本回合的行动已经结束。', 'info'); return; }
   const item = ITEMS[itemName];
   if (!item || bagCount(itemName) <= 0) { addLog('没有这个道具……', 'info'); return; }
   const p = b.player;
@@ -1164,6 +1173,7 @@ function battleUseItem(itemName, opts) {
     b.waitingPlayer = false;
     pm.gauge -= ACTION_BAR_MAX;
     pm.actedThisRound = true;
+    b.playerEndedRound = true;
     removeItem(itemName, 1);
     if (!opts.skipThrowLog) addLog('你扔出了【' + itemName + '】！', 'info');
     if (item.master) {
@@ -1215,6 +1225,7 @@ function battleUseItem(itemName, opts) {
       b.waitingPlayer = false;
       pm.gauge -= ACTION_BAR_MAX;
       pm.actedThisRound = true;
+      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.hp = pm.m.stats.hp;
       pm.m.status = null;
@@ -1228,6 +1239,7 @@ function battleUseItem(itemName, opts) {
       b.waitingPlayer = false;
       pm.gauge -= ACTION_BAR_MAX;
       pm.actedThisRound = true;
+      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.hp += healed;
       addLog(pm.m.name + ' 回复了 ' + healed + ' 点HP！', 'good');
@@ -1239,6 +1251,7 @@ function battleUseItem(itemName, opts) {
       b.waitingPlayer = false;
       pm.gauge -= ACTION_BAR_MAX;
       pm.actedThisRound = true;
+      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.status = null;
       addLog(pm.m.name + ' 的异常状态被治愈了！', 'good');
@@ -1246,6 +1259,7 @@ function battleUseItem(itemName, opts) {
       b.waitingPlayer = false;
       pm.gauge -= ACTION_BAR_MAX;
       pm.actedThisRound = true;
+      b.playerEndedRound = true;
       removeItem(itemName, 1);
       pm.m.status = null;
       addLog(pm.m.name + ' 的' + item.cure + '被治好了！', 'good');
@@ -1272,6 +1286,7 @@ function battleUseItem(itemName, opts) {
 function battleSwitch(idx) {
   const b = STATE.battle;
   if (!b || b.over) return;
+  if (b.playerEndedRound) { addLog('本回合的行动已经结束。', 'info'); return; }
   if (!b.waitingPlayer) {
     battleTick();
     if (b.over || !b.waitingPlayer) return;

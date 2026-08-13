@@ -765,7 +765,8 @@ function renderBattle() {
   bLog.scrollTop = bLog.scrollHeight;
 
   let html = '';
-  html += '<div class="turn-hint">' + (b.waitingPlayer ? '✦ 轮到你了！选择指令' : '……对方行动中……') + '</div>';
+  const moveUsedHint = b.playerActedMoveThisRound ? '（本回合已出招，不能用道具）' : '';
+  html += '<div class="turn-hint">' + (b.waitingPlayer ? ('✦ 轮到你了！选择指令' + moveUsedHint) : '……对方行动中……') + '</div>';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
   const foeTypes = foe.m.speciesData.types;
   let usableDamaging = false;
@@ -780,7 +781,8 @@ function renderBattle() {
   if (!usableDamaging) {
     html += '<button class="btn move-btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
-  html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具</button>';
+  const itemBlocked = b.playerActedMoveThisRound;
+  html += '<button class="btn"' + ((!b.waitingPlayer || itemBlocked) ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具' + (itemBlocked ? '（本回合已出招）' : '') + '</button>';
   html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleParty()">🔄 更换精灵</button>';
   html += '<button class="btn"' + (!b.waitingPlayer ? ' disabled' : '') + ' onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
   $id('battle-actions').innerHTML = html;
