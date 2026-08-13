@@ -6,77 +6,12 @@
 function $id(id) { return document.getElementById(id); }
 
 let _lastBattle = null, _foeHp = null, _playerHp = null, _foeIdx = null, _playerIdx = null;
-let _uiBusy = false;          // 文本播报期间锁定输入
-let _revealCount = 0;         // 已播报显示的日志行数
-let _battleEndPending = false; // 战斗结束后暂留战斗画面播报收尾文本
 let _bagTab = 'heal';
 let _boxSwapIdx = -1;
-
-function setBusy(v) {
-  _uiBusy = v;
-  document.body.classList.toggle('busy', v);
-}
-
-function logVisibleCount() {
-  return Math.min(STATE.log.length, Math.max(0, _revealCount));
-}
 
 function logLineHtml(text, i) {
   const kind = STATE.logKinds && STATE.logKinds[i];
   return '<div class="log-line' + (kind ? ' log-' + kind : '') + '">' + text + '</div>';
-}
-
-function revealAllNow() { _revealCount = STATE.log.length; }
-
-// 统一动作入口：记录播报起点 → 执行核心逻辑 → 逐行播报新增日志，期间锁定 UI
-function uiAction(fn, keepBattleEnd) {
-  if (_uiBusy) return;
-  const from = STATE.log.length;
-  const wasBattle = !!(STATE.battle && !STATE.battle.over);
-  fn();
-  _revealCount = from;
-  if (keepBattleEnd && wasBattle && STATE.battle === null && STATE.lastBattleView && STATE.lastResult) {
-    STATE.screen = 'battle';
-    _battleEndPending = true;
-  }
-  render();
-  playReveal();
-}
-
-function playReveal() {
-  const total = STATE.log.length;
-  if (_revealCount >= total) {
-    setBusy(false);
-    if (_battleEndPending) { _battleEndPending = false; STATE.screen = 'map'; render(); }
-    return;
-  }
-  setBusy(true);
-  const pending = total - _revealCount;
-  const interval = pending > 12 ? 220 : (pending > 6 ? 300 : 420);
-  setTimeout(function tick() {
-    _revealCount = Math.min(total, _revealCount + 1);
-    if (_revealCount >= total) {
-      setBusy(false);
-      if (_battleEndPending) { _battleEndPending = false; STATE.screen = 'map'; }
-      render();
-    } else {
-      render();
-      setTimeout(tick, interval);
-    }
-  }, interval);
-}
-
-// 逐行播报（用于探索悬念/捕获摇晃等前置文本）
-function playRevealShakes(done) {
-  setBusy(true);
-  const total = STATE.log.length;
-  if (_revealCount >= total) { done(); return; }
-  setTimeout(function tick() {
-    _revealCount = Math.min(total, _revealCount + 1);
-    render();
-    if (_revealCount >= total) done();
-    else setTimeout(tick, 420);
-  }, 420);
 }
 
 function mulberry32(seed) {
@@ -235,14 +170,13 @@ function uiStartNew() {
 }
 
 function uiContinue() {
-  if (load()) { revealAllNow(); render(); }
+  if (load()) render();
   else alert('没有找到存档！');
 }
 
 function uiReset() {
   if (confirm('确定要删除存档，重新开始吗？')) {
     resetGame();
-    revealAllNow();
     render();
   }
 }
@@ -293,7 +227,7 @@ function doImportSave() {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     closeModal();
     if (!load()) alert('导入失败，请检查存档码。');
-    else { revealAllNow(); render(); }
+    else render();
   } catch (e) {
     alert('导入失败：存档码无效。');
   }
@@ -302,7 +236,6 @@ function doImportSave() {
 function uiPickStarter(id) {
   newGame(id);
   save();
-  revealAllNow();
   render();
 }
 
@@ -348,8 +281,7 @@ function renderMap() {
   $id('goal-label').textContent = goalHint();
 
   const logBox = $id('log-box');
-  const showN = logVisibleCount();
-  logBox.innerHTML = STATE.log.slice(0, showN).map(logLineHtml).join('');
+  logBox.innerHTML = STATE.log.map(logLineHtml).join('');
   scrollLogToBottom();
 
   // 队伍条
@@ -407,48 +339,29 @@ function renderMap() {
 function doMapAction(type) {
   closeModal();
   switch (type) {
-    case 'center': uiAction(function () { visitCenter(); save(); }); break;
+    case 'center': visitCenter(); break;
     case 'mart': showShopModal(); return;
-    case 'wander': uiAction(function () { wanderTown(); save(); }); break;
-    case 'gym': uiAction(function () { challengeGym(); save(); }); break;
-    case 'gymlocked': uiAction(function () { addLog(MAP_NODES[STATE.nodeId].gymLocked, 'info'); save(); }); break;
+    case 'wander': wanderTown(); break;
+    case 'gym': challengeGym(); break;
+    case 'gymlocked': addLog(MAP_NODES[STATE.nodeId].gymLocked, 'info'); break;
     case 'travel': showTravelModal(); return;
-    case 'explore': doExplore(); return;
-    case 'fish': uiAction(function () { fish(); save(); }); break;
+    case 'explore': explore(); break;
+    case 'fish': fish(); break;
     case 'bag': showBagModal(false); return;
     case 'party': showPartyModal('view'); return;
     case 'pokedex': showPokedexModal(); return;
     case 'town': {
-      uiAction(function () {
-        const cur = MAP_NODES[STATE.nodeId];
-        const towns = cur.next.filter(function (n) { return MAP_NODES[n].type === 'town'; });
-        if (towns.length > 0) gotoNode(towns[0]);
-        else gotoNode(STATE.lastTown);
-        save();
-      });
+      const cur = MAP_NODES[STATE.nodeId];
+      const towns = cur.next.filter(function (n) { return MAP_NODES[n].type === 'town'; });
+      if (towns.length > 0) gotoNode(towns[0]);
+      else gotoNode(STATE.lastTown);
       break;
     }
-    case 'escape': uiAction(function () { useEscapeRope(); save(); }); break;
+    case 'escape': useEscapeRope(); break;
     case 'reset': uiReset(); return;
   }
-}
-
-// 探索悬念：先播报“拨开草丛”，再揭晓结果
-function doExplore() {
-  if (_uiBusy) return;
-  setBusy(true);
-  const from = STATE.log.length;
-  addLog('你拨开草丛，屏住呼吸……', 'info');
-  _revealCount = from;
+  save();
   render();
-  playRevealShakes(function () {
-    const from2 = STATE.log.length;
-    explore();
-    save();
-    _revealCount = from2;
-    render();
-    playReveal();
-  });
 }
 
 function showTravelModal() {
@@ -464,11 +377,10 @@ function showTravelModal() {
 }
 
 function doTravel(nodeId) {
-  uiAction(function () {
-    gotoNode(nodeId);
-    save();
-    closeModal();
-  });
+  gotoNode(nodeId);
+  save();
+  closeModal();
+  render();
 }
 
 // ---------------- 商店 ----------------
@@ -500,19 +412,15 @@ function showShopModal() {
 }
 
 function doBuy(name) {
-  uiAction(function () {
-    buyItem(name);
-    save();
-    showShopModal();
-  });
+  buyItem(name);
+  save();
+  showShopModal();
 }
 
 function doSell(name) {
-  uiAction(function () {
-    sellItem(name);
-    save();
-    showShopModal();
-  });
+  sellItem(name);
+  save();
+  showShopModal();
 }
 
 // ---------------- 背包 / 队伍 ----------------
@@ -567,56 +475,37 @@ function showBagModal(inBattle, tab) {
 }
 
 function doBagUse(name, inBattle) {
-  if (_uiBusy) return;
   const item = ITEMS[name];
-  // 捕获悬念：先播报摇晃过程，再真正判定
-  if (inBattle && item && item.type === 'ball' && STATE.battle && STATE.battle.kind === 'wild') {
-    setBusy(true);
-    const from = STATE.log.length;
-    addLog('你扔出了【' + name + '】！', 'info');
-    addLog('精灵球摇晃了 1 下……', 'info');
-    addLog('精灵球摇晃了 2 下……', 'info');
-    addLog('精灵球摇晃了 3 下……', 'info');
-    closeModal();
-    _revealCount = from;
-    render();
-    playRevealShakes(function () {
-      const from2 = STATE.log.length;
-      const wasBattle = !!(STATE.battle && !STATE.battle.over);
-      battleUseItem(name, { skipThrowLog: true });
-      save();
-      _revealCount = from2;
-      if (wasBattle && STATE.battle === null && STATE.lastBattleView && STATE.lastResult) {
-        STATE.screen = 'battle';
-        _battleEndPending = true;
-      }
-      render();
-      playReveal();
-    });
-    return;
-  }
   if (inBattle) {
-    uiAction(function () {
-      battleUseItem(name);
-      save();
-      closeModal();
-    }, true);
+    battleUseItem(name);
+    save();
+    closeModal();
+    render();
     return;
   }
   if (item.type === 'repel') {
-    uiAction(function () { useRepel(); save(); closeModal(); });
+    useRepel();
+    save();
+    closeModal();
+    render();
     return;
   }
   if (item.type === 'escape') {
-    uiAction(function () { useEscapeRope(); save(); closeModal(); });
+    useEscapeRope();
+    save();
+    closeModal();
+    render();
     return;
   }
   if (item.type === 'weather' || item.type === 'weatherboost') {
-    uiAction(function () { useWeatherItem(name); save(); closeModal(); });
+    useWeatherItem(name);
+    save();
+    closeModal();
+    render();
     return;
   }
   if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held') {
-    uiAction(function () { showPartyModal('item', name); });
+    showPartyModal('item', name);
   }
 }
 
@@ -681,45 +570,38 @@ function showBoxModal() {
 }
 
 function doBoxSwap(idx) {
-  if (_uiBusy) return;
   _boxSwapIdx = idx;
   showPartyModal('boxswap');
 }
 
 function doBoxSwapConfirm(partyIdx) {
-  if (_uiBusy) return;
   if (_boxSwapIdx < 0) { closeModal(); render(); return; }
-  uiAction(function () {
-    boxSwap(_boxSwapIdx, partyIdx);
-    _boxSwapIdx = -1;
-    save();
-    closeModal();
-  });
+  boxSwap(_boxSwapIdx, partyIdx);
+  _boxSwapIdx = -1;
+  save();
+  closeModal();
+  render();
 }
 
 function doSwitch(idx) {
-  if (_uiBusy) return;
-  uiAction(function () {
-    battleSwitch(idx);
-    save();
-    closeModal();
-  }, true);
+  battleSwitch(idx);
+  save();
+  closeModal();
+  render();
 }
 
 function doSetLead(idx) {
-  uiAction(function () {
-    setLeadMon(idx);
-    save();
-    closeModal();
-  });
+  setLeadMon(idx);
+  save();
+  closeModal();
+  render();
 }
 
 function doItemOnMon(name, idx) {
-  uiAction(function () {
-    useBagItemOnMon(name, idx);
-    save();
-    closeModal();
-  });
+  useBagItemOnMon(name, idx);
+  save();
+  closeModal();
+  render();
 }
 
 function showMonDetail(idx) {
@@ -795,8 +677,7 @@ function effHint(mv, foeTypes) {
 }
 
 function renderBattle() {
-  let b = STATE.battle;
-  if (!b && STATE.screen === 'battle' && STATE.lastBattleView && _battleEndPending) b = STATE.lastBattleView;
+  const b = STATE.battle;
   if (!b) { STATE.screen = 'map'; render(); return; }
   if (_lastBattle !== b) { _lastBattle = b; _foeHp = null; _playerHp = null; _foeIdx = null; _playerIdx = null; }
   const foe = b.foe.mons[b.foe.active];
@@ -814,29 +695,27 @@ function renderBattle() {
   const bLog = $id('battle-log');
   let start = b.logStart || 0;
   if (start > STATE.log.length) start = Math.max(0, STATE.log.length - 50);
-  const end = Math.max(start, logVisibleCount());
-  bLog.innerHTML = STATE.log.slice(start, end).map(logLineHtml).join('');
+  bLog.innerHTML = STATE.log.slice(start).map(logLineHtml).join('');
   bLog.scrollTop = bLog.scrollHeight;
 
   let html = '';
   const validMoves = pm.m.moves.filter(function (id) { return MOVES[id]; });
   const foeTypes = foe.m.speciesData.types;
-  const locked = _uiBusy || _battleEndPending;
   let usableDamaging = false;
   for (let i = 0; i < validMoves.length; i++) {
     const mv = MOVES[validMoves[i]];
     const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
     if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
-    html += '<button class="btn move-btn" ' + ((left <= 0 || locked) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
+    html += '<button class="btn move-btn" ' + (left <= 0 ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) +
       '<span class="move-pp">PP ' + left + '/' + mv.pp + '</span></button>';
   }
   if (!usableDamaging) {
-    html += '<button class="btn move-btn"' + (locked ? ' disabled' : '') + ' onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
+    html += '<button class="btn move-btn" onclick="doBattleMove(-1)">挣扎<span class="move-type">无</span></button>';
   }
-  html += '<button class="btn"' + (locked ? ' disabled' : '') + ' onclick="doBattleBag()">🎒 道具</button>';
-  html += '<button class="btn"' + (locked ? ' disabled' : '') + ' onclick="doBattleParty()">🔄 更换精灵</button>';
-  html += '<button class="btn"' + (locked ? ' disabled' : '') + ' onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
+  html += '<button class="btn" onclick="doBattleBag()">🎒 道具</button>';
+  html += '<button class="btn" onclick="doBattleParty()">🔄 更换精灵</button>';
+  html += '<button class="btn" onclick="doBattleRun()">🏃 ' + (b.canRun ? '逃跑' : '逃跑(不可)') + '</button>';
   $id('battle-actions').innerHTML = html;
 }
 
@@ -849,27 +728,23 @@ function battleCard(bm, side, hit) {
 }
 
 function doBattleMove(i) {
-  uiAction(function () {
-    battleMove(i);
-    save();
-  }, true);
+  battleMove(i);
+  save();
+  render();
 }
 
 function doBattleBag() {
-  if (_uiBusy) return;
   showBagModal(true);
 }
 
 function doBattleParty() {
-  if (_uiBusy) return;
   showPartyModal('switch');
 }
 
 function doBattleRun() {
-  uiAction(function () {
-    battleRun();
-    save();
-  }, true);
+  battleRun();
+  save();
+  render();
 }
 
 // ---------------- 弹窗：学招 / 火箭队 ----------------
@@ -889,15 +764,14 @@ function showLearnModal() {
 }
 
 function doLearn(replaceIdx) {
-  uiAction(function () {
-    const p = STATE.pendingLearn[0];
-    if (p) {
-      if (replaceIdx >= 0) resolvePendingLearn(p.moveId, replaceIdx);
-      else resolvePendingLearn(p.moveId, null);
-    }
-    save();
-    closeModal();
-  });
+  const p = STATE.pendingLearn[0];
+  if (p) {
+    if (replaceIdx >= 0) resolvePendingLearn(p.moveId, replaceIdx);
+    else resolvePendingLearn(p.moveId, null);
+  }
+  save();
+  closeModal();
+  render();
 }
 
 function showRocketSellModal() {
@@ -909,11 +783,10 @@ function showRocketSellModal() {
 }
 
 function doRocketSell(pay) {
-  uiAction(function () {
-    resolveRocketSell(pay);
-    save();
-    closeModal();
-  });
+  resolveRocketSell(pay);
+  save();
+  closeModal();
+  render();
 }
 
 // ---------------- 弹窗：鲤鱼王大叔 ----------------
@@ -926,11 +799,10 @@ function showMagikarpModal() {
 }
 
 function doMagikarpBuy(pay) {
-  uiAction(function () {
-    resolveMagikarpOffer(pay);
-    save();
-    closeModal();
-  });
+  resolveMagikarpOffer(pay);
+  save();
+  closeModal();
+  render();
 }
 
 // ---------------- 弹窗：神秘商人 / 强盗 / 旅行补给商 ----------------
@@ -946,11 +818,10 @@ function showMerchantModal() {
 }
 
 function doMerchantBuy(buy) {
-  uiAction(function () {
-    resolveMerchantOffer(buy);
-    save();
-    closeModal();
-  });
+  resolveMerchantOffer(buy);
+  save();
+  closeModal();
+  render();
 }
 
 function showBanditModal() {
@@ -962,11 +833,10 @@ function showBanditModal() {
 }
 
 function doBandit(pay) {
-  uiAction(function () {
-    resolveBandit(pay);
-    save();
-    closeModal();
-  });
+  resolveBandit(pay);
+  save();
+  closeModal();
+  render();
 }
 
 function showMedicModal() {
@@ -980,11 +850,10 @@ function showMedicModal() {
 }
 
 function doMedic(option) {
-  uiAction(function () {
-    resolveMedic(option);
-    save();
-    closeModal();
-  });
+  resolveMedic(option);
+  save();
+  closeModal();
+  render();
 }
 
 // ---------------- 弹窗：NPC 交换 ----------------
@@ -1003,16 +872,14 @@ function showTradeModal() {
 }
 
 function doTrade(accept) {
-  uiAction(function () {
-    doTownTrade(accept);
-    save();
-    closeModal();
-  });
+  doTownTrade(accept);
+  save();
+  closeModal();
+  render();
 }
 
 // 启动
 document.addEventListener('DOMContentLoaded', function () {
-  revealAllNow();
   if (STATE.screen === 'title' && hasSave()) {
     // 停留在标题页，由玩家决定新开或继续
   }

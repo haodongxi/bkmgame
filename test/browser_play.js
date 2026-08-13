@@ -38,14 +38,6 @@ async function main() {
     }
     return r.result ? r.result.result.value : undefined;
   }
-  // 文本播报期间输入锁定：程序化操作前先等待播报结束
-  async function waitIdle() {
-    for (let i = 0; i < 200; i++) {
-      if (!(await evaljs("typeof _uiBusy !== 'undefined' && _uiBusy === true"))) return;
-      await new Promise(function (r) { setTimeout(r, 50); });
-    }
-  }
-
   await send('Runtime.enable');
   let passed = 0, failed = 0;
   function ok(cond, name) {
@@ -94,15 +86,12 @@ async function main() {
 
   await evaljs('doMapAction(\'travel\');');
   ok(await evaljs("document.querySelectorAll('.travel-btn').length === 1"), '移动弹窗列出下个地点');
-  await waitIdle();
   await evaljs('doTravel(\'route1\');');
   ok(await evaljs("STATE.nodeId === 'route1'"), '移动到 1 号道路');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn')[0].textContent.indexOf('探索') !== -1"), '野外探索按钮');
-  await waitIdle();
   await evaljs('doMapAction(\'travel\');');
   ok(await evaljs("document.querySelectorAll('.travel-btn').length >= 1"), '野外节点也有移动弹窗');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('.travel-btn'), function(b){ return b.textContent.indexOf('常磐市') !== -1; })"), '可从 1 号道路前往常磐市');
-  await waitIdle();
   await evaljs('doTravel(\'viridian\');');
   ok(await evaljs("STATE.nodeId === 'viridian'"), '成功移动到常磐市');
 
@@ -136,7 +125,6 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '背包弹窗打开');
   await evaljs('closeModal();');
 
-  await waitIdle();
   await evaljs('doMapAction(\'wander\');');
   ok(await evaljs("STATE.log.length > 0"), '闲逛事件产生日志');
 
@@ -144,7 +132,6 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('钓鱼') !== -1; })"), '水边出现钓鱼按钮');
   await evaljs('STATE.party.push(makeMon(19, 6, { nature: "勤奋" })); STATE.townTrade = { give: 16, want: 19 }; render();');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('波波') !== -1"), 'NPC 交换弹窗弹出');
-  await waitIdle();
   await evaljs('doTrade(true);');
   ok(await evaljs("STATE.party.some(function(m){ return m.species === 16 && m.tradeBonus; })"), '交换完成且带 1.5 倍经验标记');
   await evaljs('STATE.nodeId = \'pewter\'; render();');
