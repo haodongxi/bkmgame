@@ -619,6 +619,55 @@ section('MVP4 支线与技能表扩充');
   ok(badEff.length === 0, '全部技能效果类型合法');
 }
 
+// ---------- 9.9.7 平衡性回归 ----------
+section('平衡性回归');
+{
+  let badPool = 0, badTrainer = 0;
+  Object.keys(T.MAP_NODES).forEach(function (id) {
+    const n = T.MAP_NODES[id];
+    Object.keys(n.pools || {}).forEach(function (w) {
+      (n.pools[w] || []).forEach(function (p) { if (!T.POKEDEX[p.id] || !(p.w > 0)) badPool++; });
+    });
+    (n.trainers || []).forEach(function (t) {
+      t.party.forEach(function (p) {
+        if (!T.POKEDEX[p.id]) badTrainer++;
+        (p.moves || []).forEach(function (m) { if (!T.MOVES[m]) badTrainer++; });
+      });
+    });
+  });
+  ok(badPool === 0 && badTrainer === 0, '全部遭遇池/训练家数据合法（含新地图与支线）');
+}
+{
+  const order = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  let inc = true;
+  for (let i = 1; i < order.length; i++) {
+    if (T.MAP_NODES[order[i]].gym.minLevel <= T.MAP_NODES[order[i - 1]].gym.minLevel) inc = false;
+  }
+  ok(inc, '道馆等级门槛逐馆递增');
+}
+{
+  const starters = [1, 4, 7];
+  const okStarters = starters.every(function (id) {
+    const ls = T.POKEDEX[id].learnset || {};
+    return Object.keys(ls).some(function (lv) {
+      return +lv <= 15 && ls[lv].some(function (m) { return T.MOVES[m] && T.MOVES[m].power > 0; });
+    });
+  });
+  ok(okStarters, '御三家 15 级前都有可用的伤害招式');
+}
+{
+  let badLevel = 0;
+  Object.keys(T.MAP_NODES).forEach(function (id) {
+    const n = T.MAP_NODES[id];
+    if (n.levels && !(n.levels[0] > 0 && n.levels[1] >= n.levels[0])) badLevel++;
+  });
+  ok(badLevel === 0, '全部节点遭遇等级区间合法');
+}
+{
+  // 稀有度/捕获率：前期路线宝可梦应当好抓，传说宝可梦极难抓
+  ok(T.POKEDEX[16].catchRate > 100 && T.POKEDEX[144].catchRate <= 10, '波波易抓、急冻鸟极难抓（捕获率合理）');
+}
+
 // ---------- 10. 存档读档 ----------
 section('存档');
 T.newGame(4);

@@ -5,6 +5,8 @@
 
 function $id(id) { return document.getElementById(id); }
 
+let _lastBattle = null, _foeHp = null, _playerHp = null, _foeIdx = null, _playerIdx = null;
+
 function mulberry32(seed) {
   let a = seed >>> 0;
   return function () {
@@ -406,10 +408,19 @@ function doItemOnMon(name, idx) {
 function renderBattle() {
   const b = STATE.battle;
   if (!b) { STATE.screen = 'map'; render(); return; }
+  if (_lastBattle !== b) { _lastBattle = b; _foeHp = null; _playerHp = null; _foeIdx = null; _playerIdx = null; }
   const foe = b.foe.mons[b.foe.active];
   const pm = b.player.mons[b.player.active];
-  $id('battle-foe').innerHTML = battleCard(foe, 'foe');
-  $id('battle-player').innerHTML = battleCard(pm, 'player');
+  const foeHit = (_foeIdx === b.foe.active) && (_foeHp !== null) && (foe.m.hp < _foeHp);
+  const playerHit = (_playerIdx === b.player.active) && (_playerHp !== null) && (pm.m.hp < _playerHp);
+  _foeHp = foe.m.hp; _foeIdx = b.foe.active;
+  _playerHp = pm.m.hp; _playerIdx = b.player.active;
+  $id('battle-foe').innerHTML = battleCard(foe, 'foe', foeHit);
+  $id('battle-player').innerHTML = battleCard(pm, 'player', playerHit);
+  const foeIcon = $id('battle-icon-foe');
+  if (foeIcon) foeIcon.appendChild(monIcon(foe.m.species, 48));
+  const playerIcon = $id('battle-icon-player');
+  if (playerIcon) playerIcon.appendChild(monIcon(pm.m.species, 48));
   const bLog = $id('battle-log');
   let start = b.logStart || 0;
   if (start > STATE.log.length) start = Math.max(0, STATE.log.length - 50);
@@ -437,10 +448,9 @@ function renderBattle() {
   $id('battle-actions').innerHTML = html;
 }
 
-function battleCard(bm, side) {
+function battleCard(bm, side, hit) {
   const m = bm.m;
-  const icon = document.createElement('div');
-  return '<div class="battle-card ' + side + ' pixel-frame">' +
+  return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
     '<div class="battle-info"><div class="battle-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) + '</div></div>';

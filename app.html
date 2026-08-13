@@ -117,6 +117,13 @@
     #screen-battle { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
     #screen-battle.active { display: flex !important; }
     .battle-card { display: flex; gap: 10px; padding: 10px; margin-bottom: 8px; }
+    .battle-card.hit { animation: hitFlash 0.4s ease; }
+    @keyframes hitFlash {
+      0% { transform: translateX(0); }
+      30% { transform: translateX(-6px); background: rgba(232,72,79,0.28); }
+      60% { transform: translateX(4px); }
+      100% { transform: translateX(0); }
+    }
     .battle-icon { display: flex; align-items: center; }
     .battle-info { flex: 1; }
     .battle-name { font-size: 13px; }
@@ -140,6 +147,13 @@
     .party-row { display: flex; gap: 8px; align-items: center; padding: 8px; margin-bottom: 8px; }
     .lead-tag { font-size: 10px; color: var(--gold); border: 2px solid var(--gold); padding: 3px 7px; }
     .modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+    /* CRT 扫描线 */
+    .scanlines {
+      position: fixed; inset: 0; pointer-events: none; z-index: 60;
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px);
+      opacity: 0.28;
+    }
   </style>
 </head>
 <body>
@@ -184,6 +198,7 @@
     </div>
   </div>
 
+  <div class="scanlines" aria-hidden="true"></div>
   <div id="modal-root"></div>
 
   <script src="./js/data/typechart.js"></script>
