@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
-const files = ['js/data/typechart.js', 'js/data/moves.js', 'js/data/pokedex.js', 'js/data/pokedex_gen.js', 'js/data/maps.js', 'js/core.js'];
+const files = ['js/data/typechart.js', 'js/data/moves.js', 'js/data/moves_gen.js', 'js/data/pokedex.js', 'js/data/pokedex_gen.js', 'js/data/maps.js', 'js/core.js'];
 let src = files.map(function (f) {
   return fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
 }).join('\n;\n');
@@ -605,7 +605,8 @@ section('MVP4 支线与技能表扩充');
 }
 {
   const moveIds = Object.keys(T.MOVES);
-  ok(moveIds.length >= 140, '技能表数量 >= 140（实际 ' + moveIds.length + '）');
+  ok(moveIds.length >= 354, '技能表覆盖 Gen1-3 全部招式（实际 ' + moveIds.length + '）');
+  ok(!!T.MOVES.fake_out && !!T.MOVES.psycho_boost && !!T.MOVES.aeroblast, 'Gen1-3 标志性招式已补齐');
   const bad = moveIds.filter(function (id) {
     const mv = T.MOVES[id];
     return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
