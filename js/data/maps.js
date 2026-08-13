@@ -28,6 +28,13 @@ const ITEMS = {
   '金珠':   { id: 'nugget', name: '金珠', type: 'loot', sell: 5000, desc: '可以高价卖出的贵重品' },
   'TM岩石封锁': { id: 'tm_rock_tomb', name: 'TM岩石封锁', type: 'tm', move: 'rock_tomb', desc: '让宝可梦习得招式：岩石封锁' },
   'TM泡沫光线': { id: 'tm_bubble_beam', name: 'TM泡沫光线', type: 'tm', move: 'bubble_beam', desc: '让宝可梦习得招式：泡沫光线' },
+  'TM十万伏特': { id: 'tm_thunderbolt', name: 'TM十万伏特', type: 'tm', move: 'thunderbolt', desc: '让宝可梦习得招式：十万伏特' },
+  'TM日光束': { id: 'tm_solar_beam', name: 'TM日光束', type: 'tm', move: 'solar_beam', desc: '让宝可梦习得招式：日光束' },
+  'TM冥想': { id: 'tm_calm_mind', name: 'TM冥想', type: 'tm', move: 'calm_mind', desc: '让宝可梦习得招式：冥想' },
+  'TM剧毒': { id: 'tm_toxic', name: 'TM剧毒', type: 'tm', move: 'toxic', desc: '让宝可梦习得招式：剧毒' },
+  'TM喷射火焰': { id: 'tm_flamethrower', name: 'TM喷射火焰', type: 'tm', move: 'flamethrower', desc: '让宝可梦习得招式：喷射火焰' },
+  'TM挖洞': { id: 'tm_dig', name: 'TM挖洞', type: 'tm', move: 'dig', desc: '让宝可梦习得招式：挖洞' },
+  'TM居合斩': { id: 'tm_cut', name: 'TM居合斩', type: 'tm', move: 'cut', desc: '让宝可梦习得招式：居合斩' },
   '电气球':   { id: 'lightball', name: '电气球', type: 'held', desc: '只有皮卡丘能携带，携带后攻击与特攻翻倍' },
   '吃剩的东西': { id: 'leftovers', name: '吃剩的东西', type: 'held', desc: '携带后每回合结束恢复 1/16 最大HP' },
   '破旧钓竿': { id: 'old_rod', name: '破旧钓竿', type: 'key', desc: '可以在水边钓鱼，说不定能钓上好东西' },
@@ -299,7 +306,7 @@ const MAP_NODES = {
     }
   },
   route19: {
-    id: 'route19', name: '19号水路', type: 'route', next: ['fuchsia', 'cinnabar'], requireBadge: '粉红徽章',
+    id: 'route19', name: '19号水路', type: 'route', next: ['fuchsia', 'seafoam'], requireBadge: '粉红徽章',
     levels: [28, 32], water: true, weatherWeights: { '晴': 75, '雨': 25 },
     pools: {
       '晴': [ { id: 72, w: 35 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 54, w: 10 }, { id: 147, w: 10 } ],
@@ -309,8 +316,20 @@ const MAP_NODES = {
       { id: 'r19_t1', title: '垂钓者', name: '海男', prize: 1300, text: '这里的水里全是宝可梦！', party: [{ id: 129, level: 28 }, { id: 120, level: 30 }] }
     ]
   },
+  seafoam: {
+    id: 'seafoam', name: '双子岛', type: 'cave', next: ['route19', 'cinnabar'], requireBadge: '粉红徽章',
+    levels: [34, 40], water: true, weatherWeights: { '晴': 100 },
+    desc: '终年积雪的海岛洞窟，据说最深处栖息着传说中的急冻鸟。',
+    pools: {
+      '晴': [ { id: 86, w: 20 }, { id: 87, w: 15 }, { id: 90, w: 20 }, { id: 91, w: 10 }, { id: 72, w: 10 }, { id: 131, w: 8 }, { id: 121, w: 12 }, { id: 42, w: 3 }, { id: 144, w: 2 } ]
+    },
+    trainers: [
+      { id: 'seafoam_t1', title: '游泳者', name: '冷泉', prize: 1300, text: '冰水可是很冷的，别冻僵了！', party: [{ id: 87, level: 36, moves: ['water_gun', 'ice_beam', 'aurora_beam'] }] },
+      { id: 'seafoam_t2', title: '游泳者', name: '寒子', prize: 1350, text: '听说这里能遇到稀有的宝可梦！', party: [{ id: 91, level: 37, moves: ['ice_beam', 'water_gun'] }, { id: 131, level: 36, moves: ['surf', 'ice_beam'] }] }
+    ]
+  },
   cinnabar: {
-    id: 'cinnabar', name: '红莲岛', type: 'town', next: ['route19', 'route21'], requireBadge: '粉红徽章',
+    id: 'cinnabar', name: '红莲岛', type: 'town', next: ['seafoam', 'route21'], requireBadge: '粉红徽章',
     weatherWeights: { '晴': 90, '雨': 10 },
     desc: '火山岛上的火系道馆，馆主是研究宝可梦化石的夏伯。',
     gym: {

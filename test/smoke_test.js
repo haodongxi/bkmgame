@@ -20,7 +20,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
-  '  setLeadMon: setLeadMon,\n' +
+  '  setLeadMon: setLeadMon, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, startBattle: startBattle, endBattle: endBattle,\n' +
@@ -565,6 +565,58 @@ section('队伍首发设置');
   ok(T.getState().party[0].species === 16, '设置后首发变为波波');
   T.startWildBattle(19, 3);
   ok(T.getState().battle.player.mons[0].m.species === 16, '战斗默认派出首发波波');
+}
+
+// ---------- 9.9.6 MVP4：支线（双子岛 / 圣安奴号 / 鲤鱼王大叔）与技能表 ----------
+section('MVP4 支线与技能表扩充');
+{
+  const gyms = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  const tms = gyms.map(function (id) { return 'TM' + T.MAP_NODES[id].gym.tm; });
+  ok(tms.every(function (name) { return T.ITEMS[name] && T.MOVES[T.ITEMS[name].move]; }), '8 枚道馆 TM 道具与招式均完整');
+}
+{
+  ok(!!T.MAP_NODES.seafoam, '双子岛节点存在');
+  ok(T.MAP_NODES.seafoam.pools['晴'].some(function (p) { return p.id === 144; }), '双子岛可遭遇急冻鸟');
+  ok(T.MAP_NODES.route19.next.indexOf('seafoam') !== -1 && T.MAP_NODES.seafoam.next.indexOf('cinnabar') !== -1, '双子岛连通 19 号水路与红莲岛');
+}
+{
+  T.newGame(4);
+  T.getState().party = [T.makeMon(9, 30, { nature: '勤奋' })]; // 水箭龟，稳胜
+  T.getState().nodeId = 'vermilion';
+  T.wanderTown();
+  ok(T.getState().battle && T.getState().battle.kind === 'ssanne', '枯叶市闲逛触发圣安奴号支线');
+  let g = 0;
+  while (T.getState().battle && !T.getState().battle.over && g++ < 80) {
+    T.battleMove(strongMoveIdx(T.getState().battle));
+  }
+  ok(T.getState().ssAnneDone === true, '圣安奴号支线完成标记');
+  ok(T.getState().bag['TM居合斩'] === 1, '获得 TM 居合斩');
+}
+{
+  T.newGame(4);
+  T.getState().nodeId = 'cerulean';
+  T.getState().money = 5000;
+  T.wanderTown();
+  ok(T.getState().magikarpOffer === true, '华蓝市触发鲤鱼王大叔支线');
+  T.resolveMagikarpOffer(true);
+  ok(T.getState().money === 4500, '购买鲤鱼王扣款 500');
+  const hasMagikarp = T.getState().party.concat(T.getState().box).some(function (m) { return m.species === 129; });
+  ok(hasMagikarp && T.getState().magikarpDone, '获得鲤鱼王并标记支线完成');
+}
+{
+  const moveIds = Object.keys(T.MOVES);
+  ok(moveIds.length >= 140, '技能表数量 >= 140（实际 ' + moveIds.length + '）');
+  const bad = moveIds.filter(function (id) {
+    const mv = T.MOVES[id];
+    return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
+  });
+  ok(bad.length === 0, '全部技能字段完整');
+  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1 };
+  const badEff = moveIds.filter(function (id) {
+    const e = T.MOVES[id].effect;
+    return e && !effKinds[e.kind];
+  });
+  ok(badEff.length === 0, '全部技能效果类型合法');
 }
 
 // ---------- 10. 存档读档 ----------

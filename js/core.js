@@ -30,7 +30,10 @@ const STATE = {
   gymSession: null,
   townTrade: null,
   trashFound: false,
-  wanderUsed: false
+  wanderUsed: false,
+  ssAnneDone: false,
+  magikarpDone: false,
+  magikarpOffer: false
 };
 
 // ---------------- 基础工具 ----------------
@@ -780,7 +783,7 @@ function useMove(user, target, move, log) {
     }
     if (move.effect.kind === 'trap' && t.hp > 0) {
       target.trapTurns = randInt(2, 5);
-      log.push(t.name + ' 被火焰困住了！');
+      log.push(t.name + ' 被' + move.name + '困住了！');
     }
     if (move.effect.kind === 'recharge') {
       user.recharge = true;
@@ -805,7 +808,7 @@ function applyStatEffect(passed, effect, log) {
   if (effect.second) apply(effect.second.stat, effect.second.stage);
 }
 
-const STAT_NAME = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+const STAT_NAME = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度', acc: '命中', eva: '回避' };
 
 function afterMove(user) {
   if (user.confuseTurns > 0) user.confuseTurns--;
@@ -849,7 +852,7 @@ function endOfTurn(log) {
       bm.trapTurns--;
       const chip = Math.max(1, Math.floor(m.stats.hp / 16));
       m.hp -= chip;
-      log.push(m.name + ' 被火焰旋涡困住，受到了 ' + chip + ' 点伤害！');
+      log.push(m.name + ' 被困住，受到了 ' + chip + ' 点伤害！');
     }
     if (m.held === '吃剩的东西' && m.hp > 0 && m.hp < m.stats.hp) {
       const heal = Math.max(1, Math.floor(m.stats.hp / 16));
@@ -1016,7 +1019,7 @@ function battleSwitch(idx) {
   const target = p.mons[idx];
   if (!target || target.m.hp <= 0) { addLog('这只宝可梦已经没有体力了！'); return; }
   if (idx === p.active) { addLog('它已经在场上了！'); return; }
-  if (pm.trapTurns > 0) { addLog(pm.m.name + ' 被火焰困住，无法替换！'); return; }
+  if (pm.trapTurns > 0) { addLog(pm.m.name + ' 被困住，无法替换！'); return; }
   p.active = idx;
   addLog('回来吧！上吧，' + target.m.name + '！');
   const fm = f.mons[f.active];
@@ -1076,6 +1079,10 @@ function endBattle(outcome) {
     if (b.kind === 'rival' && b.rivalStep) {
       STATE.rivalWon.push(b.rivalStep);
       addLog('小茂：哼，这次算你赢了！下次可不会这么简单！');
+    }
+    if (b.kind === 'ssanne') {
+      STATE.ssAnneDone = true;
+      addLog('水手：「不愧是优秀的训练家！这枚 TM 居合斩送给你了！」');
     }
     const gym = MAP_NODES[STATE.nodeId] && MAP_NODES[STATE.nodeId].gym;
     if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText);
@@ -1262,6 +1269,48 @@ function resolveRocketSell(pay) {
   STATE.rocketSell = false;
 }
 
+// ---------- 圣安奴号（枯叶市一次性支线） ----------
+
+function startSSAnne() {
+  addLog('枯叶市的港口停靠着一艘豪华客轮「圣安奴号」，你登上了甲板。');
+  startBattle('ssanne', {
+    foe: [
+      { id: 72, level: 24, moves: ['water_gun', 'bubble_beam', 'poison_sting'] },
+      { id: 73, level: 25, moves: ['water_pulse', 'acid', 'bubble_beam'] }
+    ],
+    canRun: false,
+    prize: 1000,
+    rewardItem: 'TM居合斩',
+    trainerName: '水手',
+    title: '圣安奴号水手',
+    trainerText: '欢迎来到圣安奴号！想下船，先和我对战一场吧！',
+    opening: '圣安奴号的水手向你发起挑战！'
+  });
+}
+
+// ---------- 鲤鱼王大叔（华蓝市一次性支线） ----------
+
+function resolveMagikarpOffer(pay) {
+  if (!STATE.magikarpOffer) return;
+  STATE.magikarpOffer = false;
+  const price = 500;
+  if (pay) {
+    if (STATE.money < price) {
+      addLog('你身上的金币不够 500，鲤鱼王大叔扫兴地走了。');
+      return;
+    }
+    STATE.money -= price;
+    const mon = makeMon(129, 5);
+    addToPartyOrBox(mon);
+    STATE.caughtDex[129] = true;
+    addLog('你花了 ' + price + ' 金币买下了鲤鱼王！鲤鱼王大叔心满意足地离开了。');
+    STATE.magikarpDone = true;
+  } else {
+    addLog('你摇摇头走开了，鲤鱼王大叔在后面喊：「不识货啊！」');
+    STATE.magikarpDone = true;
+  }
+}
+
 function visitCenter() {
   healAll();
   addLog('宝可梦中心的乔伊小姐把你的宝可梦都恢复了！');
@@ -1319,6 +1368,17 @@ function wanderTown() {
     return;
   }
   STATE.wanderUsed = true;
+  // 圣安奴号：枯叶市一次性支线（登船对战水手）
+  if (STATE.nodeId === 'vermilion' && !STATE.ssAnneDone) {
+    startSSAnne();
+    return;
+  }
+  // 鲤鱼王大叔：华蓝市一次性支线（花 500 金买鲤鱼王）
+  if (STATE.nodeId === 'cerulean' && !STATE.magikarpDone) {
+    STATE.magikarpOffer = true;
+    addLog('鲤鱼王大叔凑过来：「小伙子，稀有宝可梦鲤鱼王，只要 500 金，怎么样？」');
+    return;
+  }
   // 关键道具：常磐市自行车店
   if (STATE.nodeId === 'viridian' && STATE.keyItems.indexOf('自行车') === -1 && Math.random() < 0.5) {
     STATE.keyItems.push('自行车');
@@ -1488,6 +1548,9 @@ function newGame(starterId) {
   STATE.townTrade = null;
   STATE.trashFound = false;
   STATE.wanderUsed = false;
+  STATE.ssAnneDone = false;
+  STATE.magikarpDone = false;
+  STATE.magikarpOffer = false;
   STATE.seenDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！');
@@ -1513,7 +1576,9 @@ function save() {
       heldObtained: STATE.heldObtained,
       keyItems: STATE.keyItems,
       rivalWon: STATE.rivalWon,
-      trashFound: STATE.trashFound
+      trashFound: STATE.trashFound,
+      ssAnneDone: STATE.ssAnneDone,
+      magikarpDone: STATE.magikarpDone
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
   } catch (e) { /* 存档失败静默处理 */ }
@@ -1567,6 +1632,9 @@ function load() {
     STATE.keyItems = data.keyItems || [];
     STATE.rivalWon = data.rivalWon || [];
     STATE.trashFound = !!data.trashFound;
+    STATE.ssAnneDone = !!data.ssAnneDone;
+    STATE.magikarpDone = !!data.magikarpDone;
+    STATE.magikarpOffer = false;
     STATE.battle = null;
     STATE.pendingLearn = [];
     STATE.log = [];
@@ -1589,6 +1657,7 @@ function resetGame() {
   STATE.lastResult = null;
   STATE.gymSession = null;
   STATE.townTrade = null;
+  STATE.magikarpOffer = false;
   STATE.wanderUsed = false;
   STATE.screen = 'title';
 }
@@ -1609,6 +1678,7 @@ if (typeof module !== 'undefined' && module.exports) {
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
+    startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,

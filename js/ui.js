@@ -122,6 +122,7 @@ function render() {
   if (STATE.screen === 'map' || STATE.screen === 'battle') {
     if (STATE.pendingLearn.length > 0) showLearnModal();
     else if (STATE.rocketSell) showRocketSellModal();
+    else if (STATE.magikarpOffer) showMagikarpModal();
     else if (STATE.townTrade) showTradeModal();
   }
 }
@@ -291,6 +292,7 @@ function showShopModal() {
   if (keys.length === 0) html += '<div class="shop-hint">没有可出售的道具</div>';
   for (let i = 0; i < keys.length; i++) {
     const item = ITEMS[keys[i]];
+    if (!item) continue;
     const price = item.sell || Math.floor((item.price || 0) / 2);
     if (price <= 0) continue;
     html += '<div class="shop-row"><span>' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
@@ -329,6 +331,7 @@ function showBagModal(inBattle) {
   for (let i = 0; i < keys.length; i++) {
     const name = keys[i];
     const item = ITEMS[name];
+    if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
     if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm')) usable = true;
@@ -499,6 +502,21 @@ function showRocketSellModal() {
 
 function doRocketSell(pay) {
   resolveRocketSell(pay);
+  save();
+  closeModal();
+  render();
+}
+
+// ---------------- 弹窗：鲤鱼王大叔 ----------------
+
+function showMagikarpModal() {
+  openModal('鲤鱼王大叔', '<div class="shop-hint">稀有宝可梦鲤鱼王，只要 500 金！</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doMagikarpBuy(true)">付 500 金买下</button>' +
+    '<button class="btn" onclick="doMagikarpBuy(false)">不买</button></div>');
+}
+
+function doMagikarpBuy(pay) {
+  resolveMagikarpOffer(pay);
   save();
   closeModal();
   render();

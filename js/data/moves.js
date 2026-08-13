@@ -128,7 +128,98 @@ const MOVES = {
   // ---------------- 钢 ----------------
   metal_claw: { id: 'metal_claw', name: '金属爪', type: '钢', category: '物理', power: 50, acc: 95, pp: 35, effect: { kind: 'stat', target: 'self', stat: 'atk', stage: 1, chance: 0.1 } },
   iron_tail: { id: 'iron_tail', name: '铁尾', type: '钢', category: '物理', power: 100, acc: 75, pp: 15, effect: { kind: 'stat', target: 'target', stat: 'def', stage: -1, chance: 0.1 } },
-  steel_wing: { id: 'steel_wing', name: '钢翼', type: '钢', category: '物理', power: 70, acc: 90, pp: 25, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 1, chance: 0.1 } }
+  steel_wing: { id: 'steel_wing', name: '钢翼', type: '钢', category: '物理', power: 70, acc: 90, pp: 25, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 1, chance: 0.1 } },
+
+  // ---------------- Gen1-3 扩充（常用招式） ----------------
+  // 普通
+  cut: { id: 'cut', name: '居合斩', type: '普通', category: '物理', power: 50, acc: 95, pp: 30 },
+  slash: { id: 'slash', name: '劈开', type: '普通', category: '物理', power: 70, acc: 100, pp: 20 },
+  horn_attack: { id: 'horn_attack', name: '角撞', type: '普通', category: '物理', power: 65, acc: 100, pp: 25 },
+  stomp: { id: 'stomp', name: '踩踏', type: '普通', category: '物理', power: 65, acc: 100, pp: 20, effect: { kind: 'flinch', chance: 0.3 } },
+  headbutt: { id: 'headbutt', name: '头锤', type: '普通', category: '物理', power: 70, acc: 100, pp: 15, effect: { kind: 'flinch', chance: 0.3 } },
+  double_slap: { id: 'double_slap', name: '连环巴掌', type: '普通', category: '物理', power: 15, acc: 85, pp: 10, effect: { kind: 'multi', hits: '2-5' } },
+  fury_attack: { id: 'fury_attack', name: '乱击', type: '普通', category: '物理', power: 15, acc: 85, pp: 20, effect: { kind: 'multi', hits: '2-5' } },
+  mega_punch: { id: 'mega_punch', name: '百万吨拳', type: '普通', category: '物理', power: 80, acc: 85, pp: 20 },
+  mega_kick: { id: 'mega_kick', name: '百万吨踢', type: '普通', category: '物理', power: 120, acc: 75, pp: 5 },
+  strength: { id: 'strength', name: '怪力', type: '普通', category: '物理', power: 80, acc: 100, pp: 15 },
+  thrash: { id: 'thrash', name: '大闹一番', type: '普通', category: '物理', power: 120, acc: 100, pp: 10, effect: { kind: 'selfConfuse' } },
+  wrap: { id: 'wrap', name: '紧束', type: '普通', category: '物理', power: 15, acc: 90, pp: 20, effect: { kind: 'trap' } },
+  rapid_spin: { id: 'rapid_spin', name: '高速旋转', type: '普通', category: '物理', power: 50, acc: 100, pp: 40 },
+  facade: { id: 'facade', name: '硬撑', type: '普通', category: '物理', power: 70, acc: 100, pp: 20 },
+  defense_curl: { id: 'defense_curl', name: '缩入壳中', type: '普通', category: '变化', power: 0, acc: 0, pp: 40, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 1, chance: 1 } },
+  recover: { id: 'recover', name: '自我再生', type: '普通', category: '变化', power: 0, acc: 0, pp: 10, effect: { kind: 'heal', ratio: 0.5, self: true } },
+  soft_boiled: { id: 'soft_boiled', name: '生蛋', type: '普通', category: '变化', power: 0, acc: 0, pp: 10, effect: { kind: 'heal', ratio: 0.5, self: true } },
+  screech: { id: 'screech', name: '刺耳声', type: '普通', category: '变化', power: 0, acc: 85, pp: 40, effect: { kind: 'stat', target: 'target', stat: 'def', stage: -2, chance: 1 } },
+  // 火
+  fire_blast: { id: 'fire_blast', name: '大字爆炎', type: '火', category: '特殊', power: 120, acc: 85, pp: 5, effect: { kind: 'status', status: '灼伤', chance: 0.1 } },
+  heat_wave: { id: 'heat_wave', name: '热风', type: '火', category: '特殊', power: 95, acc: 90, pp: 10, effect: { kind: 'status', status: '灼伤', chance: 0.1 } },
+  will_o_wisp: { id: 'will_o_wisp', name: '鬼火', type: '火', category: '变化', power: 0, acc: 85, pp: 15, effect: { kind: 'status', status: '灼伤', chance: 1 } },
+  // 水
+  waterfall: { id: 'waterfall', name: '攀瀑', type: '水', category: '物理', power: 80, acc: 100, pp: 15, effect: { kind: 'flinch', chance: 0.2 } },
+  crabhammer: { id: 'crabhammer', name: '蟹钳锤', type: '水', category: '物理', power: 100, acc: 90, pp: 10 },
+  aqua_tail: { id: 'aqua_tail', name: '水流尾', type: '水', category: '物理', power: 90, acc: 90, pp: 10 },
+  whirlpool: { id: 'whirlpool', name: '潮旋', type: '水', category: '特殊', power: 35, acc: 85, pp: 15, effect: { kind: 'trap' } },
+  muddy_water: { id: 'muddy_water', name: '浊流', type: '水', category: '特殊', power: 95, acc: 85, pp: 10, effect: { kind: 'stat', target: 'target', stat: 'acc', stage: -1, chance: 1 } },
+  // 电
+  spark: { id: 'spark', name: '电光', type: '电', category: '物理', power: 65, acc: 100, pp: 20, effect: { kind: 'status', status: '麻痹', chance: 0.3 } },
+  zap_cannon: { id: 'zap_cannon', name: '电磁炮', type: '电', category: '特殊', power: 120, acc: 50, pp: 5, effect: { kind: 'status', status: '麻痹', chance: 1 } },
+  shock_wave: { id: 'shock_wave', name: '电击波', type: '电', category: '特殊', power: 60, acc: 0, pp: 20 },
+  // 草
+  petal_dance: { id: 'petal_dance', name: '花瓣舞', type: '草', category: '特殊', power: 120, acc: 100, pp: 10, effect: { kind: 'selfConfuse' } },
+  magical_leaf: { id: 'magical_leaf', name: '魔法叶', type: '草', category: '特殊', power: 60, acc: 0, pp: 20 },
+  leaf_blade: { id: 'leaf_blade', name: '叶刃', type: '草', category: '物理', power: 90, acc: 100, pp: 15 },
+  spore: { id: 'spore', name: '蘑菇孢子', type: '草', category: '变化', power: 0, acc: 100, pp: 15, effect: { kind: 'status', status: '睡眠', chance: 1 } },
+  cotton_spore: { id: 'cotton_spore', name: '棉孢子', type: '草', category: '变化', power: 0, acc: 100, pp: 40, effect: { kind: 'stat', target: 'target', stat: 'spe', stage: -2, chance: 1 } },
+  // 冰
+  powder_snow: { id: 'powder_snow', name: '细雪', type: '冰', category: '特殊', power: 40, acc: 100, pp: 25, effect: { kind: 'status', status: '冰冻', chance: 0.1 } },
+  aurora_beam: { id: 'aurora_beam', name: '极光束', type: '冰', category: '特殊', power: 65, acc: 100, pp: 20, effect: { kind: 'stat', target: 'target', stat: 'atk', stage: -1, chance: 0.1 } },
+  icicle_spear: { id: 'icicle_spear', name: '冰锥', type: '冰', category: '物理', power: 25, acc: 100, pp: 30, effect: { kind: 'multi', hits: '2-5' } },
+  // 格斗
+  mach_punch: { id: 'mach_punch', name: '音速拳', type: '格斗', category: '物理', power: 40, acc: 100, pp: 30, effect: { kind: 'priority' } },
+  rolling_kick: { id: 'rolling_kick', name: '回旋踢', type: '格斗', category: '物理', power: 60, acc: 85, pp: 15, effect: { kind: 'flinch', chance: 0.3 } },
+  jump_kick: { id: 'jump_kick', name: '飞踢', type: '格斗', category: '物理', power: 100, acc: 95, pp: 10 },
+  hi_jump_kick: { id: 'hi_jump_kick', name: '飞膝踢', type: '格斗', category: '物理', power: 130, acc: 90, pp: 10 },
+  submission: { id: 'submission', name: '地球上投', type: '格斗', category: '物理', power: 80, acc: 80, pp: 25, effect: { kind: 'recoil', ratio: 0.25 } },
+  vital_throw: { id: 'vital_throw', name: '借力摔', type: '格斗', category: '物理', power: 70, acc: 0, pp: 10 },
+  rock_smash: { id: 'rock_smash', name: '碎岩', type: '格斗', category: '物理', power: 40, acc: 100, pp: 15, effect: { kind: 'stat', target: 'target', stat: 'def', stage: -1, chance: 0.5 } },
+  // 毒
+  smog: { id: 'smog', name: '烟雾', type: '毒', category: '特殊', power: 20, acc: 70, pp: 20, effect: { kind: 'status', status: '中毒', chance: 0.4 } },
+  sludge: { id: 'sludge', name: '污泥', type: '毒', category: '特殊', power: 65, acc: 100, pp: 20, effect: { kind: 'status', status: '中毒', chance: 0.3 } },
+  poison_fang: { id: 'poison_fang', name: '剧毒牙', type: '毒', category: '物理', power: 50, acc: 100, pp: 15, effect: { kind: 'status', status: '剧毒', chance: 0.3 } },
+  acid_armor: { id: 'acid_armor', name: '溶解', type: '毒', category: '变化', power: 0, acc: 0, pp: 40, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 2, chance: 1 } },
+  // 地面
+  bone_club: { id: 'bone_club', name: '骨棒', type: '地面', category: '物理', power: 65, acc: 85, pp: 20, effect: { kind: 'flinch', chance: 0.1 } },
+  bonemerang: { id: 'bonemerang', name: '骨头回力镖', type: '地面', category: '物理', power: 50, acc: 90, pp: 10, effect: { kind: 'multi', hits: 2 } },
+  bone_rush: { id: 'bone_rush', name: '骨头冲锋', type: '地面', category: '物理', power: 25, acc: 90, pp: 10, effect: { kind: 'multi', hits: '2-5' } },
+  mud_shot: { id: 'mud_shot', name: '泥巴射击', type: '地面', category: '特殊', power: 55, acc: 95, pp: 15, effect: { kind: 'stat', target: 'target', stat: 'spe', stage: -1, chance: 1 } },
+  // 岩石
+  rollout: { id: 'rollout', name: '滚动', type: '岩石', category: '物理', power: 30, acc: 90, pp: 20 },
+  rock_blast: { id: 'rock_blast', name: '岩石爆击', type: '岩石', category: '物理', power: 25, acc: 90, pp: 10, effect: { kind: 'multi', hits: '2-5' } },
+  ancient_power: { id: 'ancient_power', name: '原始之力', type: '岩石', category: '特殊', power: 60, acc: 100, pp: 5, effect: { kind: 'stat', target: 'self', stat: 'spa', stage: 1, chance: 0.1 } },
+  // 虫
+  leech_life: { id: 'leech_life', name: '吸血', type: '虫', category: '物理', power: 20, acc: 100, pp: 15, effect: { kind: 'heal', ratio: 0.5 } },
+  mega_horn: { id: 'mega_horn', name: '超级角击', type: '虫', category: '物理', power: 120, acc: 85, pp: 10 },
+  silver_wind: { id: 'silver_wind', name: '银色旋风', type: '虫', category: '特殊', power: 60, acc: 100, pp: 5, effect: { kind: 'stat', target: 'self', stat: 'spa', stage: 1, chance: 0.1 } },
+  signal_beam: { id: 'signal_beam', name: '信号光束', type: '虫', category: '特殊', power: 75, acc: 100, pp: 15, effect: { kind: 'confuse', chance: 0.1 } },
+  // 幽灵
+  shadow_punch: { id: 'shadow_punch', name: '暗影拳', type: '幽灵', category: '物理', power: 60, acc: 0, pp: 20 },
+  shadow_sneak: { id: 'shadow_sneak', name: '影袭', type: '幽灵', category: '物理', power: 40, acc: 100, pp: 30, effect: { kind: 'priority' } },
+  // 飞行
+  drill_peck: { id: 'drill_peck', name: '钻孔啄', type: '飞行', category: '物理', power: 80, acc: 100, pp: 20 },
+  air_slash: { id: 'air_slash', name: '空气斩', type: '飞行', category: '特殊', power: 75, acc: 95, pp: 15, effect: { kind: 'flinch', chance: 0.3 } },
+  brave_bird: { id: 'brave_bird', name: '勇鸟猛攻', type: '飞行', category: '物理', power: 120, acc: 100, pp: 15, effect: { kind: 'recoil', ratio: 0.33 } },
+  // 龙
+  dragon_claw: { id: 'dragon_claw', name: '龙爪', type: '龙', category: '物理', power: 80, acc: 100, pp: 15 },
+  twister: { id: 'twister', name: '龙卷风', type: '龙', category: '特殊', power: 40, acc: 100, pp: 20, effect: { kind: 'flinch', chance: 0.2 } },
+  // 恶
+  faint_attack: { id: 'faint_attack', name: '虚晃一招', type: '恶', category: '物理', power: 60, acc: 0, pp: 20 },
+  thief: { id: 'thief', name: '小偷', type: '恶', category: '物理', power: 60, acc: 100, pp: 25 },
+  knock_off: { id: 'knock_off', name: '拍落', type: '恶', category: '物理', power: 65, acc: 100, pp: 20 },
+  snarl: { id: 'snarl', name: '大声咆哮', type: '恶', category: '特殊', power: 55, acc: 95, pp: 15, effect: { kind: 'stat', target: 'target', stat: 'spa', stage: -1, chance: 1 } },
+  // 钢
+  meteor_mash: { id: 'meteor_mash', name: '彗星拳', type: '钢', category: '物理', power: 100, acc: 85, pp: 10, effect: { kind: 'stat', target: 'self', stat: 'atk', stage: 1, chance: 0.2 } },
+  flash_cannon: { id: 'flash_cannon', name: '加农光炮', type: '钢', category: '特殊', power: 80, acc: 100, pp: 10, effect: { kind: 'stat', target: 'target', stat: 'spd', stage: -1, chance: 0.1 } },
+  iron_defense: { id: 'iron_defense', name: '铁壁', type: '钢', category: '变化', power: 0, acc: 0, pp: 15, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 2, chance: 1 } }
 };
 
 if (typeof module !== 'undefined' && module.exports) {
