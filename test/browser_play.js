@@ -39,6 +39,7 @@ async function main() {
     return r.result ? r.result.result.value : undefined;
   }
   await send('Runtime.enable');
+  await evaljs("window.alert = function(){ return undefined; }; window.confirm = function(){ return true; };");
   let passed = 0, failed = 0;
   function ok(cond, name) {
     if (cond) { passed++; console.log('  ✓ ' + name); }
@@ -128,6 +129,15 @@ async function main() {
   ok(await evaljs("document.querySelector('#battle-actions').textContent.indexOf('特防↑2') !== -1"), '强化技显示效果说明（瞬间失忆 特防↑2）');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}})()");
   await evaljs('render();');
+  // 招式更换：满级卡比兽把残留的高速移动换成泰山压顶
+  await evaljs("STATE.party = [makeMon(143, 100, { nature: '勤奋' })]; STATE.party[0].moves = ['tackle', 'growl', 'amnesia', 'agility']; STATE.party[0].pp = [35, 40, 20, 30]; STATE.money = 10000; doMapAction('party');");
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .party-row .btn')).filter(function(x){return x.textContent.indexOf('详情')!==-1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('更换招式') !== -1"), '详情面板显示更换招式入口');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-body .btn')).filter(function(x){return x.textContent.indexOf('更换招式')!==-1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('可学招式') !== -1"), '更换招式弹窗显示可学清单');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-body .btn')).filter(function(x){return x.textContent.indexOf('4. 高速移动')!==-1;})[0]; if(b)b.click();})()");
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-body .move-btn')).filter(function(x){return x.textContent.indexOf('泰山压顶')!==-1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("STATE.party[0].moves[3] === 'body_slam' && STATE.money === 6500"), '替换成功：高速移动换成泰山压顶并扣除 3500 金');
 
   await evaljs('doMapAction(\'mart\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '商店弹窗打开');

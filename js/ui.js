@@ -846,6 +846,9 @@ function showMonDetail(idx) {
   }
   const expPoolBtn = STATE.expPool > 0 ?
     '<button class="btn btn-sm" onclick="showAllocateExp(' + idx + ')">📊 分配经验（经验池 ' + STATE.expPool + '）</button>' : '';
+  const learnable = learnableMoves(mon);
+  const moveReplaceBtn = learnable.length > 0 ?
+    '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + idx + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
     '<div><div class="detail-name">' + rarityTag(mon) + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
@@ -854,11 +857,58 @@ function showMonDetail(idx) {
     '<div class="shop-hint">携带：' + (mon.held || '无') + (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
     '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
     expPoolBtn +
+    moveReplaceBtn +
     '<div class="shop-hint">—— 能力值（括号内为个体值） ——</div>' + statsHtml +
     '<div class="shop-hint">—— 招式 ——</div>' + movesHtml;
   openModal(mon.name, html);
   const iconBox = $id('detail-icon');
   if (iconBox) iconBox.appendChild(monIcon(mon.species, 48));
+}
+
+// 更换招式弹窗：选栏位 → 从可学清单选新招（满级也能换）
+let _moveReplaceSlot = 0;
+function showMoveReplaceModal(idx) {
+  const mon = STATE.party[idx];
+  if (!mon) return;
+  const learnable = learnableMoves(mon);
+  const cost = moveReplaceCost(mon);
+  let slotHtml = '';
+  for (let i = 0; i < mon.moves.length; i++) {
+    const mv = MOVES[mon.moves[i]];
+    slotHtml += '<button class="btn btn-sm' + (_moveReplaceSlot === i ? ' active' : '') + '" onclick="pickMoveSlot(' + idx + ',' + i + ')">' +
+      (i + 1) + '. ' + (mv ? mv.name : '?') + '</button>';
+  }
+  let learnHtml = '';
+  for (let i = 0; i < learnable.length; i++) {
+    const mv = MOVES[learnable[i]];
+    if (!mv) continue;
+    learnHtml += '<button class="btn btn-sm move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doReplaceMove(' + idx + ',' + _moveReplaceSlot + ',\'' + learnable[i] + '\')">' +
+      mv.name + '<span class="move-type">' + mv.type + '</span>' +
+      (mv.power > 0 ? '<span class="move-eff">威力 ' + mv.power + '</span>' : '<span class="move-eff">变化</span>') +
+      (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') + '</button>';
+  }
+  openModal('更换招式 · ' + mon.name,
+    '<div class="shop-hint">把第 ' + (_moveReplaceSlot + 1) + ' 招替换成其他招式（花费 ' + cost + ' 金，当前余额 ' + STATE.money + ' 金）</div>' +
+    '<div class="bag-tabs">' + slotHtml + '</div>' +
+    '<div class="shop-hint">—— 可学招式（Lv.' + mon.level + ' 及以下） ——</div>' +
+    (learnHtml || '<div class="shop-hint">没有可学习的招式</div>') +
+    '<div class="modal-btns"><button class="btn" onclick="closeModal()">取消</button></div>');
+}
+
+function pickMoveSlot(idx, slot) {
+  _moveReplaceSlot = slot;
+  showMoveReplaceModal(idx);
+}
+
+function doReplaceMove(idx, slot, moveId) {
+  const mon = STATE.party[idx];
+  const mv = MOVES[moveId];
+  if (!mon || !mv) return;
+  if (!confirm('确定要把第 ' + (slot + 1) + ' 招替换成【' + mv.name + '】吗？花费 ' + moveReplaceCost(mon) + ' 金。')) return;
+  const res = replaceMove(idx, slot, moveId);
+  if (!res.ok) { alert(res.msg); return; }
+  save();
+  showMonDetail(idx);
 }
 
 // 羁绊评级（隐藏数值，只展示阶段）

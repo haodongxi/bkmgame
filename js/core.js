@@ -320,6 +320,45 @@ function stoneTargets(stoneName) {
   return out.sort(function (a, b) { return a.fromId - b.fromId; });
 }
 
+// 可学招式清单：该宝可梦当前等级及以下的学习面招式（去重、过滤非法招式、排除已学会）
+function learnableMoves(mon) {
+  const ls = mon.speciesData && mon.speciesData.learnset;
+  if (!ls) return [];
+  const all = [];
+  const seen = {};
+  Object.keys(ls).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+    if (lv > mon.level) return;
+    (ls[lv] || []).forEach(function (id) {
+      if (MOVES[id] && !seen[id]) { seen[id] = true; all.push(id); }
+    });
+  });
+  const known = mon.moves || [];
+  return all.filter(function (id) { return known.indexOf(id) === -1; });
+}
+
+// 招式更换费用：500 + 等级×30（等级越高越贵，保留技能位选择成本）
+function moveReplaceCost(mon) {
+  return 500 + (mon ? mon.level : 0) * 30;
+}
+
+// 更换招式：replaceMove(partyIdx, slotIdx, moveId) → { ok, msg }
+function replaceMove(partyIdx, slotIdx, moveId) {
+  const mon = STATE.party[partyIdx];
+  if (!mon) return { ok: false, msg: '宝可梦不存在。' };
+  if (slotIdx < 0 || slotIdx >= mon.moves.length) return { ok: false, msg: '招式栏位无效。' };
+  if (!MOVES[moveId]) return { ok: false, msg: '招式不存在。' };
+  if (learnableMoves(mon).indexOf(moveId) === -1) return { ok: false, msg: '这只宝可梦当前学不会这个招式。' };
+  const cost = moveReplaceCost(mon);
+  if (STATE.money < cost) return { ok: false, msg: '金币不足（需要 ' + cost + ' 金）。' };
+  const oldId = mon.moves[slotIdx];
+  STATE.money -= cost;
+  mon.moves[slotIdx] = moveId;
+  if (!mon.pp) mon.pp = [];
+  mon.pp[slotIdx] = MOVES[moveId].pp;
+  addLog(mon.name + ' 把【' + (MOVES[oldId] ? MOVES[oldId].name : '?') + '】替换成了【' + MOVES[moveId].name + '】（花费 ' + cost + ' 金）！', 'good');
+  return { ok: true, msg: '' };
+}
+
 function checkEvolution(mon, log, kinds) {
   let guard = 0;
   while (guard++ < 10) {
@@ -2448,6 +2487,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,
     rarityOf: rarityOf,
     stoneTargets: stoneTargets,
+    learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather
   };

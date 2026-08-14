@@ -13,6 +13,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
+  '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
   '  tryStoneEvolution: tryStoneEvolution, expForLevel: expForLevel,\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
@@ -1514,6 +1515,35 @@ section('技能效果与学习面');
   ok(T.POKEDEX[111].learnset[15].indexOf('harden') !== -1, '铁甲犀牛 15 级学变硬（防御强化）');
   ok(T.POKEDEX[65].learnset[40].indexOf('recover') !== -1, '胡地 40 级学自我再生');
   ok(T.POKEDEX[145].learnset[40].indexOf('swift') !== -1, '闪电鸟 40 级学高速星星');
+}
+{
+  // 招式更换：满级也能把旧招（如残留的高速移动）换成可学新招
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 100, { nature: '勤奋' })]; // 卡比兽满级
+  s.party[0].moves = ['tackle', 'growl', 'amnesia', 'agility']; // 模拟旧存档残留
+  s.party[0].pp = [35, 40, 20, 30];
+  s.money = 10000;
+  const learnable = T.learnableMoves(s.party[0]);
+  ok(learnable.indexOf('body_slam') !== -1, '满级卡比兽可学泰山压顶');
+  ok(learnable.indexOf('amnesia') === -1 && learnable.indexOf('agility') === -1, '可学清单排除已学会招式');
+  ok(T.moveReplaceCost(s.party[0]) === 3500, '满级更换费用 3500 金');
+  const res = T.replaceMove(0, 3, 'body_slam');
+  ok(res.ok && s.party[0].moves[3] === 'body_slam' && s.money === 10000 - 3500, '替换成功并扣费');
+  ok(s.party[0].pp[3] === T.MOVES['body_slam'].pp, '新招式 PP 对齐');
+  T.save();
+  s.party = [];
+  ok(T.load() && T.getState().party[0].moves[3] === 'body_slam', '替换后的招式随存档保存');
+  const bad = T.replaceMove(0, 0, 'hyper_beam');
+  ok(!bad.ok && s.party[0].moves[0] === 'tackle', '当前学不会的招式被拦截');
+  s.money = 100;
+  const poor = T.replaceMove(0, 0, 'earthquake');
+  ok(!poor.ok && s.party[0].moves[0] === 'tackle', '金币不足被拦截');
+  const low = T.makeMon(143, 30, { nature: '勤奋' });
+  ok(T.learnableMoves(low).indexOf('earthquake') === -1 && T.learnableMoves(low).indexOf('body_slam') === -1, 'Lv30 看不到 40/50 级招式');
+  ok(T.learnableMoves(low).indexOf('tackle') !== -1, 'Lv30 卡比兽可补未学的撞击');
+  const pk = T.makeMon(25, 30, { nature: '勤奋' });
+  ok(T.learnableMoves(pk).indexOf('slam') === -1, 'Lv30 皮卡丘看不到 33 级摔打');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------
