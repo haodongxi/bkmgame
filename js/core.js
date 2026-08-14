@@ -1435,7 +1435,18 @@ function endBattle(outcome) {
     const t = STATE.tower;
     t.floor++;
     if (t.floor - 1 > t.bestFloor) t.bestFloor = t.floor - 1;
-    if ((t.floor - 1) % 5 === 0) t.checkpoint = t.floor - 1;
+    if ((t.floor - 1) % 5 === 0) {
+      t.checkpoint = t.floor - 1;
+      // 每 5 层一次性道具奖励（层数越高奖励越好）
+      const lvl = t.floor - 1;
+      const pool = lvl >= 90 ? ['大师球', '全复药', '幸运蛋'] :
+        lvl >= 60 ? ['高级球', '全复药', 'PP满回复药', '吃剩的东西'] :
+        lvl >= 30 ? ['超级球', '万灵药', 'PP满回复药', '雷之石', '火之石', '水之石', '叶之石', '月亮石'] :
+        ['精灵球', '好伤药', '万灵药', 'PP回复药'];
+      const item = pool[randInt(0, pool.length - 1)];
+      addItem(item, 1);
+      addLog('第 ' + lvl + ' 层奖励：【' + item + '】！', 'good');
+    }
     if (t.floor > 100) {
       t.cleared = true;
       t.floor = 100;

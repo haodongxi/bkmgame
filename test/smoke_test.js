@@ -1196,6 +1196,7 @@ section('无尽之塔');
   s.party = [T.makeMon(6, 60, { nature: '勤奋' })];
   s.party[0].moves = ['flamethrower'];
   s.party[0].pp = [15];
+  s.tower = { floor: 5, checkpoint: 0, bestFloor: 4, cleared: false };
   T.startTowerFloor();
   ok(s.battle && s.battle.kind === 'tower' && s.battle.canRun === false, '塔内战斗不可逃跑');
   s.bag['精灵球'] = 1;
@@ -1206,7 +1207,9 @@ section('无尽之塔');
     const a = s.battle.player.mons[s.battle.player.active];
     T.battleMove(damageMoveIdx(a));
   }
-  ok(s.lastResult === 'win' && s.tower.floor === 2 && s.tower.bestFloor === 1, '胜利推进到第 2 层');
+  ok(s.lastResult === 'win' && s.tower.floor === 6 && s.tower.checkpoint === 5, '打通第 5 层后推进到第 6 层并存档');
+  const bagTotal = Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0);
+  ok(bagTotal === 8, '每 5 层获得一次道具奖励（7 + 1）');
 }
 {
   T.newGame(4);
