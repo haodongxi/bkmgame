@@ -397,7 +397,7 @@ function renderMap() {
   if (STATE.party.length === 0) strip = '<div class="party-empty">队伍空空如也……</div>';
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
-    strip += '<div class="party-card pixel-frame">' +
+    strip += '<div class="party-card pixel-frame" onclick="showMonDetail(' + i + ')">' +
       '<div class="party-icon" id="party-icon-' + i + '"></div>' +
       '<div class="party-info"><div class="party-name">' + (i === 0 ? '⭐ ' : '') + m.name + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + '</div>' + hpBar(m) +
