@@ -12,6 +12,7 @@ let src = files.map(function (f) {
 src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
+  '  FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
   '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
@@ -1582,6 +1583,68 @@ section('技能效果与学习面');
   const logLen = s.log.length;
   T.battleMove(0);
   ok(!bm.m.status && bm.m.hp <= bm.m.stats.hp && s.log.slice(logLen).some(function (l) { return l.indexOf('无法使用睡觉') !== -1; }), '满血时睡觉无效（提示无法使用）');
+}
+
+// ---------- 13.8 MVP14：全图鉴投放补全 ----------
+section('MVP14：全图鉴投放');
+{
+  // 全图鉴可获取性：151 只均有至少一条获取路径（野生池/钓鱼/交换/商人/火箭队/御三家/进化闭包）
+  const stoneEvo = { '水之石': { 133: 134, 120: 121 }, '雷之石': { 25: 26, 133: 135 }, '火之石': { 133: 136 }, '月亮石': { 35: 36 }, '叶之石': { 44: 45 } };
+  const obtainable = {};
+  Object.keys(T.MAP_NODES).forEach(function (id) {
+    const n = T.MAP_NODES[id];
+    Object.keys(n.pools || {}).forEach(function (w) {
+      (n.pools[w] || []).forEach(function (p) { obtainable[p.id] = true; });
+    });
+  });
+  Object.keys(T.FISH_POOLS).forEach(function (nid) {
+    T.FISH_POOLS[nid].forEach(function (p) { obtainable[p.id] = true; });
+  });
+  T.FISH_POOL_FALLBACK.forEach(function (p) { obtainable[p.id] = true; });
+  [16, 21, 43, 35].forEach(function (id) { obtainable[id] = true; }); // NPC 交换
+  [133, 131, 143, 147, 25, 129].forEach(function (id) { obtainable[id] = true; }); // 商人/火箭队
+  [1, 4, 7].forEach(function (id) { obtainable[id] = true; }); // 御三家
+  let changed = true;
+  while (changed) {
+    changed = false;
+    Object.keys(obtainable).map(Number).forEach(function (id) {
+      const d = T.POKEDEX[id];
+      if (d && d.evo && d.evo.into && !obtainable[d.evo.into]) { obtainable[d.evo.into] = true; changed = true; }
+      Object.keys(stoneEvo).forEach(function (stone) {
+        if (stoneEvo[stone][id] && !obtainable[stoneEvo[stone][id]]) { obtainable[stoneEvo[stone][id]] = true; changed = true; }
+      });
+    });
+  }
+  const missing = [];
+  for (let i = 1; i <= 151; i++) if (!obtainable[i]) missing.push(i);
+  ok(missing.length === 0, '全图鉴 151 只均可获取（缺失：' + (missing.length ? missing.join(',') : '无') + '）');
+}
+{
+  // 关键投放点抽查
+  const inPool = function (nodeId, weather, id) {
+    const pool = T.MAP_NODES[nodeId] && T.MAP_NODES[nodeId].pools && T.MAP_NODES[nodeId].pools[weather];
+    return pool ? pool.some(function (p) { return p.id === id; }) : false;
+  };
+  ok(inPool('route7', '晴', 37), '六尾投放于 7 号道路');
+  ok(inPool('route5', '晴', 63) || inPool('route6', '晴', 63), '凯西投放于金黄市周边');
+  ok(inPool('route6', '晴', 125), '电击兽投放于枯叶市周边');
+  ok(inPool('route24', '晴', 79) && inPool('route25', '晴', 79), '呆呆兽投放于华蓝北水域');
+  ok(inPool('route24', '雷阵雨', 145), '闪电鸟投放于 24 号雷阵雨');
+  ok(inPool('mtmoon', '晴', 138) && inPool('mtmoon', '晴', 140), '菊石兽/化石盔投放于月见山');
+  ok(inPool('champion', '晴', 142) && inPool('champion', '晴', 150), '化石翼龙/超梦投放于冠军之路');
+  ok(inPool('route21', '晴', 146) && inPool('route21', '雨', 151), '火焰鸟/梦幻投放于 21 号水域');
+  ok(inPool('seafoam', '晴', 124), '迷唇姐投放于双子岛');
+  ok(T.FISH_POOLS.route24.some(function (p) { return p.id === 79; }) && T.FISH_POOLS.seafoam.some(function (p) { return p.id === 90; }), '呆呆兽可钓、双子岛冰水域可钓大舌贝');
+}
+{
+  // 钓鱼按水域取池：route24 强制 roll 到呆呆兽区间
+  T.newGame(4);
+  const s = T.getState();
+  s.nodeId = 'route24';
+  s.keyItems.push('破旧钓竿');
+  seq.push(0.7); // 呆呆兽区间 [0.65, 0.75)
+  T.fish();
+  ok(s.battle && s.battle.foe.mons[0].m.species === 79, '华蓝北水域钓鱼可出呆呆兽');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------

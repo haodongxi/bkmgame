@@ -1785,11 +1785,15 @@ function fish() {
   const node = MAP_NODES[STATE.nodeId];
   if (!node.water) { addLog('这里没有水域，钓不了鱼。', 'info'); return; }
   if (STATE.keyItems.indexOf('破旧钓竿') === -1) { addLog('你没有钓竿……去华蓝市找找看吧。', 'info'); return; }
-  const r = Math.random();
-  let id = 129;
-  if (r >= 0.7 && r < 0.95) id = 120;
-  else if (r >= 0.95 && r < 0.99) id = 147;
-  else if (r >= 0.99) id = 130;
+  // 按水域节点取钓鱼池（未配置的用经典四件套）
+  const pool = FISH_POOLS[STATE.nodeId] || FISH_POOL_FALLBACK;
+  const total = pool.reduce(function (s, p) { return s + p.w; }, 0);
+  let roll = Math.random() * total;
+  let id = pool[pool.length - 1].id;
+  for (let i = 0; i < pool.length; i++) {
+    roll -= pool[i].w;
+    if (roll <= 0) { id = pool[i].id; break; }
+  }
   const level = node.levels[0] + randInt(0, 2);
   addLog('水面泛起了波纹……上钩了！是野生的 ' + POKEDEX[id].name + '！', 'info');
   startWildBattle(id, level);

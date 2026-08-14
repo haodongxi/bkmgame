@@ -138,7 +138,7 @@ const MAP_NODES = {
     id: 'route3', name: '3号道路', type: 'route', next: ['pewter', 'mtmoon'], requireBadge: '灰色徽章',
     levels: [6, 10], weatherWeights: { '晴': 90, '雨': 10 },
     pools: {
-      '晴': [ { id: 21, w: 40 }, { id: 19, w: 30 }, { id: 16, w: 20 }, { id: 50, w: 10 } ],
+      '晴': [ { id: 21, w: 40 }, { id: 19, w: 30 }, { id: 16, w: 20 }, { id: 50, w: 10 }, { id: 27, w: 10 } ],
       '雨': [ { id: 21, w: 35 }, { id: 19, w: 25 }, { id: 16, w: 25 }, { id: 50, w: 15 } ]
     },
     trainers: [
@@ -150,7 +150,7 @@ const MAP_NODES = {
     id: 'mtmoon', name: '月见山', type: 'cave', next: ['route3', 'cerulean'], requireBadge: '灰色徽章',
     levels: [8, 12], weatherWeights: { '晴': 70, '沙暴': 30 },
     pools: {
-      '晴': [ { id: 41, w: 45 }, { id: 74, w: 35 }, { id: 35, w: 15 }, { id: 50, w: 5 } ],
+      '晴': [ { id: 41, w: 45 }, { id: 74, w: 35 }, { id: 35, w: 15 }, { id: 50, w: 5 }, { id: 92, w: 8 }, { id: 138, w: 2 }, { id: 140, w: 2 } ],
       '沙暴': [ { id: 74, w: 40 }, { id: 50, w: 25 }, { id: 95, w: 20 }, { id: 41, w: 15 } ]
     },
     trainers: [
@@ -180,9 +180,9 @@ const MAP_NODES = {
     id: 'route24', name: '24号道路', type: 'route', next: ['cerulean', 'route25'], requireBadge: '蓝色徽章',
     levels: [12, 16], water: true, weatherWeights: { '晴': 60, '雨': 25, '雷阵雨': 15 },
     pools: {
-      '晴':    [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 21, w: 20 } ],
+      '晴':    [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 21, w: 20 }, { id: 60, w: 10 }, { id: 79, w: 8 } ],
       '雨':    [ { id: 43, w: 20 }, { id: 48, w: 25 }, { id: 46, w: 15 }, { id: 21, w: 10 }, { id: 16, w: 15 }, { id: 19, w: 10 }, { id: 147, w: 5 } ],
-      '雷阵雨': [ { id: 25, w: 40 }, { id: 43, w: 20 }, { id: 48, w: 20 }, { id: 21, w: 15 }, { id: 147, w: 5 } ]
+      '雷阵雨': [ { id: 25, w: 40 }, { id: 43, w: 20 }, { id: 48, w: 20 }, { id: 21, w: 15 }, { id: 147, w: 5 }, { id: 145, w: 2 } ]
     },
     thunderEvent: { chance: 0.15, text: '一道落雷劈了下来！你的首发宝可梦被击中了！' },
     trainers: [
@@ -194,7 +194,7 @@ const MAP_NODES = {
     id: 'route25', name: '25号道路', type: 'route', next: ['route24'], requireBadge: '蓝色徽章',
     levels: [13, 17], water: true, weatherWeights: { '晴': 75, '雨': 25 },
     pools: {
-      '晴': [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 35, w: 20 } ],
+      '晴': [ { id: 43, w: 30 }, { id: 48, w: 30 }, { id: 46, w: 20 }, { id: 35, w: 20 }, { id: 60, w: 10 }, { id: 79, w: 8 } ],
       '雨': [ { id: 43, w: 20 }, { id: 48, w: 20 }, { id: 35, w: 15 }, { id: 46, w: 10 }, { id: 21, w: 15 }, { id: 16, w: 12 }, { id: 147, w: 8 } ]
     },
     trainers: [
@@ -205,7 +205,7 @@ const MAP_NODES = {
     id: 'route5', name: '5号道路', type: 'route', next: ['cerulean', 'saffron'], requireBadge: '蓝色徽章',
     levels: [15, 19], weatherWeights: { '晴': 80, '雨': 20 },
     pools: {
-      '晴': [ { id: 43, w: 30 }, { id: 48, w: 25 }, { id: 21, w: 20 }, { id: 46, w: 15 }, { id: 25, w: 10 } ],
+      '晴': [ { id: 43, w: 30 }, { id: 48, w: 25 }, { id: 21, w: 20 }, { id: 46, w: 15 }, { id: 25, w: 10 }, { id: 69, w: 10 }, { id: 63, w: 8 }, { id: 96, w: 8 } ],
       '雨': [ { id: 48, w: 25 }, { id: 43, w: 20 }, { id: 46, w: 15 }, { id: 21, w: 15 }, { id: 25, w: 15 }, { id: 16, w: 10 } ]
     },
     trainers: [
@@ -235,7 +235,7 @@ const MAP_NODES = {
     id: 'route6', name: '6号道路', type: 'route', next: ['saffron', 'vermilion'], requireBadge: '蓝色徽章',
     levels: [17, 21], weatherWeights: { '晴': 80, '雨': 20 },
     pools: {
-      '晴': [ { id: 48, w: 30 }, { id: 43, w: 25 }, { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 25, w: 10 } ],
+      '晴': [ { id: 48, w: 30 }, { id: 43, w: 25 }, { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 25, w: 10 }, { id: 56, w: 10 }, { id: 52, w: 8 }, { id: 66, w: 8 }, { id: 109, w: 8 }, { id: 81, w: 6 }, { id: 100, w: 6 }, { id: 125, w: 3 } ],
       '雨': [ { id: 48, w: 25 }, { id: 43, w: 20 }, { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 25, w: 10 }, { id: 54, w: 10 } ]
     },
     trainers: [
@@ -266,7 +266,7 @@ const MAP_NODES = {
     id: 'route7', name: '7号道路', type: 'route', next: ['saffron', 'celadon'], requireBadge: '橙色徽章',
     levels: [20, 24], weatherWeights: { '晴': 80, '雨': 20 },
     pools: {
-      '晴': [ { id: 16, w: 25 }, { id: 21, w: 20 }, { id: 43, w: 20 }, { id: 48, w: 15 }, { id: 39, w: 10 }, { id: 25, w: 10 } ],
+      '晴': [ { id: 16, w: 25 }, { id: 21, w: 20 }, { id: 43, w: 20 }, { id: 48, w: 15 }, { id: 39, w: 10 }, { id: 25, w: 10 }, { id: 37, w: 8 }, { id: 58, w: 8 }, { id: 122, w: 4 } ],
       '雨': [ { id: 16, w: 20 }, { id: 21, w: 15 }, { id: 43, w: 15 }, { id: 48, w: 15 }, { id: 25, w: 15 }, { id: 54, w: 10 }, { id: 39, w: 10 } ]
     },
     trainers: [
@@ -296,7 +296,7 @@ const MAP_NODES = {
     id: 'route16', name: '16号道路', type: 'route', next: ['celadon', 'fuchsia'], requireBadge: '彩虹徽章',
     levels: [24, 28], weatherWeights: { '晴': 80, '雨': 20 },
     pools: {
-      '晴': [ { id: 21, w: 30 }, { id: 16, w: 20 }, { id: 48, w: 15 }, { id: 43, w: 15 }, { id: 54, w: 10 }, { id: 25, w: 10 } ],
+      '晴': [ { id: 21, w: 30 }, { id: 16, w: 20 }, { id: 48, w: 15 }, { id: 43, w: 15 }, { id: 54, w: 10 }, { id: 25, w: 10 }, { id: 84, w: 10 }, { id: 83, w: 8 }, { id: 128, w: 8 }, { id: 102, w: 6 }, { id: 88, w: 6 }, { id: 114, w: 6 }, { id: 115, w: 6 }, { id: 123, w: 5 }, { id: 127, w: 5 }, { id: 108, w: 4 }, { id: 132, w: 3 }, { id: 137, w: 3 } ],
       '雨': [ { id: 21, w: 20 }, { id: 16, w: 15 }, { id: 48, w: 15 }, { id: 43, w: 10 }, { id: 54, w: 20 }, { id: 25, w: 10 }, { id: 72, w: 10 } ]
     },
     trainers: [
@@ -326,7 +326,7 @@ const MAP_NODES = {
     id: 'route19', name: '19号水路', type: 'route', next: ['fuchsia', 'seafoam'], requireBadge: '粉红徽章',
     levels: [28, 32], water: true, weatherWeights: { '晴': 75, '雨': 25 },
     pools: {
-      '晴': [ { id: 72, w: 35 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 54, w: 10 }, { id: 147, w: 10 } ],
+      '晴': [ { id: 72, w: 35 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 54, w: 10 }, { id: 147, w: 10 }, { id: 98, w: 8 } ],
       '雨': [ { id: 72, w: 30 }, { id: 129, w: 20 }, { id: 120, w: 25 }, { id: 54, w: 10 }, { id: 147, w: 15 } ]
     },
     trainers: [
@@ -338,7 +338,7 @@ const MAP_NODES = {
     levels: [34, 40], water: true, weatherWeights: { '晴': 100 },
     desc: '终年积雪的海岛洞窟，据说最深处栖息着传说中的急冻鸟。',
     pools: {
-      '晴': [ { id: 86, w: 20 }, { id: 87, w: 15 }, { id: 90, w: 20 }, { id: 91, w: 10 }, { id: 72, w: 10 }, { id: 131, w: 8 }, { id: 121, w: 12 }, { id: 42, w: 3 }, { id: 144, w: 2 } ]
+      '晴': [ { id: 86, w: 20 }, { id: 87, w: 15 }, { id: 90, w: 20 }, { id: 91, w: 10 }, { id: 72, w: 10 }, { id: 131, w: 8 }, { id: 121, w: 12 }, { id: 42, w: 3 }, { id: 124, w: 5 }, { id: 144, w: 2 } ]
     },
     trainers: [
       { id: 'seafoam_t1', title: '游泳者', name: '冷泉', prize: 1300, text: '冰水可是很冷的，别冻僵了！', party: [{ id: 87, level: 36, moves: ['water_gun', 'ice_beam', 'aurora_beam'] }] },
@@ -368,8 +368,8 @@ const MAP_NODES = {
     id: 'route21', name: '21号水路', type: 'route', next: ['cinnabar', 'viridian'], requireBadge: '深红徽章',
     levels: [32, 36], water: true, weatherWeights: { '晴': 75, '雨': 25 },
     pools: {
-      '晴': [ { id: 72, w: 30 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 147, w: 15 }, { id: 54, w: 10 } ],
-      '雨': [ { id: 72, w: 25 }, { id: 129, w: 20 }, { id: 120, w: 20 }, { id: 147, w: 20 }, { id: 54, w: 15 } ]
+      '晴': [ { id: 72, w: 30 }, { id: 129, w: 25 }, { id: 120, w: 20 }, { id: 147, w: 15 }, { id: 54, w: 10 }, { id: 98, w: 8 }, { id: 116, w: 8 }, { id: 118, w: 8 }, { id: 126, w: 4 }, { id: 146, w: 2 } ],
+      '雨': [ { id: 72, w: 25 }, { id: 129, w: 20 }, { id: 120, w: 20 }, { id: 147, w: 20 }, { id: 54, w: 15 }, { id: 151, w: 1 } ]
     },
     trainers: [
       { id: 'r21_t1', title: '垂钓者', name: '老大', prize: 1500, text: '这可是关都最好的钓点！', party: [{ id: 130, level: 34 }] }
@@ -379,7 +379,7 @@ const MAP_NODES = {
     id: 'route22', name: '22号道路', type: 'route', next: ['viridian', 'champion'], requireBadge: '绿色徽章',
     levels: [36, 40], weatherWeights: { '晴': 80, '雨': 20 },
     pools: {
-      '晴': [ { id: 19, w: 20 }, { id: 21, w: 20 }, { id: 32, w: 15 }, { id: 29, w: 15 }, { id: 23, w: 15 }, { id: 16, w: 15 } ],
+      '晴': [ { id: 19, w: 20 }, { id: 21, w: 20 }, { id: 32, w: 15 }, { id: 29, w: 15 }, { id: 23, w: 15 }, { id: 16, w: 15 }, { id: 104, w: 8 }, { id: 111, w: 8 }, { id: 77, w: 6 }, { id: 106, w: 5 }, { id: 107, w: 5 }, { id: 113, w: 4 } ],
       '雨': [ { id: 19, w: 15 }, { id: 21, w: 15 }, { id: 32, w: 10 }, { id: 29, w: 10 }, { id: 23, w: 10 }, { id: 16, w: 15 }, { id: 54, w: 15 }, { id: 72, w: 10 } ]
     },
     trainers: [
@@ -391,7 +391,7 @@ const MAP_NODES = {
     levels: [40, 45], weatherWeights: { '晴': 100 },
     desc: '通往精灵联盟的最终试炼。这里盘踞着关都最强的野生宝可梦。',
     pools: {
-      '晴': [ { id: 41, w: 20 }, { id: 42, w: 15 }, { id: 74, w: 15 }, { id: 95, w: 15 }, { id: 51, w: 10 }, { id: 64, w: 10 }, { id: 112, w: 15 } ]
+      '晴': [ { id: 41, w: 20 }, { id: 42, w: 15 }, { id: 74, w: 15 }, { id: 95, w: 15 }, { id: 51, w: 10 }, { id: 64, w: 10 }, { id: 112, w: 15 }, { id: 142, w: 2 }, { id: 150, w: 1 } ]
     },
     trainers: [
       { id: 'ch_t1', title: '精英训练家', name: '铁也', prize: 2200, text: '这里就是关都的巅峰！', party: [{ id: 65, level: 42 }, { id: 130, level: 42 }] },
@@ -444,6 +444,16 @@ const ROCKET_EVENTS = {
 const START_ITEMS = { '精灵球': 5, '伤药': 5, '解毒药': 1 };
 const START_MONEY = 3000;
 
+// 钓鱼池（按水域节点区分；未配置的水域回退到经典四件套）
+const FISH_POOLS = {
+  route24: [ { id: 129, w: 45 }, { id: 120, w: 20 }, { id: 79, w: 10 }, { id: 60, w: 10 }, { id: 118, w: 7 }, { id: 147, w: 5 }, { id: 116, w: 2 }, { id: 130, w: 1 } ],
+  route25: [ { id: 129, w: 45 }, { id: 120, w: 20 }, { id: 79, w: 10 }, { id: 60, w: 10 }, { id: 118, w: 7 }, { id: 147, w: 5 }, { id: 116, w: 2 }, { id: 130, w: 1 } ],
+  route19: [ { id: 129, w: 35 }, { id: 120, w: 20 }, { id: 98, w: 10 }, { id: 116, w: 10 }, { id: 118, w: 10 }, { id: 147, w: 8 }, { id: 79, w: 4 }, { id: 130, w: 3 } ],
+  route21: [ { id: 129, w: 35 }, { id: 120, w: 20 }, { id: 98, w: 10 }, { id: 116, w: 10 }, { id: 118, w: 10 }, { id: 147, w: 8 }, { id: 79, w: 4 }, { id: 130, w: 3 } ],
+  seafoam: [ { id: 90, w: 25 }, { id: 120, w: 20 }, { id: 129, w: 20 }, { id: 86, w: 12 }, { id: 121, w: 8 }, { id: 116, w: 8 }, { id: 147, w: 5 }, { id: 130, w: 2 } ]
+};
+const FISH_POOL_FALLBACK = [ { id: 129, w: 70 }, { id: 120, w: 25 }, { id: 147, w: 4 }, { id: 130, w: 1 } ];
+
 // 商店货架（按徽章数量解锁）
 const MART_STOCK = [
   { name: '精灵球', minBadges: 0 },
@@ -478,6 +488,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     WEATHER: WEATHER, ITEMS: ITEMS, MAP_NODES: MAP_NODES,
     ROCKET_EVENTS: ROCKET_EVENTS, START_ITEMS: START_ITEMS,
-    START_MONEY: START_MONEY, MART_STOCK: MART_STOCK
+    START_MONEY: START_MONEY, MART_STOCK: MART_STOCK,
+    FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK
   };
 }
