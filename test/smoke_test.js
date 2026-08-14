@@ -24,7 +24,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
   '  addBond: addBond,\n' +
-  '  useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
+  '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
   '  startMedicOffer: startMedicOffer, resolveMedic: resolveMedic,\n' +
   '  useWeatherItem: useWeatherItem,\n' +
@@ -1246,6 +1246,7 @@ section('无尽之塔');
   s.party = [T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' })];
   s.party.forEach(function (m) { m.moves = ['psychic', 'ice_beam', 'thunderbolt', 'flamethrower']; m.pp = [99, 99, 99, 99]; m.stats.hp = 5000; m.hp = 5000; });
   s.tower = { floor: 100, checkpoint: 95, bestFloor: 99, cleared: false };
+  const bagBefore = Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0);
   T.startTowerFloor();
   let g = 0;
   while (s.battle && !s.battle.over && g++ < 200) {
@@ -1253,12 +1254,153 @@ section('无尽之塔');
     T.battleMove(damageMoveIdx(a));
   }
   ok(s.lastResult === 'win' && s.tower.cleared === true && s.tower.floor === 100, '100 层通关');
+  ok(Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0) === bagBefore + 1, '100 层边界同样发放最终道具奖励');
   ok(s.titles.indexOf('无尽之塔征服者') !== -1, '获得称号');
   T.save();
   s.titles = [];
   s.tower = null;
   ok(T.load(), '读档成功');
   ok(T.getState().titles.indexOf('无尽之塔征服者') !== -1, '称号随存档保存');
+}
+{
+  // 边界：1 层新档（无存档点）中途全灭
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(129, 5, { nature: '勤奋' })]; // 鲤鱼王：弱，必败
+  s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  s.nodeId = 'tower';
+  T.startTowerFloor();
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 40) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'lose' && s.tower.floor === 1 && s.tower.bestFloor === 0, '1 层无存档败北：留在第 1 层、历史最佳不变');
+  ok(s.nodeId === 'tower' && s.party[0].hp < s.party[0].stats.hp, '1 层败北不回城、不免费回血');
+}
+{
+  // 边界：塔内手动换人 / 拦截非法换人 / 中途倒下自动换人
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(6, 60, { nature: '勤奋' }), T.makeMon(25, 60, { nature: '勤奋' })];
+  s.party.forEach(function (m) { m.moves = ['flamethrower', 'thunderbolt']; m.pp = [20, 20]; });
+  s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  s.nodeId = 'tower';
+  T.startTowerFloor();
+  const foeName = s.battle.foe.mons[0].m.name;
+  const logLen1 = s.log.length;
+  T.battleSwitch(1);
+  ok(s.battle.player.active === 1, '塔内战斗中可手动换人（第 2 只上场）');
+  ok(s.log.slice(logLen1).some(function (l) { return l.indexOf('回来吧') !== -1; }), '换人日志正常');
+  ok(s.log.slice(logLen1).some(function (l) { return l.indexOf(foeName) !== -1 && l.indexOf('使用了') !== -1; }), '换人占用本回合：敌方当回合出手');
+  T.battleSwitch(1);
+  ok(s.battle.player.active === 1, '换当前在场宝可梦被拦截');
+  s.battle.player.mons[0].m.hp = 0;
+  T.battleSwitch(0);
+  ok(s.battle.player.active === 1, '换已倒下宝可梦被拦截');
+  // 恢复第一只，再把当前在场打到 1 血、让敌方先手，验证自动换人
+  s.battle.player.mons[0].m.hp = s.battle.player.mons[0].m.stats.hp;
+  s.battle.player.mons[1].m.hp = 1;
+  s.battle.player.mons[1].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.stats.spe = 999;
+  s.battle.foe.mons[0].m.moves = ['scratch'];
+  s.battle.foe.mons[0].m.pp = [35];
+  T.battleMove(damageMoveIdx(s.battle.player.mons[1]));
+  ok(s.battle.player.mons[1].m.hp <= 0, '当前在场宝可梦被击倒');
+  ok(s.battle.player.active === 0 && s.battle.player.mons[0].m.hp > 0, '倒下后自动切换下一只存活宝可梦上场');
+}
+{
+  // 边界：71 层敌方 5 只连战（自动换人 ≥4 次），非 5 倍层不推进存档点、不重复发奖
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(150, 95, { nature: '勤奋' }), T.makeMon(150, 95, { nature: '勤奋' }), T.makeMon(150, 95, { nature: '勤奋' }), T.makeMon(150, 95, { nature: '勤奋' })];
+  s.party.forEach(function (m) { m.moves = ['psychic', 'ice_beam', 'thunderbolt', 'flamethrower']; m.pp = [99, 99, 99, 99]; m.stats.hp = 5000; m.hp = 5000; });
+  s.tower = { floor: 71, checkpoint: 70, bestFloor: 70, cleared: false };
+  const bagBefore = Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0);
+  T.startTowerFloor();
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 200) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'win' && s.tower.floor === 72 && s.tower.bestFloor === 71, '打通 71 层（5 只）推进到 72 层、历史最佳更新');
+  const foeSwitchCount = s.log.filter(function (l) { return l.indexOf('对方派出了') !== -1; }).length;
+  ok(foeSwitchCount >= 4, '敌方 5 只全部出场（自动换人 ≥4 次，实际 ' + foeSwitchCount + ' 次）');
+  ok(s.tower.checkpoint === 70, '非 5 倍层不推进存档点');
+  ok(Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0) === bagBefore, '非 5 倍层不重复发放奖励');
+}
+{
+  // 边界：同归于尽（挣扎反伤）按败北处理，回到存档点+1、不复活
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(16, 60, { nature: '勤奋' })]; // 波波：快
+  s.party[0].moves = ['tackle']; s.party[0].pp = [35];
+  s.party[0].stats.spe = 999;
+  s.party[0].hp = 1;
+  s.tower = { floor: 6, checkpoint: 5, bestFloor: 5, cleared: false };
+  s.nodeId = 'tower';
+  T.startTowerFloor();
+  const foe = s.battle.foe.mons[0];
+  foe.m.stats.spe = 1;
+  foe.m.hp = 1;
+  foe.m.moves = ['scratch']; foe.m.pp = [35];
+  T.battleMove(-1); // 挣扎：反伤 1/4，双方同回合倒下
+  ok(s.lastResult === 'lose' && !s.battle, '塔内同归于尽按败北处理');
+  ok(s.tower.floor === 6 && s.tower.bestFloor === 5, '同归于尽回到存档点+1、历史最佳不变');
+  ok(s.nodeId === 'tower' && s.party[0].hp <= 0, '同归于尽不回城、不免费复活');
+}
+{
+  // 边界：打通第 10 层（5 倍边界）→ 存档点推进 + 发奖；通关后可重刷
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(150, 90, { nature: '勤奋' })];
+  s.party[0].moves = ['psychic']; s.party[0].pp = [99]; s.party[0].stats.hp = 5000; s.party[0].hp = 5000;
+  s.tower = { floor: 10, checkpoint: 5, bestFloor: 9, cleared: false };
+  const bagBefore = Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0);
+  T.startTowerFloor();
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 80) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'win' && s.tower.floor === 11 && s.tower.checkpoint === 10 && s.tower.bestFloor === 10, '打通第 10 层：存档点与历史最佳同步推进到 10');
+  ok(Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0) === bagBefore + 1, '第 10 层边界发放存档奖励（+1）');
+}
+{
+  // 边界：通关后重刷（从第 1 层重新开始，保留称号与历史最佳）
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(150, 100, { nature: '勤奋' })];
+  s.party[0].moves = ['psychic']; s.party[0].pp = [99]; s.party[0].stats.hp = 5000; s.party[0].hp = 5000;
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true };
+  s.titles = ['无尽之塔征服者'];
+  T.startTowerFloor();
+  ok(s.battle && s.battle.kind === 'tower', '通关后点击挑战可再次进入塔内战斗（重刷）');
+  ok(s.tower.cleared === false && s.tower.floor === 1 && s.tower.checkpoint === 0, '重刷从第 1 层重新开始');
+  ok(s.titles.indexOf('无尽之塔征服者') !== -1 && s.tower.bestFloor === 100, '重刷保留称号与历史最佳');
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 80) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'win' && s.tower.floor === 2, '重刷第 1 层胜利后正常推进');
+}
+{
+  // 边界：塔内可用穿绳回城补给，塔内进度保留（从存档点继续）
+  T.newGame(4);
+  const s = T.getState();
+  s.nodeId = 'tower';
+  s.lastTown = 'pallet';
+  s.tower = { floor: 12, checkpoint: 10, bestFloor: 11, cleared: false };
+  s.bag['穿绳'] = 1;
+  T.useEscapeRope();
+  ok(s.nodeId === 'pallet' && !s.bag['穿绳'], '塔内使用穿绳回城（消耗 1 条）');
+  ok(s.tower.floor === 12 && s.tower.checkpoint === 10 && s.tower.bestFloor === 11, '穿绳回城保留塔内进度（从存档点继续）');
 }
 {
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）

@@ -400,7 +400,7 @@ function renderMap() {
   } else if (node.id === 'tower') {
     // 无尽之塔：塔内专用操作（不能回城补给，只能靠背包道具）
     const t = STATE.tower;
-    const btnText = t.cleared ? '重刷第 ' + t.floor + ' 层' : (t.floor > 1 ? '挑战第 ' + t.floor + ' 层' : '开始挑战（第 1 层）');
+    const btnText = t.cleared ? '重新挑战（第 1 层）' : (t.floor > 1 ? '挑战第 ' + t.floor + ' 层' : '开始挑战（第 1 层）');
     html += '<button class="btn btn-primary" onclick="doMapAction(\'towerFight\')">🗼 ' + btnText + '</button>';
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 背包（塔内补给）</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';

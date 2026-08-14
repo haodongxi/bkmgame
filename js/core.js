@@ -734,7 +734,13 @@ function towerThemeFor(floor) {
 
 function startTowerFloor() {
   const t = STATE.tower;
-  if (t.cleared) { addLog('你已经通关了无尽之塔！可以重刷已通过层练级。', 'info'); return; }
+  if (t.cleared) {
+    // 通关后重刷：从第 1 层重新开始，保留称号与历史最佳
+    t.floor = 1;
+    t.checkpoint = 0;
+    t.cleared = false;
+    addLog('你再次踏入无尽之塔，从第 1 层重新挑战！（称号与历史最佳保留）', 'info');
+  }
   const team = towerFoeTeam(t.floor);
   const theme = towerThemeFor(t.floor);
   const hint = theme.counters.length ? '建议使用 ' + theme.counters.join(' / ') + ' 系招式克制！' : '这一层没有固定弱点，靠综合实力吧！';
