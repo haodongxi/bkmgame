@@ -720,10 +720,24 @@ function towerFoeTeam(floor) {
   return team;
 }
 
+const ALL_TYPES = ['普通', '火', '水', '电', '草', '冰', '格斗', '毒', '地面', '飞行', '超能力', '虫', '岩石', '幽灵', '龙', '恶', '钢'];
+
+// 塔层主题与克制建议：返回 { types, counters }
+function towerThemeFor(floor) {
+  const theme = TOWER_THEMES[Math.floor((floor - 1) / 10) % TOWER_THEMES.length];
+  if (!theme) return { types: ['混合'], counters: [] };
+  const counters = ALL_TYPES.filter(function (t) {
+    return theme.some(function (dt) { return typeEffectiveness(t, [dt]) > 1; });
+  });
+  return { types: theme, counters: counters };
+}
+
 function startTowerFloor() {
   const t = STATE.tower;
   if (t.cleared) { addLog('你已经通关了无尽之塔！可以重刷已通过层练级。', 'info'); return; }
   const team = towerFoeTeam(t.floor);
+  const theme = towerThemeFor(t.floor);
+  const hint = theme.counters.length ? '建议使用 ' + theme.counters.join(' / ') + ' 系招式克制！' : '这一层没有固定弱点，靠综合实力吧！';
   startBattle('tower', {
     foe: team,
     canRun: false,
@@ -731,7 +745,7 @@ function startTowerFloor() {
     trainerName: t.floor === 100 ? '塔主' : '守层者',
     title: '无尽之塔',
     trainerText: '无尽之塔第 ' + t.floor + ' 层！',
-    opening: '无尽之塔第 ' + t.floor + ' 层的守层者挡住了去路！'
+    opening: '无尽之塔第 ' + t.floor + ' 层（' + (theme.types.length === 1 ? theme.types[0] : theme.types.join('/')) + ' 主题）！' + hint
   });
 }
 
@@ -2358,7 +2372,7 @@ if (typeof module !== 'undefined' && module.exports) {
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
-    startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam,
+    startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,

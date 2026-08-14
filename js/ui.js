@@ -1045,9 +1045,14 @@ function doMapTravel(id) {
 
 function showTowerInfo() {
   const t = STATE.tower;
+  const cur = t.cleared ? 100 : t.floor;
+  const theme = towerThemeFor(cur);
+  const themeText = theme.types.length === 1 ? theme.types[0] : theme.types.join('/');
+  const counterText = theme.counters.length ? '建议使用 ' + theme.counters.join(' / ') + ' 系招式克制！' : '这一层没有固定弱点，靠综合实力吧！';
   const titleLine = STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '';
   openModal('无尽之塔',
-    '<div class="shop-hint">当前层数：第 ' + (t.cleared ? 100 : t.floor) + ' 层' + (t.cleared ? '（已通关）' : '') + '</div>' +
+    '<div class="shop-hint">当前层数：第 ' + cur + ' 层' + (t.cleared ? '（已通关）' : '') + '</div>' +
+    '<div class="shop-hint">本层主题：' + themeText + '（' + counterText + '）</div>' +
     '<div class="shop-hint">存档点：第 ' + t.checkpoint + ' 层（每 5 层存档）</div>' +
     '<div class="shop-hint">历史最佳：第 ' + t.bestFloor + ' 层</div>' +
     '<div class="shop-hint">规则：塔内不能回城补给、不能捕捉、不能逃跑；只能靠背包道具续航；全灭回到存档点。</div>' +

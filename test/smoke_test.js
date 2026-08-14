@@ -19,7 +19,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle, startGymBattle: startGymBattle,\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
-  '  startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam,\n' +
+  '  startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
@@ -1188,6 +1188,20 @@ section('无尽之塔');
   ok(T.towerFoeTeam(100)[0].level === 100, '100 层满级');
   ok(T.towerFoeTeam(1).every(function (m) { return T.POKEDEX[m.id].types.indexOf('普通') !== -1; }), '1-10 层普通系主题');
   ok(T.towerFoeTeam(11).every(function (m) { return T.POKEDEX[m.id].types.some(function (t) { return t === '水' || t === '冰'; }); }), '11-20 层水/冰主题');
+}
+{
+  const t1 = T.towerThemeFor(1);
+  ok(t1.types.length === 1 && t1.types[0] === '普通', '1 层主题为普通系');
+  ok(t1.counters.indexOf('格斗') !== -1, '普通系克制建议包含格斗');
+  const t11 = T.towerThemeFor(11);
+  ok(t11.types.join('/') === '水/冰', '11 层主题为水/冰');
+  ['火', '电', '草', '格斗', '岩石', '钢'].forEach(function (c) {
+    ok(t11.counters.indexOf(c) !== -1, '水/冰层克制建议包含 ' + c);
+  });
+  ok(T.towerThemeFor(41).counters.indexOf('地面') !== -1, '电系层（41-50）克制建议包含地面');
+  ok(T.towerThemeFor(81).types.join('/') === '毒/格斗', '81-90 层主题为毒/格斗');
+  const mix = T.towerThemeFor(100);
+  ok(mix.types[0] === '混合' && mix.counters.length === 0, '100 层混合传说层无固定克制建议');
 }
 {
   T.newGame(4);
