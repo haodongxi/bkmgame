@@ -175,6 +175,14 @@ function rarityTag(mon) {
   return '<span class="rarity r-' + r.key + '">' + star + r.label + '</span>';
 }
 
+// 图鉴格子专用：词缀单独一行，避免与名字抢横向空间导致裁剪
+function dexRarityLine(d) {
+  const r = rarityOf(d);
+  if (r.key === 'common') return '';
+  const star = r.key === 'legendary' ? '★' : '';
+  return '<div class="dex-rarity r-' + r.key + '">' + star + r.label + '</div>';
+}
+
 function natureText(nature) {
   const m = NATURES[nature] || NATURES['勤奋'];
   const names = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
@@ -872,7 +880,8 @@ function showPokedexModal() {
     const d = POKEDEX[id];
     html += '<div class="dex-cell' + (caught ? ' caught' : (seen ? ' seen' : '')) + '" id="dex-icon-' + id + '">' +
       '<div class="dex-icon">' + (seen ? '' : '?') + '</div>' +
-      '<div class="dex-name">' + (seen ? rarityTag(d) + d.name : '???') + '</div>' +
+      (seen ? dexRarityLine(d) : '') +
+      '<div class="dex-name">' + (seen ? d.name : '???') + '</div>' +
       '<div class="dex-no">No.' + id + '</div></div>';
   }
   html += '</div>';

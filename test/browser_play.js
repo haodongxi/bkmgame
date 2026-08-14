@@ -79,8 +79,11 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '图鉴显示 151 只');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen, #modal-root .dex-cell.caught') !== null"), '图鉴宝可梦有已见/已捕获标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught') !== null"), '御三家开局已捕获有标记');
-  ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught .dex-name .rarity.r-rare') !== null"), '图鉴格子显示稀有度词缀');
+  ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught .dex-rarity.r-rare') !== null"), '图鉴格子显示稀有度词缀');
   ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('已见') !== -1"), '图鉴显示进度');
+  await evaljs("for (var i = 1; i <= 151; i++) STATE.seenDex[i] = true; showPokedexModal();");
+  ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .dex-cell'), function(c){ return c.scrollWidth <= c.clientWidth + 1; })"), '全图鉴 151 格横向无溢出（含稀有度词缀行）');
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-rarity').length > 100"), '绝大多数图鉴格子显示稀有度词缀');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
