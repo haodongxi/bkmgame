@@ -679,6 +679,14 @@ section('平衡性回归');
   ok(okStarters, '御三家 15 级前都有可用的伤害招式');
 }
 {
+  // 平衡：小火龙线/卡比兽不再过早拿到超模招式
+  ok(!T.POKEDEX[4].learnset[34] || T.POKEDEX[4].learnset[34].indexOf('flamethrower') === -1, '小火龙 Lv34 不再学喷射火焰');
+  ok(T.POKEDEX[4].learnset[40].indexOf('flamethrower') !== -1, '喷射火焰延后到 Lv40');
+  ok(T.POKEDEX[143].learnset[50].indexOf('hyper_beam') === -1 && T.POKEDEX[143].learnset[40].indexOf('double_edge') === -1, '卡比兽不再学破坏光线/舍身冲撞');
+  ok(T.POKEDEX[143].learnset[40].indexOf('body_slam') !== -1 && T.POKEDEX[143].learnset[50].indexOf('earthquake') !== -1, '卡比兽改用泰山压顶/地震');
+  ok(T.POKEDEX[143].learnset[30].indexOf('swords_dance') === -1, '卡比兽不再有剑舞强化');
+}
+{
   let badLevel = 0;
   Object.keys(T.MAP_NODES).forEach(function (id) {
     const n = T.MAP_NODES[id];
