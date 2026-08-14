@@ -1137,6 +1137,7 @@ function battleUseItem(itemName, opts) {
     if (!opts.skipThrowLog) addLog('你扔出了【' + itemName + '】！', 'info');
     if (item.master) {
       addLog('太棒了！' + fm.m.name + ' 被收服了！', 'good');
+      logCatchFeedback(fm.m);
       addToPartyOrBox(fm.m);
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
@@ -1155,6 +1156,7 @@ function battleUseItem(itemName, opts) {
     const chance = finalA >= 255 ? 1 : Math.pow(finalA / 255, 0.75);
     if (Math.random() < chance) {
       addLog('太棒了！' + fm.m.name + ' 被收服了！', 'good');
+      logCatchFeedback(fm.m);
       addToPartyOrBox(fm.m);
       STATE.caughtDex[fm.m.species] = true;
       STATE.battle.over = true;
@@ -1226,6 +1228,14 @@ function battleUseItem(itemName, opts) {
     return;
   }
   addLog('这个道具不能在这里使用。', 'info');
+}
+
+// 捕获反馈：新种类提示登记，重复种类提示已有记录
+function logCatchFeedback(mon) {
+  const isNew = !STATE.caughtDex[mon.species];
+  STATE.caughtDex[mon.species] = true;
+  if (isNew) addLog('图鉴登记了新种类：' + mon.name + '（No.' + mon.species + '）！', 'good');
+  else addLog('（图鉴已有 ' + mon.name + ' 的记录）', 'info');
 }
 
 function battleSwitch(idx) {
@@ -1919,6 +1929,8 @@ function doTownTrade(accept) {
   const mon = makeMon(t.give, level);
   mon.tradeBonus = true;
   STATE.party[idx] = mon;
+  STATE.seenDex[t.give] = true;
+  STATE.caughtDex[t.give] = true;
   addLog('交换成功！' + mon.name + ' 加入了你的队伍（交换来的宝可梦经验获取 1.5 倍）！', 'good');
 }
 

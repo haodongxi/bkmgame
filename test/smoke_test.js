@@ -1076,6 +1076,23 @@ section('经典回合制');
   }
 }
 {
+  // 图鉴按种类登记：新捕获提示、重复捕获提示、交换补登记
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['大师球'] = 1;
+  T.startWildBattle(16, 3);
+  T.battleUseItem('大师球');
+  ok(s.caughtDex[16] === true && s.log.some(function (l) { return l.indexOf('图鉴登记了新种类') !== -1; }), '新捕获登记图鉴并提示');
+  s.bag['大师球'] = 1;
+  T.startWildBattle(16, 3);
+  T.battleUseItem('大师球');
+  ok(s.log.some(function (l) { return l.indexOf('图鉴已有') !== -1; }), '重复捕获提示已有记录');
+  s.party = [T.makeMon(19, 6)];
+  s.townTrade = { give: 16, want: 19 };
+  T.doTownTrade(true);
+  ok(s.caughtDex[16] === true, '交换来的宝可梦登记图鉴');
+}
+{
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）
   T.newGame(4);
   const s = T.getState();
