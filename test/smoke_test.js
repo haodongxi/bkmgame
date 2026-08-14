@@ -1170,6 +1170,18 @@ section('MVP11.1：喂养系统');
   T.useBagItemOnMon('幸运蛋', 0);
   ok(mon.held === '幸运蛋' && s.bag['幸运蛋'] === cnt, '重复装备同一种不消耗且不重复退回');
 }
+{
+  // 对训练家的宝可梦扔球：吐槽文案 + 醒目 warn 标记
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(6, 20, { nature: '勤奋' })];
+  s.bag['精灵球'] = 1;
+  T.startTrainerBattle(T.MAP_NODES.route1.trainers[0]);
+  T.battleUseItem('精灵球');
+  ok(s.bag['精灵球'] === 1, '对训练家扔球不消耗');
+  ok(s.log.some(function (l) { return l.indexOf('愚蠢的人类') !== -1; }), '吐槽文案生效');
+  ok(s.logKinds[s.log.length - 1] === 'warn', '吐槽日志带醒目 warn 标记');
+}
 
 // ---------- 15. MVP11.2：羁绊系统 ----------
 section('MVP11.2：羁绊系统');

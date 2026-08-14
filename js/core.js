@@ -1130,7 +1130,7 @@ function battleUseItem(itemName, opts) {
   const pm = p.mons[p.active];
   const fm = f.mons[f.active];
   if (item.type === 'ball') {
-    if (b.kind !== 'wild') { addLog('训练家的宝可梦不能捕捉！', 'info'); return; }
+    if (b.kind !== 'wild') { addLog('愚蠢的人类，训练家的宝可梦可不是你能随便抓的！', 'warn'); return; }
     removeItem(itemName, 1);
     if (!opts.skipThrowLog) addLog('你扔出了【' + itemName + '】！', 'info');
     if (item.master) {
