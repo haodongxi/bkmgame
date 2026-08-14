@@ -6,6 +6,8 @@
 
 const SAVE_KEY = 'bkm_poke_save_v1';
 const GAME_VERSION = 1;
+// 宝可梦唯一标识：队伍重排/箱与队伍交换后仍能稳定关联待学招等数据
+let MON_UID = 1;
 // 队伍上限：超过该数量捕获/获得的宝可梦进电脑箱
 const PARTY_LIMIT = 4;
 // 闲逛事件重新激活所需的野外遭遇战次数（离开城镇不再重置，需要打够次数）
@@ -184,6 +186,7 @@ function makeMon(speciesId, level, opts) {
   }
   const moves = opts.moves || movesAtLevel(data, level);
   const mon = {
+    uid: MON_UID++,
     species: speciesId,
     speciesData: data,
     name: data.name,
@@ -244,10 +247,15 @@ function grantExp(mon, amount, log, kinds) {
     mon.level++;
     recalcStats(mon);
     L(mon.name + ' 升到了 Lv.' + mon.level + '！');
-    const newMoves = movesAtLevel(mon.speciesData, mon.level);
-    for (let i = 0; i < newMoves.length; i++) {
-      if (mon.moves.indexOf(newMoves[i]) === -1) tryLearnMove(mon, newMoves[i], log, false, kinds);
-    }
+    // 补学：当前等级以下所有「尚未学会且未入队」的招式，每招只入队一次（避免同招跨级重复弹窗）
+    Object.keys(mon.speciesData.learnset || {}).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+      if (lv > mon.level) return;
+      (mon.speciesData.learnset[lv] || []).forEach(function (mid) {
+        if (mon.moves.indexOf(mid) !== -1) return;
+        const alreadyPending = STATE.pendingLearn.some(function (p) { return p.uid === mon.uid && p.moveId === mid; });
+        if (!alreadyPending) tryLearnMove(mon, mid, log, false, kinds);
+      });
+    });
     checkEvolution(mon, log, kinds);
   }
   if (remain > 0) mon.exp += remain;
@@ -270,7 +278,7 @@ function tryLearnMove(mon, moveId, log, autoReplace, kinds) {
   } else {
     const where = STATE.party.indexOf(mon) !== -1 ? 'party' : 'box';
     const idx = (where === 'party' ? STATE.party : STATE.box).indexOf(mon);
-    STATE.pendingLearn.push({ where: where, idx: idx, moveId: moveId, monName: mon.name, moveName: mv.name });
+    STATE.pendingLearn.push({ where: where, idx: idx, uid: mon.uid, moveId: moveId, monName: mon.name, moveName: mv.name });
     log.push(mon.name + ' 想学会【' + mv.name + '】，但招式已经满了！');
   }
 }
@@ -278,8 +286,16 @@ function tryLearnMove(mon, moveId, log, autoReplace, kinds) {
 function resolvePendingLearn(moveId, replaceIdx) {
   if (STATE.pendingLearn.length === 0) return { ok: false, reason: '没有待学习的招式' };
   const p = STATE.pendingLearn.shift();
-  const holder = p.where === 'party' ? STATE.party : STATE.box;
-  const mon = holder[p.idx];
+  // 优先按 uid 定位（队伍重排/箱队交换后下标会失效），旧存档无 uid 时回退下标
+  let mon = null;
+  if (p.uid) {
+    mon = STATE.party.filter(function (m) { return m.uid === p.uid; })[0] ||
+          STATE.box.filter(function (m) { return m.uid === p.uid; })[0] || null;
+  }
+  if (!mon) {
+    const holder = p.where === 'party' ? STATE.party : STATE.box;
+    mon = holder[p.idx];
+  }
   if (!mon) return { ok: false, reason: '宝可梦不存在' };
   if (replaceIdx === null || replaceIdx === undefined) {
     addLog(mon.name + ' 没有学习【' + p.moveName + '】。');
@@ -2399,7 +2415,7 @@ function save() {
       titles: STATE.titles,
       wildBattles: STATE.wildBattles,
       pendingLearn: STATE.pendingLearn.map(function (p) {
-        return { where: p.where, idx: p.idx, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
+        return { where: p.where, idx: p.idx, uid: p.uid, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
       }),
       seenDex: STATE.seenDex,
       caughtDex: STATE.caughtDex,
@@ -2418,7 +2434,7 @@ function save() {
 
 function serializeMon(m) {
   return {
-    species: m.species, level: m.level, exp: m.exp, hp: m.hp,
+    uid: m.uid || 0, species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
     candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0
@@ -2427,6 +2443,7 @@ function serializeMon(m) {
 
 function deserializeMon(d) {
   const mon = makeMon(d.species, d.level, { iv: d.ivs });
+  mon.uid = d.uid || (MON_UID++); // 旧档无 uid 时补发
   mon.candyBonus = Object.assign({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 }, d.candyBonus || {});
   recalcStats(mon); // 让糖果加成计入面板
   mon.exp = d.exp;
@@ -2469,8 +2486,12 @@ function load() {
     STATE.titles = data.titles || [];
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
-      const holder = p.where === 'party' ? STATE.party : STATE.box;
-      return p.idx >= 0 && p.idx < holder.length;
+      // 旧档待学招没有 uid：按当时下标补挂到对应宝可梦，防止换首发后错位
+      if (!p.uid) {
+        const holder = p.where === 'party' ? STATE.party : STATE.box;
+        if (p.idx >= 0 && p.idx < holder.length) p.uid = holder[p.idx].uid;
+      }
+      return p.uid ? true : (p.idx >= 0 && p.idx < (p.where === 'party' ? STATE.party : STATE.box).length);
     });
     STATE.seenDex = data.seenDex || {};
     STATE.caughtDex = data.caughtDex || {};

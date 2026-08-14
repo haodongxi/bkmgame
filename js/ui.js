@@ -1366,8 +1366,21 @@ function showLearnModal() {
   const p = STATE.pendingLearn[0];
   if (!p) return;
   let html = '<div class="shop-hint">' + p.monName + ' 想学会【' + p.moveName + '】，要遗忘哪个招式？</div>';
-  const holder = p.where === 'party' ? STATE.party : STATE.box;
-  const mon = holder[p.idx];
+  let mon = null;
+  if (p.uid) {
+    mon = STATE.party.filter(function (m) { return m.uid === p.uid; })[0] ||
+          STATE.box.filter(function (m) { return m.uid === p.uid; })[0] || null;
+  }
+  if (!mon) {
+    const holder = p.where === 'party' ? STATE.party : STATE.box;
+    mon = holder[p.idx];
+  }
+  if (!mon) {
+    // 对应宝可梦已不存在（如被传送），跳过这条待学招
+    STATE.pendingLearn.shift();
+    render();
+    return;
+  }
   for (let i = 0; i < mon.moves.length; i++) {
     const mv = MOVES[mon.moves[i]];
     html += '<button class="btn btn-sm learn-btn" onclick="doLearn(' + i + ')">遗忘 ' + mv.name + '</button>';

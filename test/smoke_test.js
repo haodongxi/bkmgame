@@ -1607,6 +1607,50 @@ section('技能效果与学习面');
   T.battleMove(0);
   ok(!bm.m.status && bm.m.hp <= bm.m.stats.hp && s.log.slice(logLen).some(function (l) { return l.indexOf('无法使用睡觉') !== -1; }), '满血时睡觉无效（提示无法使用）');
 }
+{
+  // 技能错乱回归：喂经验攒下待学招 → 换首发重排队伍 → 新招仍学到正确的宝可梦身上
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(25, 20, { nature: '勤奋' }), T.makeMon(143, 34, { nature: '勤奋' })]; // 皮卡丘首发，卡比兽 Lv34
+  s.party[0].moves = ['thundershock', 'growl', 'tail_whip', 'quick_attack'];
+  s.party[0].pp = [30, 40, 30, 30];
+  s.party[1].moves = ['tackle', 'growl', 'quick_attack', 'take_down'];
+  s.party[1].pp = [35, 40, 30, 25];
+  const log = [];
+  T.grantExp(s.party[1], 400000, log, []); // 卡比兽连升多级，攒下待学招
+  ok(s.pendingLearn.length >= 1, '喂经验升级攒下待学招式');
+  const pendingCount = s.pendingLearn.length;
+  const firstMove = s.pendingLearn[0].moveId;
+  T.setLeadMon(1); // 卡比兽设为首发，队伍重排
+  ok(s.party[0].name === '卡比兽' && s.party[1].name === '皮卡丘', '卡比兽成为首发（重排）');
+  const pikaBefore = s.party[1].moves.slice();
+  const res = T.resolvePendingLearn(firstMove, 0);
+  ok(res.ok && s.party[0].moves.indexOf(firstMove) !== -1, '待学招正确学到卡比兽身上（不再错学到皮卡丘）');
+  ok(s.party[1].moves.join(',') === pikaBefore.join(','), '皮卡丘招式未被误改');
+  // 存档读档后 uid 关联仍然正确
+  T.save();
+  s.party = [];
+  s.pendingLearn = [];
+  ok(T.load(), '读档成功');
+  const s2 = T.getState();
+  ok(s2.pendingLearn.length === pendingCount - 1, '剩余待学招随存档保存');
+  const snorlaxIdx = s2.party.findIndex(function (m) { return m.name === '卡比兽'; });
+  const pikaIdx = s2.party.findIndex(function (m) { return m.name === '皮卡丘'; });
+  const nextMove = s2.pendingLearn[0].moveId;
+  const pikaBefore2 = s2.party[pikaIdx].moves.slice();
+  T.resolvePendingLearn(nextMove, 1);
+  ok(s2.party[snorlaxIdx].moves.indexOf(nextMove) !== -1, '读档后学招仍正确关联卡比兽');
+  ok(s2.party[pikaIdx].moves.join(',') === pikaBefore2.join(','), '读档后皮卡丘仍未被误改');
+  // 旧档无 uid 的待学招：读档时按下标补挂 uid
+  const legacyUid = s2.party[snorlaxIdx].uid;
+  s2.pendingLearn = [{ where: 'party', idx: snorlaxIdx, moveId: 'earthquake', monName: '卡比兽', moveName: '地震' }];
+  T.save();
+  s2.party = [];
+  s2.pendingLearn = [];
+  T.load();
+  const s3 = T.getState();
+  ok(s3.pendingLearn[0] && s3.pendingLearn[0].uid === legacyUid, '旧档待学招读档自动补挂 uid');
+}
 
 // ---------- 13.8 MVP14：全图鉴投放补全 ----------
 section('MVP14：全图鉴投放');
