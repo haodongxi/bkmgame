@@ -1157,6 +1157,19 @@ section('MVP11.1：喂养系统');
   ok(T.getState().expPool === 500, '经验池随存档保存');
   ok(T.getState().party[0].candyBonus.hp === 3, '糖果加成随存档保存');
 }
+{
+  // 替换携带道具时，旧道具退回背包（不丢失）
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.held = '吃剩的东西';
+  s.bag['幸运蛋'] = 1;
+  T.useBagItemOnMon('幸运蛋', 0);
+  ok(mon.held === '幸运蛋' && s.bag['吃剩的东西'] === 1, '替换携带道具后旧道具退回背包');
+  const cnt = s.bag['幸运蛋'];
+  T.useBagItemOnMon('幸运蛋', 0);
+  ok(mon.held === '幸运蛋' && s.bag['幸运蛋'] === cnt, '重复装备同一种不消耗且不重复退回');
+}
 
 // ---------- 15. MVP11.2：羁绊系统 ----------
 section('MVP11.2：羁绊系统');

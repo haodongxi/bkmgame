@@ -1993,6 +1993,11 @@ function useBagItemOnMon(itemName, partyIdx) {
     if (!target) { addLog('这个携带道具无法使用。', 'info'); return; }
     if (item.onlySpecies && mon.species !== item.onlySpecies) { addLog('只有' + POKEDEX[item.onlySpecies].name + '才能携带' + target + '！', 'info'); return; }
     if (mon.held === target) { addLog(mon.name + ' 已经携带着' + target + '。', 'info'); return; }
+    // 替换旧携带道具时，旧道具退回背包（不丢失）
+    if (mon.held) {
+      addItem(mon.held, 1);
+      addLog('原来携带的【' + mon.held + '】放回了背包。', 'info');
+    }
     removeItem(itemName, 1);
     mon.held = target;
     addLog(mon.name + ' 携带了' + target + '！', 'good');
