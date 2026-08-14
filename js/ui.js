@@ -1210,6 +1210,7 @@ function moveEffectText(mv) {
     case 'status': return chanceTxt + '使对方' + (e.status || '');
     case 'confuse': return chanceTxt + '使对方混乱';
     case 'heal': return '回复' + Math.round(e.ratio * 100) + '%最大HP';
+    case 'rest': return '回复满HP，随后睡眠';
     case 'leech': return '寄生：每回合吸取对方HP';
     case 'protect': return '本回合免疫攻击';
     case 'recoil': return '反伤' + Math.round(e.ratio * 100) + '%';

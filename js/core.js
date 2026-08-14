@@ -958,6 +958,19 @@ function useMove(user, target, move, log, kinds) {
       } else {
         L(m.name + ' 的HP是满的。', 'info');
       }
+    } else if (move.effect && move.effect.kind === 'rest') {
+      // 睡觉：HP 完全恢复 + 治愈异常，随后睡眠 1~3 回合（满血时无法使用）
+      if (m.hp >= m.stats.hp) {
+        L(m.name + ' 的HP是满的，无法使用睡觉！', 'info');
+      } else {
+        m.hp = m.stats.hp;
+        m.status = '睡眠';
+        m.statusTurns = 0;
+        m.poisonTurns = 0;
+        user.sleepTurns = randInt(1, 3);
+        L(m.name + ' 美美地睡了一觉，HP完全恢复了！', 'good');
+        L(m.name + ' 睡着了……', 'info');
+      }
     } else if (move.effect) {
       if (move.effect.kind === 'stat') {
         applyStatEffect(move.effect.target === 'self' ? user : target, move.effect, log, kinds);

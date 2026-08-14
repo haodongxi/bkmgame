@@ -148,6 +148,7 @@ const MOVES = {
   facade: { id: 'facade', name: '硬撑', type: '普通', category: '物理', power: 70, acc: 100, pp: 20 },
   defense_curl: { id: 'defense_curl', name: '缩入壳中', type: '普通', category: '变化', power: 0, acc: 0, pp: 40, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 1, chance: 1 } },
   recover: { id: 'recover', name: '自我再生', type: '普通', category: '变化', power: 0, acc: 0, pp: 10, effect: { kind: 'heal', ratio: 0.5, self: true } },
+  rest: { id: 'rest', name: '睡觉', type: '超能力', category: '变化', power: 0, acc: 0, pp: 5, effect: { kind: 'rest' } },
   soft_boiled: { id: 'soft_boiled', name: '生蛋', type: '普通', category: '变化', power: 0, acc: 0, pp: 10, effect: { kind: 'heal', ratio: 0.5, self: true } },
   screech: { id: 'screech', name: '刺耳声', type: '普通', category: '变化', power: 0, acc: 85, pp: 40, effect: { kind: 'stat', target: 'target', stat: 'def', stage: -2, chance: 1 } },
   // 火

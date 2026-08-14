@@ -636,7 +636,7 @@ section('MVP4 支线与技能表扩充');
     return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
   });
   ok(bad.length === 0, '全部技能字段完整');
-  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1 };
+  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1 };
   const badEff = moveIds.filter(function (id) {
     const e = T.MOVES[id].effect;
     return e && !effKinds[e.kind];
@@ -1544,6 +1544,44 @@ section('技能效果与学习面');
   ok(T.learnableMoves(low).indexOf('tackle') !== -1, 'Lv30 卡比兽可补未学的撞击');
   const pk = T.makeMon(25, 30, { nature: '勤奋' });
   ok(T.learnableMoves(pk).indexOf('slam') === -1, 'Lv30 皮卡丘看不到 33 级摔打');
+}
+{
+  // 睡觉：回满 HP + 治愈异常 + 进入睡眠；满血时无效
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 40, { nature: '勤奋' })]; // 卡比兽 30 级学睡觉
+  s.party[0].moves = ['rest', 'body_slam'];
+  s.party[0].pp = [5, 15];
+  s.party[0].stats.spe = 999;
+  T.startWildBattle(16, 40);
+  const bm = s.battle.player.mons[0];
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.moves = ['tackle']; // 去掉先制招，保证玩家先手，测试确定
+  s.battle.foe.mons[0].m.pp = [35];
+  bm.m.hp = 1;
+  bm.m.status = '中毒';
+  T.battleMove(0); // 睡觉
+  ok(bm.m.hp > 100 && bm.m.hp <= bm.m.stats.hp && bm.m.status === '睡眠' && bm.sleepTurns > 0 && bm.sleepTurns <= 3, '睡觉回满HP（随后被反击扣一点）、治愈中毒并进入睡眠1~3回合');
+  const hpAfterRest = bm.m.hp;
+  T.battleMove(1);
+  ok(bm.m.hp === hpAfterRest || bm.m.status === '睡眠' || !bm.m.status, '睡眠回合正常结算不崩溃');
+}
+{
+  // 满血时使用睡觉无效
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 40, { nature: '勤奋' })];
+  s.party[0].moves = ['rest', 'body_slam'];
+  s.party[0].pp = [5, 15];
+  s.party[0].stats.spe = 999;
+  T.startWildBattle(16, 40);
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  const bm = s.battle.player.mons[0];
+  const logLen = s.log.length;
+  T.battleMove(0);
+  ok(!bm.m.status && bm.m.hp <= bm.m.stats.hp && s.log.slice(logLen).some(function (l) { return l.indexOf('无法使用睡觉') !== -1; }), '满血时睡觉无效（提示无法使用）');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------
