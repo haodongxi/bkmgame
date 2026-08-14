@@ -382,6 +382,12 @@ function evolveTo(mon, intoId, log, kinds) {
   mon.hp = Math.max(1, Math.floor(mon.stats.hp * ratio));
   if (log) log.push('哇！' + oldName + ' 进化成了 ' + newData.name + '！');
   if (kinds && log) kinds.push('good');
+  // 图鉴登记：进化形态点亮（已见 + 已捕获），等级进化与石头进化共用此入口
+  const isNew = !STATE.caughtDex[intoId];
+  STATE.seenDex[intoId] = true;
+  STATE.caughtDex[intoId] = true;
+  if (log && isNew) log.push('图鉴登记了新种类：' + newData.name + '（No.' + intoId + '）！');
+  if (kinds && log && isNew) kinds.push('good');
 }
 
 function tryStoneEvolution(mon, stoneName) {

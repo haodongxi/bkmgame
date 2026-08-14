@@ -1172,6 +1172,21 @@ section('经典回合制');
   ok(s3.caughtDex[133] === true && s3.seenDex[133] === true, '神秘商人购买登记图鉴');
 }
 {
+  // 图鉴登记：进化形态点亮（小火龙 → 火恐龙 → 喷火龙，等级进化 + 石头进化）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 15, { nature: '勤奋' })]; // 小火龙
+  const log = [];
+  T.grantExp(s.party[0], 5000, log, []);
+  ok(s.party[0].species === 5 && s.caughtDex[5] === true && s.seenDex[5] === true, '进化成火恐龙后图鉴点亮');
+  T.grantExp(s.party[0], 60000, log, []);
+  ok(s.party[0].species === 6 && s.caughtDex[6] === true && s.seenDex[6] === true, '继续进化成喷火龙后图鉴点亮');
+  ok(log.some(function (l) { return l.indexOf('图鉴登记了新种类') !== -1; }), '进化时提示图鉴新种类登记');
+  const eevee = T.makeMon(133, 20, { nature: '勤奋' });
+  T.tryStoneEvolution(eevee, '雷之石');
+  ok(s.caughtDex[135] === true && s.seenDex[135] === true, '石头进化（伊布→雷伊布）图鉴点亮');
+}
+{
   // 日志上限不截断战斗内日志（修复战斗日志框清空/播放被跳过）
   T.newGame(4);
   const s = T.getState();
