@@ -471,6 +471,19 @@ function firstAlive(partyMons) {
   return -1;
 }
 
+// 稀有度分级（纯数据）：传说（急冻鸟/闪电鸟/火焰鸟/超梦/梦幻）> 稀有（捕获率≤45 的特有/珍藏种）
+// > 少见（捕获率 46~120）> 普通。图鉴/队伍/电脑箱/战斗卡片/野生开场共用，词缀 + 颜色展示。
+function rarityOf(mon) {
+  const raw = mon && mon.species !== undefined ? mon.species : (mon && mon.id !== undefined ? mon.id : mon);
+  const id = Number(raw);
+  if ([144, 145, 146, 150, 151].indexOf(id) !== -1) return { key: 'legendary', label: '传说' };
+  const d = POKEDEX[id];
+  const cr = d ? d.catchRate : 255;
+  if (cr <= 45) return { key: 'rare', label: '稀有' };
+  if (cr <= 120) return { key: 'uncommon', label: '少见' };
+  return { key: 'common', label: '普通' };
+}
+
 function startBattle(kind, opts) {
   opts = opts || {};
   const playerMons = STATE.party.map(makeBattleMon);
@@ -513,7 +526,12 @@ function startBattle(kind, opts) {
   };
   STATE.screen = 'battle';
   const pActive = STATE.battle.player.mons[STATE.battle.player.active];
-  addLog(opts.opening || ('野生的 ' + foeMons[0].m.name + ' 出现了！'), 'info');
+  let opening = opts.opening;
+  if (!opening) {
+    const r = rarityOf(foeMons[0].m);
+    opening = '野生的 ' + foeMons[0].m.name + (r.key === 'common' ? '' : '（' + r.label + '）') + ' 出现了！';
+  }
+  addLog(opening, 'info');
   addLog('就决定是你了，' + pActive.m.name + '！', 'info');
 }
 
@@ -2392,6 +2410,7 @@ if (typeof module !== 'undefined' && module.exports) {
     makeMon: makeMon, calcDamage: calcDamage, expToNext: expToNext, healAll: healAll,
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,
+    rarityOf: rarityOf,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather
   };

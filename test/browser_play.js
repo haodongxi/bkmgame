@@ -66,6 +66,7 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#modal-root .party-row').length === 2"), '队伍弹窗显示两只宝可梦');
   ok(await evaljs("document.querySelector('#modal-root .party-pp') !== null"), '队伍弹窗显示 PP 状态');
   ok(await evaljs("document.querySelector('#modal-root .lead-tag') !== null"), '首发宝可梦有标记');
+  ok(await evaljs("document.querySelector('#modal-root .party-name .rarity.r-rare') !== null"), '队伍弹窗显示稀有度词缀（小火龙=稀有）');
   await evaljs("document.querySelector('#modal-root .party-row:nth-child(2) .btn').click()");
   ok(await evaljs("STATE.party[0].name === '波波'"), '点击设为首发后队首变为波波');
   await evaljs('doMapAction(\'party\');');
@@ -78,6 +79,7 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '图鉴显示 151 只');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen, #modal-root .dex-cell.caught') !== null"), '图鉴宝可梦有已见/已捕获标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught') !== null"), '御三家开局已捕获有标记');
+  ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught .dex-name .rarity.r-rare') !== null"), '图鉴格子显示稀有度词缀');
   ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('已见') !== -1"), '图鉴显示进度');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
@@ -103,6 +105,8 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#battle-actions .btn').length === STATE.battle.player.mons[0].m.moves.length + 3"), '战斗按钮 = 招式+道具+换人+逃跑');
   ok(await evaljs("document.querySelector('#battle-actions .move-pp') !== null"), '招式按钮显示 PP');
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
+  ok(await evaljs("document.querySelector('#battle-player .battle-name .rarity.r-rare') !== null"), '我方战斗卡片显示稀有度词缀');
+  ok(await evaljs("document.querySelector('#battle-foe .battle-name .rarity') === null"), '普通敌方不显示稀有度词缀');
   ok(await evaljs("effHint({type:'火', power:40}, ['虫']).indexOf('效果拔群') !== -1"), '克制提示：火对虫效果拔群');
   ok(await evaljs("effHint({type:'电', power:40}, ['地面']).indexOf('没有效果') !== -1"), '克制提示：电对地面没有效果');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}return STATE.lastResult;})()");

@@ -167,6 +167,14 @@ function statusIcon(status) {
   return '<span class="status-badge">' + (map[status] || status) + '</span>';
 }
 
+// 稀有度词缀（普通不显示，传说/稀有/少见显示彩色标签）
+function rarityTag(mon) {
+  const r = rarityOf(mon);
+  if (r.key === 'common') return '';
+  const star = r.key === 'legendary' ? '★' : '';
+  return '<span class="rarity r-' + r.key + '">' + star + r.label + '</span>';
+}
+
 function natureText(nature) {
   const m = NATURES[nature] || NATURES['勤奋'];
   const names = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
@@ -695,7 +703,7 @@ function showPartyModal(mode, itemName) {
     }
     html += '<div class="party-row pixel-frame">' +
       '<div class="party-icon" id="modal-icon-' + i + '"></div>' +
-      '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
@@ -719,7 +727,7 @@ function showBoxModal() {
     const m = STATE.box[i];
     html += '<div class="party-row pixel-frame">' +
       '<div class="party-icon" id="box-icon-' + i + '"></div>' +
-      '<div class="party-info"><div class="party-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
@@ -812,7 +820,7 @@ function showMonDetail(idx) {
   const expPoolBtn = STATE.expPool > 0 ?
     '<button class="btn btn-sm" onclick="showAllocateExp(' + idx + ')">📊 分配经验（经验池 ' + STATE.expPool + '）</button>' : '';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
-    '<div><div class="detail-name">' + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
+    '<div><div class="detail-name">' + rarityTag(mon) + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
     '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
     '<div class="shop-hint">羁绊：' + bondTier(mon.bond || 0) + '</div>' +
@@ -864,7 +872,7 @@ function showPokedexModal() {
     const d = POKEDEX[id];
     html += '<div class="dex-cell' + (caught ? ' caught' : (seen ? ' seen' : '')) + '" id="dex-icon-' + id + '">' +
       '<div class="dex-icon">' + (seen ? '' : '?') + '</div>' +
-      '<div class="dex-name">' + (seen ? d.name : '???') + '</div>' +
+      '<div class="dex-name">' + (seen ? rarityTag(d) + d.name : '???') + '</div>' +
       '<div class="dex-no">No.' + id + '</div></div>';
   }
   html += '</div>';
@@ -1132,7 +1140,7 @@ function battleCard(bm, side, hit) {
   const m = bm.m;
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
-    '<div class="battle-info"><div class="battle-name">' + m.name + ' ' + statusIcon(m.status) + '</div>' +
+    '<div class="battle-info"><div class="battle-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
     '</div></div>';
 }

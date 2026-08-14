@@ -12,7 +12,7 @@ let src = files.map(function (f) {
 src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
-  '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon,\n' +
+  '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
   '  tryStoneEvolution: tryStoneEvolution, expForLevel: expForLevel,\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
@@ -1423,6 +1423,30 @@ section('无尽之塔');
     const active = s.battle.player.mons[s.battle.player.active];
     T.battleMove(damageMoveIdx(active));
   }
+}
+
+// ---------- 13.5 稀有度分级（词缀 + 颜色） ----------
+section('稀有度分级');
+{
+  const R = T.rarityOf;
+  ok(R(T.POKEDEX[150]).key === 'legendary' && R(T.POKEDEX[150]).label === '传说', '超梦为传说');
+  ok(R(T.POKEDEX[144]).key === 'legendary', '急冻鸟为传说');
+  ok(R(T.POKEDEX[151]).key === 'legendary', '梦幻为传说');
+  ok(R(T.POKEDEX[147]).key === 'rare' && R(T.POKEDEX[147]).label === '稀有', '迷你龙为稀有');
+  ok(R(T.POKEDEX[143]).key === 'rare', '卡比兽为稀有');
+  ok(R(T.POKEDEX[4]).key === 'rare', '御三家为稀有');
+  ok(R(T.POKEDEX[102]).key === 'uncommon' && R(T.POKEDEX[102]).label === '少见', '蛋蛋为少见');
+  ok(R(T.POKEDEX[16]).key === 'common' && R(T.POKEDEX[16]).label === '普通', '波波为普通');
+  ok(R(T.POKEDEX[129]).key === 'common', '鲤鱼王为普通');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  T.startWildBattle(147, 40); // 迷你龙（稀有）
+  ok(s.log.some(function (l) { return l.indexOf('野生的 迷你龙（稀有） 出现了') !== -1; }), '稀有宝可梦开场带稀有词缀');
+  T.newGame(4);
+  T.startWildBattle(16, 5); // 波波（普通）
+  ok(s.log.some(function (l) { return l.indexOf('野生的 波波 出现了') !== -1 && l.indexOf('（普通）') === -1; }), '普通宝可梦开场不带词缀');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------
