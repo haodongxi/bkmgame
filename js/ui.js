@@ -829,6 +829,8 @@ const KANTO_LAYOUT = {
   champion:  { x: 13, y: 54 }
 };
 
+const TYPE_NAMES = { town: '城镇', route: '道路', forest: '森林', cave: '洞穴' };
+
 function nodeUnlocked(id) {
   const n = MAP_NODES[id];
   return !(n && n.requireBadge && STATE.badges.indexOf(n.requireBadge) === -1);
@@ -876,6 +878,28 @@ function topEncounters(n) {
   return sorted.map(function (id) { return POKEDEX[id].name; }).join('、') || '无';
 }
 
+// BFS 最短路径（任意两节点，仅用于路线与赶路）
+function pathBetween(fromId, toId) {
+  if (fromId === toId) return [fromId];
+  const prev = {};
+  const seen = {};
+  seen[fromId] = true;
+  const q = [fromId];
+  while (q.length) {
+    const cur = q.shift();
+    if (cur === toId) {
+      const path = [];
+      let node = toId;
+      while (node !== undefined) { path.unshift(node); node = prev[node]; }
+      return path;
+    }
+    (MAP_NODES[cur].next || []).forEach(function (nid) {
+      if (!seen[nid]) { seen[nid] = true; prev[nid] = cur; q.push(nid); }
+    });
+  }
+  return [];
+}
+
 function showNodeInfo(id) {
   const n = MAP_NODES[id];
   if (!n) return;
@@ -895,22 +919,44 @@ function showNodeInfo(id) {
   const caughtHere = Object.keys(poolSpecies).filter(function (s) { return STATE.caughtDex[s]; }).length;
   const weather = Object.keys(n.weatherWeights || {}).map(function (k) { return k + ' ' + n.weatherWeights[k] + '%'; }).join(' / ') || '—';
   const levels = n.levels ? n.levels[0] + '~' + n.levels[1] : '—';
-  let html = '<div class="shop-hint">' + (n.gym ? '⚔️ 道馆：' + n.gym.leader + '（徽章：' + n.gym.badge + '，首发 Lv.' + n.gym.minLevel + '）' : '类型：' + n.type) + '</div>';
+  let html = '<div class="shop-hint">类型：' + (TYPE_NAMES[n.type] || n.type) +
+    (n.gym ? ' · ⚔️ 道馆：' + n.gym.leader + '（徽章：' + n.gym.badge + '，首发 Lv.' + n.gym.minLevel + '）' : '') + '</div>';
   html += '<div class="shop-hint">等级区间：' + levels + (n.water ? ' · 🎣可钓鱼' : '') + '</div>';
   html += '<div class="shop-hint">天气概率：' + weather + '</div>';
   html += '<div class="shop-hint">主要遭遇：' + topEncounters(n) + '</div>';
   html += '<div class="shop-hint">训练家：' + trainersLeft + '/' + trainers.length + ' 人未击败</div>';
   html += '<div class="shop-hint">该地宝可梦图鉴：已见 ' + seenHere + ' · 已捕获 ' + caughtHere + '</div>';
   html += '<div class="shop-hint">探索状态：' + (visited ? '✅ 已探索' : '⬜ 未探索') + (locked ? ' · 🔒 需 ' + n.requireBadge : '') + '</div>';
-  const canGo = !locked && !isCur && (MAP_NODES[STATE.nodeId].next || []).indexOf(id) !== -1;
+  const canGo = !locked && !isCur;
+  const path = canGo ? pathBetween(STATE.nodeId, id) : [];
+  const pathClear = path.length > 0 && path.every(function (p) { return nodeUnlocked(p); });
+  const blocked = path.length > 0 && !pathClear;
+  let blockedBadge = null;
+  if (blocked) {
+    for (let i = 1; i < path.length; i++) {
+      if (!nodeUnlocked(path[i])) { blockedBadge = MAP_NODES[path[i]].requireBadge; break; }
+    }
+  }
   const btns = '<div class="modal-btns">' +
-    (canGo ? '<button class="btn btn-primary" onclick="doMapTravel(\'' + id + '\')">前往 ' + n.name + '</button>' : '') +
+    (pathClear ? '<button class="btn btn-primary" onclick="doMapTravel(\'' + id + '\')">前往 ' + n.name + '</button>' :
+      (blocked ? '<button class="btn" disabled>前往 ' + n.name + '（需' + (blockedBadge || '徽章') + '）</button>' : '')) +
     '<button class="btn" onclick="showMapModal()">返回地图</button></div>';
   openModal(n.name, html + btns);
 }
 
 function doMapTravel(id) {
-  gotoNode(id);
+  const path = pathBetween(STATE.nodeId, id);
+  for (let i = 1; i < path.length; i++) {
+    const n = MAP_NODES[path[i]];
+    if (!nodeUnlocked(path[i])) {
+      addLog('前方需要【' + n.requireBadge + '】才能通过！', 'warn');
+      closeModal();
+      render();
+      return;
+    }
+    gotoNode(path[i]);
+    if (STATE.battle) break; // 途中宿敌等触发战斗，先停下来应战
+  }
   save();
   closeModal();
   render();
@@ -925,23 +971,7 @@ function pathToGoal() {
     if (STATE.badges.indexOf(g.badge) === -1) { goal = order[i]; break; }
   }
   if (!goal) return [];
-  const prev = {};
-  const seen = {};
-  seen[STATE.nodeId] = true;
-  const q = [STATE.nodeId];
-  while (q.length) {
-    const cur = q.shift();
-    if (cur === goal) {
-      const path = [];
-      let node = goal;
-      while (node !== undefined) { path.unshift(node); node = prev[node]; }
-      return path;
-    }
-    (MAP_NODES[cur].next || []).forEach(function (nid) {
-      if (!seen[nid]) { seen[nid] = true; prev[nid] = cur; q.push(nid); }
-    });
-  }
-  return [];
+  return pathBetween(STATE.nodeId, goal);
 }
 
 // ---------------- 战斗界面 ----------------
