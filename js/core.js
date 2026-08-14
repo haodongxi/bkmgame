@@ -6,6 +6,8 @@
 
 const SAVE_KEY = 'bkm_poke_save_v1';
 const GAME_VERSION = 1;
+// 队伍上限：超过该数量捕获/获得的宝可梦进电脑箱
+const PARTY_LIMIT = 4;
 // 闲逛事件重新激活所需的野外遭遇战次数（离开城镇不再重置，需要打够次数）
 const WANDER_REFRESH_BATTLES = 3;
 
@@ -1358,7 +1360,7 @@ function endBattle(outcome) {
 }
 
 function addToPartyOrBox(mon) {
-  if (STATE.party.length < 6) STATE.party.push(mon);
+  if (STATE.party.length < PARTY_LIMIT) STATE.party.push(mon);
   else STATE.box.push(mon);
 }
 

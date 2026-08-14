@@ -936,11 +936,11 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   // 电脑箱：队伍满时捕获进箱，可取回交换
   T.newGame(4);
   const s = T.getState();
-  for (let i = 0; i < 5; i++) s.party.push(T.makeMon(16 + i, 5));
+  for (let i = 0; i < 3; i++) s.party.push(T.makeMon(16 + i, 5));
   s.bag['大师球'] = 1;
   T.startWildBattle(25, 3);
   T.battleUseItem('大师球');
-  ok(s.box.length === 1 && s.party.length === 6, '队伍满时捕获进电脑箱');
+  ok(s.box.length === 1 && s.party.length === 4, '队伍满（4只）时捕获进电脑箱');
   T.boxSwap(0, 0);
   ok(s.party[0].species === 25 && s.box[0].species === 4, '电脑箱取回交换成功');
   T.boxSwap(0, 1);
