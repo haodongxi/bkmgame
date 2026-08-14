@@ -1144,6 +1144,19 @@ section('经典回合制');
   }
 }
 {
+  // 已探索节点记录与存档
+  T.newGame(4);
+  const s = T.getState();
+  ok(s.visitedNodes.indexOf('pallet') !== -1, '开局真新镇标记已探索');
+  T.gotoNode('route1');
+  T.gotoNode('viridian');
+  ok(s.visitedNodes.indexOf('route1') !== -1 && s.visitedNodes.indexOf('viridian') !== -1, '移动标记已探索');
+  T.save();
+  s.visitedNodes = [];
+  ok(T.load(), '读档成功');
+  ok(T.getState().visitedNodes.indexOf('viridian') !== -1, '已探索节点随存档保存');
+}
+{
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）
   T.newGame(4);
   const s = T.getState();

@@ -22,6 +22,7 @@ const STATE = {
   badges: [],
   party: [],
   box: [],
+  visitedNodes: [],
   log: [],
   logKinds: [],
   wildBattles: 0,
@@ -1452,6 +1453,7 @@ function gotoNode(nodeId) {
     return;
   }
   STATE.nodeId = nodeId;
+  if (STATE.visitedNodes.indexOf(nodeId) === -1) STATE.visitedNodes.push(nodeId);
   STATE.weather = rollWeather(nodeId, STATE.weatherBias ? STATE.weatherBias.type : null);
   if (node.type === 'town') {
     STATE.lastTown = nodeId;
@@ -2057,6 +2059,7 @@ function newGame(starterId) {
   STATE.badges = [];
   STATE.party = [mon];
   STATE.box = [];
+  STATE.visitedNodes = ['pallet'];
   STATE.log = [];
   STATE.logKinds = [];
   STATE.wildBattles = 0;
@@ -2104,6 +2107,7 @@ function save() {
       badges: STATE.badges,
       party: STATE.party.map(serializeMon),
       box: STATE.box.map(serializeMon),
+      visitedNodes: STATE.visitedNodes,
       wildBattles: STATE.wildBattles,
       pendingLearn: STATE.pendingLearn.map(function (p) {
         return { where: p.where, idx: p.idx, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
@@ -2171,6 +2175,7 @@ function load() {
     STATE.badges = data.badges || [];
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
+    STATE.visitedNodes = data.visitedNodes || [];
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
       const holder = p.where === 'party' ? STATE.party : STATE.box;
@@ -2218,6 +2223,7 @@ function resetGame() {
   STATE.logKinds = [];
   STATE.wildBattles = 0;
   STATE.expPool = 0;
+  STATE.visitedNodes = [];
   STATE.rocketSell = false;
   STATE.lastResult = null;
   STATE.gymSession = null;

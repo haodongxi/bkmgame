@@ -326,14 +326,24 @@ function renderStarter() {
 
 function goalHint() {
   const order = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  let goal = null;
   for (let i = 0; i < order.length; i++) {
     const node = MAP_NODES[order[i]];
     const g = node.gym;
     if (STATE.badges.indexOf(g.badge) === -1) {
-      return '当前目标：前往' + node.name + '挑战' + g.leader + '（首发 Lv.' + g.minLevel + '+）';
+      goal = order[i];
+      break;
     }
   }
-  return '当前目标：前往 22 号道路，挺进冠军之路！';
+  if (!goal) return '当前目标：前往 22 号道路，挺进冠军之路！';
+  const g = MAP_NODES[goal].gym;
+  const path = pathToGoal();
+  const label = path.map(function (id) {
+    const n = MAP_NODES[id];
+    const locked = n.requireBadge && STATE.badges.indexOf(n.requireBadge) === -1;
+    return n.name + (locked ? '（需' + n.requireBadge + '）' : '');
+  }).join(' → ');
+  return '目标路线：' + label + ' → 挑战 ' + g.leader + '（首发 Lv.' + g.minLevel + '+）';
 }
 
 function renderMap() {
@@ -372,6 +382,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
         html += '<button class="btn" disabled>🏟️ 常磐道馆（需要 ' + node.gym.requireBadges + ' 枚徽章）</button>';
@@ -391,6 +402,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
     if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
@@ -416,6 +428,7 @@ function doMapAction(type) {
     case 'party': showPartyModal('view'); return;
     case 'box': showBoxModal(); return;
     case 'pokedex': showPokedexModal(); return;
+    case 'map': showMapModal(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
       const towns = cur.next.filter(function (n) { return MAP_NODES[n].type === 'town'; });
@@ -783,6 +796,152 @@ function showPokedexModal() {
       if (box) box.appendChild(monIcon(id, 28));
     }
   }
+}
+
+// ---------------- 关都地图 ----------------
+
+// 像素节点图坐标（百分比，按关都大致地理排布：北在上）
+const KANTO_LAYOUT = {
+  pallet:    { x: 18, y: 90 },
+  route1:    { x: 22, y: 80 },
+  viridian:  { x: 27, y: 70 },
+  route2:    { x: 31, y: 63 },
+  forest:    { x: 36, y: 56 },
+  pewter:    { x: 41, y: 49 },
+  route3:    { x: 46, y: 42 },
+  mtmoon:    { x: 51, y: 35 },
+  cerulean:  { x: 57, y: 29 },
+  route24:   { x: 65, y: 22 },
+  route25:   { x: 76, y: 20 },
+  route5:    { x: 63, y: 38 },
+  saffron:   { x: 70, y: 40 },
+  route6:    { x: 77, y: 46 },
+  vermilion: { x: 83, y: 52 },
+  route7:    { x: 74, y: 50 },
+  celadon:   { x: 64, y: 50 },
+  route16:   { x: 58, y: 60 },
+  fuchsia:   { x: 52, y: 70 },
+  route19:   { x: 47, y: 80 },
+  seafoam:   { x: 40, y: 88 },
+  cinnabar:  { x: 31, y: 94 },
+  route21:   { x: 24, y: 82 },
+  route22:   { x: 20, y: 62 },
+  champion:  { x: 13, y: 54 }
+};
+
+function nodeUnlocked(id) {
+  const n = MAP_NODES[id];
+  return !(n && n.requireBadge && STATE.badges.indexOf(n.requireBadge) === -1);
+}
+
+function showMapModal() {
+  let lines = '';
+  const drawn = {};
+  Object.keys(MAP_NODES).forEach(function (id) {
+    (MAP_NODES[id].next || []).forEach(function (nid) {
+      const key = [id, nid].sort().join('-');
+      if (drawn[key]) return;
+      drawn[key] = true;
+      const a = KANTO_LAYOUT[id], b = KANTO_LAYOUT[nid];
+      if (!a || !b) return;
+      lines += '<line x1="' + a.x + '" y1="' + a.y + '" x2="' + b.x + '" y2="' + b.y + '"/>';
+    });
+  });
+  let html = '<div class="map-wrap"><svg class="map-lines" viewBox="0 0 100 100" preserveAspectRatio="none">' + lines + '</svg>';
+  Object.keys(KANTO_LAYOUT).forEach(function (id) {
+    const n = MAP_NODES[id];
+    if (!n) return;
+    const p = KANTO_LAYOUT[id];
+    const locked = !nodeUnlocked(id);
+    const isCur = id === STATE.nodeId;
+    const visited = STATE.visitedNodes.indexOf(id) !== -1;
+    const isNext = !locked && (MAP_NODES[STATE.nodeId].next || []).indexOf(id) !== -1;
+    const cls = 'map-node' + (isCur ? ' current' : (locked ? ' locked' : (visited ? ' visited' : ''))) + (isNext ? ' next' : '');
+    const icon = locked ? '🔒' : (n.gym ? '⚔️' : (n.type === 'town' ? '🏘️' : (n.type === 'cave' ? '🕳️' : (n.type === 'forest' ? '🌲' : '🛣️'))));
+    html += '<button class="' + cls + '" style="left:' + p.x + '%;top:' + p.y + '%;" onclick="showNodeInfo(\'' + id + '\')" title="' + n.name + (locked ? '（需' + n.requireBadge + '）' : '') + '">' +
+      icon + '<span>' + n.name + '</span></button>';
+  });
+  html += '</div><div class="map-legend">📍当前位置 · ⚔️道馆 · 🔒未解锁 · 已点亮=已探索</div>';
+  openModal('🗺️ 关都地图', html);
+}
+
+function topEncounters(n) {
+  const pool = [];
+  Object.keys(n.pools || {}).forEach(function (w) {
+    (n.pools[w] || []).forEach(function (p) { pool.push({ w: p.w, id: p.id }); });
+  });
+  const byId = {};
+  pool.forEach(function (p) { byId[p.id] = (byId[p.id] || 0) + p.w; });
+  const sorted = Object.keys(byId).sort(function (a, b) { return byId[b] - byId[a]; }).slice(0, 3);
+  return sorted.map(function (id) { return POKEDEX[id].name; }).join('、') || '无';
+}
+
+function showNodeInfo(id) {
+  const n = MAP_NODES[id];
+  if (!n) return;
+  const isCur = id === STATE.nodeId;
+  const locked = !nodeUnlocked(id);
+  const visited = STATE.visitedNodes.indexOf(id) !== -1;
+  const trainers = n.trainers || [];
+  const trainersLeft = trainers.filter(function (t) { return !STATE.trainersDefeated[t.id]; }).length;
+  const poolSpecies = {};
+  Object.keys(n.pools || {}).forEach(function (w) {
+    (n.pools[w] || []).forEach(function (p) { poolSpecies[p.id] = true; });
+  });
+  trainers.forEach(function (t) {
+    t.party.forEach(function (p) { poolSpecies[p.id] = true; });
+  });
+  const seenHere = Object.keys(poolSpecies).filter(function (s) { return STATE.seenDex[s]; }).length;
+  const caughtHere = Object.keys(poolSpecies).filter(function (s) { return STATE.caughtDex[s]; }).length;
+  const weather = Object.keys(n.weatherWeights || {}).map(function (k) { return k + ' ' + n.weatherWeights[k] + '%'; }).join(' / ') || '—';
+  const levels = n.levels ? n.levels[0] + '~' + n.levels[1] : '—';
+  let html = '<div class="shop-hint">' + (n.gym ? '⚔️ 道馆：' + n.gym.leader + '（徽章：' + n.gym.badge + '，首发 Lv.' + n.gym.minLevel + '）' : '类型：' + n.type) + '</div>';
+  html += '<div class="shop-hint">等级区间：' + levels + (n.water ? ' · 🎣可钓鱼' : '') + '</div>';
+  html += '<div class="shop-hint">天气概率：' + weather + '</div>';
+  html += '<div class="shop-hint">主要遭遇：' + topEncounters(n) + '</div>';
+  html += '<div class="shop-hint">训练家：' + trainersLeft + '/' + trainers.length + ' 人未击败</div>';
+  html += '<div class="shop-hint">该地宝可梦图鉴：已见 ' + seenHere + ' · 已捕获 ' + caughtHere + '</div>';
+  html += '<div class="shop-hint">探索状态：' + (visited ? '✅ 已探索' : '⬜ 未探索') + (locked ? ' · 🔒 需 ' + n.requireBadge : '') + '</div>';
+  const canGo = !locked && !isCur && (MAP_NODES[STATE.nodeId].next || []).indexOf(id) !== -1;
+  const btns = '<div class="modal-btns">' +
+    (canGo ? '<button class="btn btn-primary" onclick="doMapTravel(\'' + id + '\')">前往 ' + n.name + '</button>' : '') +
+    '<button class="btn" onclick="showMapModal()">返回地图</button></div>';
+  openModal(n.name, html + btns);
+}
+
+function doMapTravel(id) {
+  gotoNode(id);
+  save();
+  closeModal();
+  render();
+}
+
+// BFS 最短路径：当前位置 → 目标道馆（仅用于路线展示，忽略徽章锁但标注）
+function pathToGoal() {
+  const order = ['pewter', 'cerulean', 'vermilion', 'celadon', 'saffron', 'fuchsia', 'cinnabar', 'viridian'];
+  let goal = null;
+  for (let i = 0; i < order.length; i++) {
+    const g = MAP_NODES[order[i]].gym;
+    if (STATE.badges.indexOf(g.badge) === -1) { goal = order[i]; break; }
+  }
+  if (!goal) return [];
+  const prev = {};
+  const seen = {};
+  seen[STATE.nodeId] = true;
+  const q = [STATE.nodeId];
+  while (q.length) {
+    const cur = q.shift();
+    if (cur === goal) {
+      const path = [];
+      let node = goal;
+      while (node !== undefined) { path.unshift(node); node = prev[node]; }
+      return path;
+    }
+    (MAP_NODES[cur].next || []).forEach(function (nid) {
+      if (!seen[nid]) { seen[nid] = true; prev[nid] = cur; q.push(nid); }
+    });
+  }
+  return [];
 }
 
 // ---------------- 战斗界面 ----------------
