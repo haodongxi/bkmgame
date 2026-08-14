@@ -111,6 +111,8 @@ async function main() {
   ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display !== 'none'"), '战斗屏可见');
   ok(await evaljs("document.querySelectorAll('#battle-actions .btn').length === STATE.battle.player.mons[0].m.moves.length + 3"), '战斗按钮 = 招式+道具+换人+逃跑');
   ok(await evaljs("document.querySelector('#battle-actions .move-pp') !== null"), '招式按钮显示 PP');
+  ok(await evaljs("document.querySelector('#battle-actions .move-effect') !== null"), '招式按钮显示效果说明');
+  ok(await evaljs("document.querySelector('#battle-actions').textContent.indexOf('对方攻击↓') !== -1"), '叫声效果说明：对方攻击↓');
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
   ok(await evaljs("document.querySelector('#battle-player .battle-name .rarity.r-rare') !== null"), '我方战斗卡片显示稀有度词缀');
   ok(await evaljs("document.querySelector('#battle-foe .battle-name .rarity') === null"), '普通敌方不显示稀有度词缀');
@@ -121,6 +123,11 @@ async function main() {
   await evaljs('render();');
   ok(await evaljs("document.querySelector('#screen-map').classList.contains('active')"), '战斗后回到地图页');
   ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display === 'none'"), '回到地图后战斗屏隐藏');
+  // 强化技效果说明（卡比兽·瞬间失忆）
+  await evaljs("STATE.party = [makeMon(143, 40, { nature: '勤奋' })]; STATE.party[0].moves = ['amnesia', 'body_slam']; STATE.party[0].pp = [20, 15]; startWildBattle(16, 40); render();");
+  ok(await evaljs("document.querySelector('#battle-actions').textContent.indexOf('特防↑2') !== -1"), '强化技显示效果说明（瞬间失忆 特防↑2）');
+  await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}})()");
+  await evaljs('render();');
 
   await evaljs('doMapAction(\'mart\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '商店弹窗打开');

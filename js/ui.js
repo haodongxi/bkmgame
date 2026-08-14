@@ -836,7 +836,8 @@ function showMonDetail(idx) {
     if (!mv) continue;
     const left = (mon.pp && mon.pp[i] !== undefined) ? mon.pp[i] : mv.pp;
     movesHtml += '<div class="detail-row"><span>' + mv.name + ' · ' + mv.type + '</span><span>' +
-      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp + '</span></div>';
+      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp +
+      (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
   }
   let evoHtml = '不会进化';
   if (d.evo) {
@@ -1140,6 +1141,39 @@ function effHint(mv, foeTypes) {
   return '';
 }
 
+// 招式效果描述：让玩家一眼看懂变化类/带效果招式的用途（如 天气→晴、速度↑2、回复1/2HP）
+function moveEffectText(mv) {
+  if (!mv || !mv.effect) return '';
+  const e = mv.effect;
+  const chanceTxt = e.chance && e.chance < 1 ? Math.round(e.chance * 100) + '% ' : '';
+  const statName = STAT_NAME[e.stat] || e.stat || '';
+  const arrow = function (st) { return st > 0 ? '↑' : '↓'; };
+  const num = function (st) { return Math.abs(st) > 1 ? String(Math.abs(st)) : ''; };
+  switch (e.kind) {
+    case 'weather': return '天气→' + (WEATHER[e.weather] ? WEATHER[e.weather].name : e.weather) + '（5回合）';
+    case 'stat': {
+      const t = e.target === 'self' ? '自身' : '对方';
+      let s = chanceTxt + t + statName + arrow(e.stage) + num(e.stage);
+      if (e.second) s += '、' + t + (STAT_NAME[e.second.stat] || e.second.stat) + arrow(e.second.stage) + num(e.second.stage);
+      return s;
+    }
+    case 'status': return chanceTxt + '使对方' + (e.status || '');
+    case 'confuse': return chanceTxt + '使对方混乱';
+    case 'heal': return '回复' + Math.round(e.ratio * 100) + '%最大HP';
+    case 'leech': return '寄生：每回合吸取对方HP';
+    case 'protect': return '本回合免疫攻击';
+    case 'recoil': return '反伤' + Math.round(e.ratio * 100) + '%';
+    case 'flinch': return chanceTxt + '使对方畏缩';
+    case 'trap': return '束缚对方数回合';
+    case 'priority': return '先制攻击';
+    case 'recharge': return '使用后下回合无法行动';
+    case 'dream': return '仅对方睡眠时吸取HP';
+    case 'fixed': return '固定造成' + (e.dmg || '?') + '伤害';
+    case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
+    default: return '';
+  }
+}
+
 function renderBattle() {
   const b = STATE.battle;
   if (!b) { STATE.screen = 'map'; render(); return; }
@@ -1173,6 +1207,7 @@ function renderBattle() {
     if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
     html += '<button class="btn move-btn" ' + ((left <= 0 || !b.waitingPlayer) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) +
+      (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') +
       '<span class="move-pp">PP ' + left + '/' + mv.pp + '</span></button>';
   }
   if (!usableDamaging) {

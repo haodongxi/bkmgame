@@ -1496,6 +1496,26 @@ section('道具说明增强');
   ok(T.stoneTargets('叶之石').some(function (t) { return t.fromId === 44 && t.toId === 45; }), '叶之石：臭臭花 → 霸王花');
 }
 
+// ---------- 13.7 技能效果与学习面平衡 ----------
+section('技能效果与学习面');
+{
+  let agilityLearners = [];
+  Object.keys(T.POKEDEX).forEach(function (id) {
+    const d = T.POKEDEX[id];
+    if (!d.learnset) return;
+    Object.keys(d.learnset).forEach(function (lv) {
+      if (d.learnset[lv].indexOf('agility') !== -1) agilityLearners.push(id);
+    });
+  });
+  ok(agilityLearners.length === 0, '全图鉴学习面不再有高速移动（0 只）');
+  ok(T.POKEDEX[4].learnset[50] === undefined, '小火龙 50 级不再学高速移动');
+  ok(T.POKEDEX[25].learnset[33].indexOf('slam') !== -1, '皮卡丘 33 级改为学摔打');
+  ok(T.POKEDEX[143].learnset[35].indexOf('amnesia') !== -1, '卡比兽 35 级学瞬间失忆（特防强化）');
+  ok(T.POKEDEX[111].learnset[15].indexOf('harden') !== -1, '铁甲犀牛 15 级学变硬（防御强化）');
+  ok(T.POKEDEX[65].learnset[40].indexOf('recover') !== -1, '胡地 40 级学自我再生');
+  ok(T.POKEDEX[145].learnset[40].indexOf('swift') !== -1, '闪电鸟 40 级学高速星星');
+}
+
 // ---------- 14. MVP11.1：喂养系统 ----------
 section('MVP11.1：喂养系统');
 {
