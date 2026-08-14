@@ -23,6 +23,8 @@ const STATE = {
   party: [],
   box: [],
   visitedNodes: [],
+  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false },
+  titles: [],
   log: [],
   logKinds: [],
   wildBattles: 0,
@@ -670,6 +672,67 @@ function startGymStep() {
       opening: step.title + ' ' + step.name + ' 挡在你面前：「' + step.text + '」'
     });
   }
+}
+
+// ---------------- 无尽之塔 ----------------
+
+// 每 10 层一个属性主题（普通/水冰/火/草虫/电/岩地钢/飞龙/超能幽灵恶/毒斗/混合传说）
+const TOWER_THEMES = [
+  ['普通'],
+  ['水', '冰'],
+  ['火'],
+  ['草', '虫'],
+  ['电'],
+  ['岩石', '地面', '钢'],
+  ['飞行', '龙'],
+  ['超能力', '幽灵', '恶'],
+  ['毒', '格斗'],
+  null // 混合：高种族/传说
+];
+
+// 按层生成塔内对手队伍：等级随层数上升，数量逐段增加
+function towerFoeTeam(floor) {
+  const lv = Math.min(100, Math.floor(48 + floor * 0.52));
+  const count = floor <= 10 ? 2 : floor <= 40 ? 3 : floor <= 70 ? 4 : 5;
+  const theme = TOWER_THEMES[Math.floor((floor - 1) / 10) % TOWER_THEMES.length];
+  const pool = [];
+  Object.keys(POKEDEX).forEach(function (id) {
+    const n = +id;
+    if (n > 151) return;
+    const d = POKEDEX[id];
+    if (theme === null) {
+      const sum = d.base.hp + d.base.atk + d.base.def + d.base.spa + d.base.spd + d.base.spe;
+      if (sum >= 500) pool.push(n);
+    } else if (d.types.some(function (t) { return theme.indexOf(t) !== -1; })) {
+      pool.push(n);
+    }
+  });
+  if (pool.length === 0) pool.push(143);
+  const used = {};
+  const team = [];
+  for (let i = 0; i < count; i++) {
+    let id = pool[randInt(0, pool.length - 1)];
+    let guard = 0;
+    while (used[id] && guard++ < 20) id = pool[randInt(0, pool.length - 1)];
+    used[id] = true;
+    team.push({ id: id, level: Math.min(100, lv + i) });
+  }
+  return team;
+}
+
+function startTowerFloor() {
+  const t = STATE.tower;
+  if (t.cleared) { addLog('你已经通关了无尽之塔！可以重刷已通过层练级。', 'info'); return; }
+  const team = towerFoeTeam(t.floor);
+  startBattle('tower', {
+    foe: team,
+    canRun: false,
+    prize: t.floor * 30,
+    trainerName: t.floor === 100 ? '塔主' : '守层者',
+    title: '无尽之塔',
+    trainerText: '无尽之塔第 ' + t.floor + ' 层！',
+    opening: '无尽之塔第 ' + t.floor + ' 层的守层者挡住了去路！'
+  });
 }
 
 function pickFoeMove(fm, target) {
@@ -1338,6 +1401,11 @@ function endBattle(outcome) {
     const gym = MAP_NODES[STATE.nodeId] && MAP_NODES[STATE.nodeId].gym;
     if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText, 'good');
   } else if (outcome === 'lose') {
+    if (b.kind === 'tower') {
+      // 塔内败北：不回血、不回城，回到最近存档点继续
+      STATE.tower.floor = Math.max(1, STATE.tower.checkpoint + 1);
+      addLog('无尽之塔挑战失败……回到第 ' + STATE.tower.checkpoint + ' 层存档点。', 'bad');
+    } else {
     if (b.kind === 'rocket_robbery') {
       const lost = Math.floor(STATE.money / 2);
       STATE.money -= lost;
@@ -1361,6 +1429,21 @@ function endBattle(outcome) {
     STATE.nodeId = STATE.lastTown;
     STATE.weather = rollWeather(STATE.lastTown);
     STATE.wanderUsed = false;
+    }
+  }
+  if (b.kind === 'tower' && outcome === 'win') {
+    const t = STATE.tower;
+    t.floor++;
+    if (t.floor - 1 > t.bestFloor) t.bestFloor = t.floor - 1;
+    if ((t.floor - 1) % 5 === 0) t.checkpoint = t.floor - 1;
+    if (t.floor > 100) {
+      t.cleared = true;
+      t.floor = 100;
+      if (STATE.titles.indexOf('无尽之塔征服者') === -1) {
+        STATE.titles.push('无尽之塔征服者');
+        addLog('你征服了无尽之塔！获得称号【无尽之塔征服者】！', 'good');
+      }
+    }
   }
   if (b.kind === 'gym_apprentice' && STATE.gymSession && outcome === 'win') {
     STATE.gymSession.step++;
@@ -2063,6 +2146,8 @@ function newGame(starterId) {
   STATE.party = [mon];
   STATE.box = [];
   STATE.visitedNodes = ['pallet'];
+  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  STATE.titles = [];
   STATE.log = [];
   STATE.logKinds = [];
   STATE.wildBattles = 0;
@@ -2111,6 +2196,8 @@ function save() {
       party: STATE.party.map(serializeMon),
       box: STATE.box.map(serializeMon),
       visitedNodes: STATE.visitedNodes,
+      tower: STATE.tower,
+      titles: STATE.titles,
       wildBattles: STATE.wildBattles,
       pendingLearn: STATE.pendingLearn.map(function (p) {
         return { where: p.where, idx: p.idx, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
@@ -2179,6 +2266,8 @@ function load() {
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
     STATE.visitedNodes = data.visitedNodes || [];
+    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false }, data.tower || {});
+    STATE.titles = data.titles || [];
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
       const holder = p.where === 'party' ? STATE.party : STATE.box;
@@ -2227,6 +2316,8 @@ function resetGame() {
   STATE.wildBattles = 0;
   STATE.expPool = 0;
   STATE.visitedNodes = [];
+  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  STATE.titles = [];
   STATE.rocketSell = false;
   STATE.lastResult = null;
   STATE.gymSession = null;
@@ -2256,6 +2347,7 @@ if (typeof module !== 'undefined' && module.exports) {
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
+    startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,

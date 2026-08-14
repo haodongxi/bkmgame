@@ -19,6 +19,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle, startGymBattle: startGymBattle,\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
+  '  startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
@@ -1171,6 +1172,76 @@ section('经典回合制');
   s.visitedNodes = [];
   ok(T.load(), '读档成功');
   ok(T.getState().visitedNodes.indexOf('viridian') !== -1, '已探索节点随存档保存');
+}
+
+// ---------- 16. MVP13：无尽之塔 ----------
+section('无尽之塔');
+{
+  ok(!!T.MAP_NODES.tower && T.MAP_NODES.champion.next.indexOf('tower') !== -1, '无尽之塔节点存在且与冠军之路连通');
+  ok(T.MAP_NODES.tower.requireBadge === '绿色徽章', '无尽之塔需绿色徽章（8徽章）解锁');
+}
+{
+  const t1 = T.towerFoeTeam(1);
+  ok(t1.length === 2 && t1[0].level >= 48, '1 层 2 只且等级 48+');
+  ok(T.towerFoeTeam(40).length === 3, '40 层 3 只');
+  ok(T.towerFoeTeam(71).length === 5, '71 层 5 只');
+  ok(T.towerFoeTeam(100)[0].level === 100, '100 层满级');
+  ok(T.towerFoeTeam(1).every(function (m) { return T.POKEDEX[m.id].types.indexOf('普通') !== -1; }), '1-10 层普通系主题');
+  ok(T.towerFoeTeam(11).every(function (m) { return T.POKEDEX[m.id].types.some(function (t) { return t === '水' || t === '冰'; }); }), '11-20 层水/冰主题');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.badges.push('绿色徽章');
+  s.party = [T.makeMon(6, 60, { nature: '勤奋' })];
+  s.party[0].moves = ['flamethrower'];
+  s.party[0].pp = [15];
+  T.startTowerFloor();
+  ok(s.battle && s.battle.kind === 'tower' && s.battle.canRun === false, '塔内战斗不可逃跑');
+  s.bag['精灵球'] = 1;
+  T.battleUseItem('精灵球');
+  ok(s.bag['精灵球'] === 1, '塔内扔球被拦截不消耗');
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 80) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'win' && s.tower.floor === 2 && s.tower.bestFloor === 1, '胜利推进到第 2 层');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.tower = { floor: 8, checkpoint: 5, bestFloor: 7, cleared: false };
+  s.party = [T.makeMon(129, 5, { nature: '勤奋' })];
+  s.nodeId = 'tower';
+  T.startTowerFloor();
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 40) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'lose' && s.tower.floor === 6, '败北回到存档点+1（第 6 层）');
+  ok(s.nodeId === 'tower' && s.party[0].hp < s.party[0].stats.hp, '败北不回城、不免费回血');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' }), T.makeMon(150, 100, { nature: '勤奋' })];
+  s.party.forEach(function (m) { m.moves = ['psychic', 'ice_beam', 'thunderbolt', 'flamethrower']; m.pp = [99, 99, 99, 99]; m.stats.hp = 5000; m.hp = 5000; });
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 99, cleared: false };
+  T.startTowerFloor();
+  let g = 0;
+  while (s.battle && !s.battle.over && g++ < 200) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s.lastResult === 'win' && s.tower.cleared === true && s.tower.floor === 100, '100 层通关');
+  ok(s.titles.indexOf('无尽之塔征服者') !== -1, '获得称号');
+  T.save();
+  s.titles = [];
+  s.tower = null;
+  ok(T.load(), '读档成功');
+  ok(T.getState().titles.indexOf('无尽之塔征服者') !== -1, '称号随存档保存');
 }
 {
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）

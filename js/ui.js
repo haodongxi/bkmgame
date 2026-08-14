@@ -335,7 +335,10 @@ function goalHint() {
       break;
     }
   }
-  if (!goal) return '当前目标：前往 22 号道路，挺进冠军之路！';
+  if (!goal) {
+    if (STATE.badges.length >= 8 && !STATE.tower.cleared) return '当前目标：挑战无尽之塔，征服 100 层！';
+    return '当前目标：前往 22 号道路，挺进冠军之路！';
+  }
   const g = MAP_NODES[goal].gym;
   const path = pathToGoal();
   const label = path.map(function (id) {
@@ -350,7 +353,8 @@ function renderMap() {
   const node = MAP_NODES[STATE.nodeId];
   $id('loc-label').textContent = '[当前位置：' + node.name + ']';
   $id('weather-label').textContent = '[当前天气：' + WEATHER[STATE.weather].icon + ' ' + WEATHER[STATE.weather].name + ']';
-  $id('meta-label').textContent = '💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151';
+  $id('meta-label').textContent = '💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151' +
+    (STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '');
   $id('goal-label').textContent = goalHint();
 
   const logBox = $id('log-box');
@@ -393,6 +397,15 @@ function renderMap() {
       html += '<button class="btn" disabled>🏟️ 道馆已挑战</button>';
     }
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
+  } else if (node.id === 'tower') {
+    // 无尽之塔：塔内专用操作（不能回城补给，只能靠背包道具）
+    const t = STATE.tower;
+    const btnText = t.cleared ? '重刷第 ' + t.floor + ' 层' : (t.floor > 1 ? '挑战第 ' + t.floor + ' 层' : '开始挑战（第 1 层）');
+    html += '<button class="btn btn-primary" onclick="doMapAction(\'towerFight\')">🗼 ' + btnText + '</button>';
+    html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 背包（塔内补给）</button>';
+    html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
+    html += '<button class="btn" onclick="doMapAction(\'towerInfo\')">ℹ️ 塔内进度</button>';
+    html += '<button class="btn" onclick="doMapAction(\'travel\')">🚪 离开无尽之塔</button>';
   } else {
     html += '<button class="btn btn-primary" onclick="doMapAction(\'explore\')">🌿 在草丛探索</button>';
     if (node.water && STATE.keyItems.indexOf('破旧钓竿') !== -1) {
@@ -429,6 +442,8 @@ function doMapAction(type) {
     case 'box': showBoxModal(); return;
     case 'pokedex': showPokedexModal(); return;
     case 'map': showMapModal(); return;
+    case 'towerFight': startTowerFloor(); save(); render(); break;
+    case 'towerInfo': showTowerInfo(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
       const towns = cur.next.filter(function (n) { return MAP_NODES[n].type === 'town'; });
@@ -891,10 +906,11 @@ const KANTO_LAYOUT = {
   forest:    { x: 40, y: 54 },
   route2:    { x: 32, y: 62 },
   champion:  { x: 14, y: 64 },
-  route22:   { x: 24, y: 70 }
+  route22:   { x: 24, y: 70 },
+  tower:     { x: 96, y: 14 }
 };
 
-const TYPE_NAMES = { town: '城镇', route: '道路', forest: '森林', cave: '洞穴' };
+const TYPE_NAMES = { town: '城镇', route: '道路', forest: '森林', cave: '洞穴', tower: '无尽之塔' };
 
 function nodeUnlocked(id) {
   const n = MAP_NODES[id];
@@ -1025,6 +1041,19 @@ function doMapTravel(id) {
   save();
   closeModal();
   render();
+}
+
+function showTowerInfo() {
+  const t = STATE.tower;
+  const titleLine = STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '';
+  openModal('无尽之塔',
+    '<div class="shop-hint">当前层数：第 ' + (t.cleared ? 100 : t.floor) + ' 层' + (t.cleared ? '（已通关）' : '') + '</div>' +
+    '<div class="shop-hint">存档点：第 ' + t.checkpoint + ' 层（每 5 层存档）</div>' +
+    '<div class="shop-hint">历史最佳：第 ' + t.bestFloor + ' 层</div>' +
+    '<div class="shop-hint">规则：塔内不能回城补给、不能捕捉、不能逃跑；只能靠背包道具续航；全灭回到存档点。</div>' +
+    '<div class="shop-hint">奖励：每 5 层给道具，100 层通关获得称号。</div>' +
+    '<div class="shop-hint">已获称号：' + (STATE.titles.length ? STATE.titles.join('、') : '（暂无）') + '</div>' +
+    '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>');
 }
 
 // BFS 最短路径：当前位置 → 目标道馆（仅用于路线展示，忽略徽章锁但标注）

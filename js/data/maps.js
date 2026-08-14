@@ -387,7 +387,7 @@ const MAP_NODES = {
     ]
   },
   champion: {
-    id: 'champion', name: '冠军之路', type: 'cave', next: ['route22'], requireBadge: '绿色徽章',
+    id: 'champion', name: '冠军之路', type: 'cave', next: ['route22', 'tower'], requireBadge: '绿色徽章',
     levels: [40, 45], weatherWeights: { '晴': 100 },
     desc: '通往精灵联盟的最终试炼。这里盘踞着关都最强的野生宝可梦。',
     pools: {
@@ -397,6 +397,10 @@ const MAP_NODES = {
       { id: 'ch_t1', title: '精英训练家', name: '铁也', prize: 2200, text: '这里就是关都的巅峰！', party: [{ id: 65, level: 42 }, { id: 130, level: 42 }] },
       { id: 'ch_t2', title: '冠军之路守卫', name: '罗伊', prize: 2400, text: '打败我，你才有资格迈向联盟！', party: [{ id: 112, level: 43 }, { id: 149, level: 42 }] }
     ]
+  },
+  tower: {
+    id: 'tower', name: '无尽之塔', type: 'tower', next: ['champion'], requireBadge: '绿色徽章',
+    desc: '一重高过一重……传说第 100 层藏着最强的挑战。'
   }
 };
 
