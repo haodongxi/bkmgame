@@ -1185,6 +1185,14 @@ section('经典回合制');
   const eevee = T.makeMon(133, 20, { nature: '勤奋' });
   T.tryStoneEvolution(eevee, '雷之石');
   ok(s.caughtDex[135] === true && s.seenDex[135] === true, '石头进化（伊布→雷伊布）图鉴点亮');
+  // 旧存档回填：队伍里已有的火恐龙读档后图鉴点亮
+  s.party = [T.makeMon(5, 30, { nature: '勤奋' })];
+  s.caughtDex = {};
+  s.seenDex = {};
+  T.save();
+  s.party = [];
+  T.load();
+  ok(T.getState().caughtDex[5] === true && T.getState().seenDex[5] === true, '旧存档读档回填已进化宝可梦图鉴');
 }
 {
   // 日志上限不截断战斗内日志（修复战斗日志框清空/播放被跳过）

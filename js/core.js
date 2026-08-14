@@ -2422,6 +2422,9 @@ function load() {
     });
     STATE.seenDex = data.seenDex || {};
     STATE.caughtDex = data.caughtDex || {};
+    // 回填：队伍/电脑箱已有的宝可梦（含旧档已进化的）点亮图鉴
+    STATE.party.forEach(function (m) { STATE.seenDex[m.species] = true; STATE.caughtDex[m.species] = true; });
+    STATE.box.forEach(function (m) { STATE.seenDex[m.species] = true; STATE.caughtDex[m.species] = true; });
     STATE.trainersDefeated = data.trainersDefeated || {};
     STATE.lastTown = data.lastTown || 'pallet';
     STATE.heldObtained = !!data.heldObtained;
