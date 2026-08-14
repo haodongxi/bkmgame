@@ -85,6 +85,10 @@ async function main() {
   ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .dex-cell'), function(c){ return c.scrollWidth <= c.clientWidth + 1; })"), '全图鉴 151 格横向无溢出（含稀有度词缀行）');
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-rarity').length > 100"), '绝大多数图鉴格子显示稀有度词缀');
   await evaljs('closeModal();');
+  await evaljs('doMapAction(\'itemdex\');');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '道具图鉴列出月亮石');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
+  await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');

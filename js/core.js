@@ -300,6 +300,26 @@ const STONE_EVOLUTIONS = {
   '叶之石': { 44: 45 }
 };
 
+// 进化石可作用的宝可梦清单（图鉴 evo.stone + STONE_EVOLUTIONS 合并，去重按编号排序）
+function stoneTargets(stoneName) {
+  const out = [];
+  const seen = {};
+  Object.keys(POKEDEX).forEach(function (id) {
+    const d = POKEDEX[id];
+    if (d.evo && d.evo.stone === stoneName) {
+      out.push({ fromId: +id, toId: d.evo.into });
+      seen[id] = true;
+    }
+  });
+  const map = STONE_EVOLUTIONS[stoneName];
+  if (map) {
+    Object.keys(map).forEach(function (id) {
+      if (!seen[id]) out.push({ fromId: +id, toId: map[id] });
+    });
+  }
+  return out.sort(function (a, b) { return a.fromId - b.fromId; });
+}
+
 function checkEvolution(mon, log, kinds) {
   let guard = 0;
   while (guard++ < 10) {
@@ -2427,6 +2447,7 @@ if (typeof module !== 'undefined' && module.exports) {
     grantExp: grantExp, checkEvolution: checkEvolution, tryLearnMove: tryLearnMove,
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,
     rarityOf: rarityOf,
+    stoneTargets: stoneTargets,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather
   };

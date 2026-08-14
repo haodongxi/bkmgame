@@ -12,7 +12,7 @@ let src = files.map(function (f) {
 src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
-  '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf,\n' +
+  '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
   '  tryStoneEvolution: tryStoneEvolution, expForLevel: expForLevel,\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
@@ -1477,6 +1477,23 @@ section('稀有度分级');
   T.newGame(4);
   T.startWildBattle(16, 5); // 波波（普通）
   ok(s.log.some(function (l) { return l.indexOf('野生的 波波 出现了') !== -1 && l.indexOf('（普通）') === -1; }), '普通宝可梦开场不带词缀');
+}
+
+// ---------- 13.6 道具说明增强（进化石目标） ----------
+section('道具说明增强');
+{
+  const moon = T.stoneTargets('月亮石');
+  ok(moon.length === 1 && moon[0].fromId === 35 && moon[0].toId === 36, '月亮石：皮皮 → 皮可西');
+  const thunder = T.stoneTargets('雷之石');
+  ok(thunder.some(function (t) { return t.fromId === 25 && t.toId === 26; }), '雷之石：皮卡丘 → 雷丘');
+  ok(thunder.some(function (t) { return t.fromId === 133 && t.toId === 135; }), '雷之石：伊布 → 雷伊布');
+  const fire = T.stoneTargets('火之石');
+  ok(fire.some(function (t) { return t.fromId === 133 && t.toId === 136; }), '火之石：伊布 → 火伊布');
+  ok(fire.some(function (t) { return t.fromId === 37 && t.toId === 38; }), '火之石：六尾 → 九尾');
+  const water = T.stoneTargets('水之石');
+  ok(water.some(function (t) { return t.fromId === 120 && t.toId === 121; }), '水之石：海星星 → 宝石海星');
+  ok(water.some(function (t) { return t.fromId === 133 && t.toId === 134; }), '水之石：伊布 → 水伊布');
+  ok(T.stoneTargets('叶之石').some(function (t) { return t.fromId === 44 && t.toId === 45; }), '叶之石：臭臭花 → 霸王花');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------

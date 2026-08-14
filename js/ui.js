@@ -183,6 +183,21 @@ function dexRarityLine(d) {
   return '<div class="dex-rarity r-' + r.key + '">' + star + r.label + '</div>';
 }
 
+// 道具描述增强：进化石动态列出可进化的宝可梦，避免"让特定宝可梦进化"这种模糊文案
+function itemDesc(item) {
+  if (!item) return '';
+  let desc = item.desc || '';
+  if (item.type === 'stone') {
+    const targets = stoneTargets(item.stone);
+    if (targets.length > 0) {
+      desc = '让宝可梦进化：' + targets.map(function (t) {
+        return (POKEDEX[t.fromId] ? POKEDEX[t.fromId].name : '?') + '→' + (POKEDEX[t.toId] ? POKEDEX[t.toId].name : '?');
+      }).join('、');
+    }
+  }
+  return desc;
+}
+
 function natureText(nature) {
   const m = NATURES[nature] || NATURES['勤奋'];
   const names = { atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
@@ -402,6 +417,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
@@ -431,6 +447,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
     if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
@@ -457,6 +474,7 @@ function doMapAction(type) {
     case 'party': showPartyModal('view'); return;
     case 'box': showBoxModal(); return;
     case 'pokedex': showPokedexModal(); return;
+    case 'itemdex': showItemDexModal(); return;
     case 'map': showMapModal(); return;
     case 'towerFight': startTowerFloor(); save(); render(); break;
     case 'towerInfo': showTowerInfo(); return;
@@ -512,7 +530,7 @@ function showShopModal() {
     if (!item) continue;
     const locked = entry.minBadges > STATE.badges.length;
     const bq = buyQty(item.name);
-    html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span title="' + item.desc + '">' + item.name + '（' + item.price + '金）' +
+    html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span title="' + itemDesc(item) + '">' + item.name + '（' + item.price + '金）' +
       (locked ? ' <span class="shop-lock">需 ' + entry.minBadges + ' 徽章</span>' : '') + '</span>' +
       (locked ? '<button class="btn btn-sm" disabled>未解锁</button>' :
         '<span class="shop-qty">' +
@@ -521,7 +539,7 @@ function showShopModal() {
         '<button class="btn btn-sm" onclick="shopStep(\'buy\',\'' + item.name + '\',1)"' + (bq.qty >= bq.max ? ' disabled' : '') + '>+</button>' +
         '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\',' + bq.qty + ')"' + (bq.max <= 0 ? ' disabled' : '') + '>购买（' + item.price * bq.qty + '金）</button>' +
         '</span>') + '</div>' +
-      '<div class="shop-desc">' + item.desc + '</div>';
+      '<div class="shop-desc">' + itemDesc(item) + '</div>';
   }
   html += '<div class="shop-hint">—— 出售 ——</div>';
   const keys = Object.keys(STATE.bag).filter(function (k) { return bagCount(k) > 0; });
@@ -532,14 +550,14 @@ function showShopModal() {
     const price = item.sell || Math.floor((item.price || 0) / 2);
     if (price <= 0) continue;
     const sq = sellQty(keys[i]);
-    html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
+    html += '<div class="shop-row"><span title="' + itemDesc(item) + '">' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
       '<span class="shop-qty">' +
       '<button class="btn btn-sm" onclick="shopStep(\'sell\',\'' + keys[i] + '\',-1)"' + (sq.qty <= 1 ? ' disabled' : '') + '>−</button>' +
       '<b>' + sq.qty + '</b>' +
       '<button class="btn btn-sm" onclick="shopStep(\'sell\',\'' + keys[i] + '\',1)"' + (sq.qty >= sq.max ? ' disabled' : '') + '>+</button>' +
       '<button class="btn btn-sm" onclick="doSell(\'' + keys[i] + '\',' + sq.qty + ')"' + (sq.max <= 0 ? ' disabled' : '') + '>卖出（' + price * sq.qty + '金）</button>' +
       '</span></div>' +
-      '<div class="shop-desc">' + (item.desc || '') + '</div>';
+      '<div class="shop-desc">' + itemDesc(item) + '</div>';
   }
   openModal('友好商店', html);
 }
@@ -624,8 +642,8 @@ function showBagModal(inBattle, tab) {
     if (STATE.keyItems.length === 0) html += '<div class="shop-hint">还没有关键道具</div>';
     for (let i = 0; i < STATE.keyItems.length; i++) {
       const item = ITEMS[STATE.keyItems[i]];
-      html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + STATE.keyItems[i] + '</span></div>' +
-        '<div class="shop-desc">' + (item.desc || '') + '</div>';
+      html += '<div class="shop-row"><span title="' + itemDesc(item) + '">' + STATE.keyItems[i] + '</span></div>' +
+        '<div class="shop-desc">' + itemDesc(item) + '</div>';
     }
   } else {
     const tabDef = BAG_TABS.filter(function (t) { return t.id === tab; })[0];
@@ -641,9 +659,9 @@ function showBagModal(inBattle, tab) {
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
     if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy')) usable = true;
-    html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + name + ' ×' + bagCount(name) + '</span>' +
+    html += '<div class="shop-row"><span title="' + itemDesc(item) + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
-      '</div><div class="shop-desc">' + (item.desc || '') + '</div>';
+      '</div><div class="shop-desc">' + itemDesc(item) + '</div>';
     }
   }
   openModal(inBattle ? '背包（战斗中）' : '背包', html);
@@ -893,6 +911,27 @@ function showPokedexModal() {
       if (box) box.appendChild(monIcon(id, 28));
     }
   }
+}
+
+// 道具图鉴：按分类列出全部道具与用途说明（商店/背包/出售列表共用同一套增强描述）
+function showItemDexModal() {
+  let html = '<div class="dex-hint">全部道具说明 · 共 ' + Object.keys(ITEMS).length + ' 种</div>';
+  for (let ti = 0; ti < BAG_TABS.length; ti++) {
+    const tab = BAG_TABS[ti];
+    const names = Object.keys(ITEMS).filter(function (k) { return tab.match(ITEMS[k]); });
+    if (names.length === 0) continue;
+    html += '<div class="itemdex-cat">' + tab.label + '</div>';
+    for (let i = 0; i < names.length; i++) {
+      const item = ITEMS[names[i]];
+      const owned = bagCount(names[i]);
+      html += '<div class="shop-row"><span>' + names[i] +
+        (item.price ? '（' + item.price + '金）' : '') +
+        (owned > 0 ? ' · 持有×' + owned : '') + '</span></div>' +
+        '<div class="shop-desc">' + itemDesc(item) + '</div>';
+    }
+  }
+  html += '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
+  openModal('道具图鉴', html);
 }
 
 // ---------------- 关都地图 ----------------
