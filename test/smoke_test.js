@@ -1093,6 +1093,36 @@ section('经典回合制');
   ok(s.caughtDex[16] === true, '交换来的宝可梦登记图鉴');
 }
 {
+  // 图鉴登记全来源审计：御三家/对战敌方/解救奖励/商人购买
+  T.newGame(4);
+  const s = T.getState();
+  ok(s.caughtDex[4] === true && s.seenDex[4] === true, '开局御三家登记已捕获+已见');
+  T.startTrainerBattle(T.MAP_NODES.route1.trainers[0]); // 敌方波波
+  ok(s.seenDex[16] === true, '对战训练家登记敌方已见');
+  while (s.battle && !s.battle.over && s.battle.turn < 10) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  T.newGame(4);
+  const s2 = T.getState();
+  s2.party = [T.makeMon(6, 30, { nature: '勤奋' })];
+  s2.party[0].moves = ['flamethrower'];
+  s2.party[0].pp = [15];
+  T.startRocketBattle('rescue');
+  let g = 0;
+  while (s2.battle && !s2.battle.over && g++ < 60) {
+    const a = s2.battle.player.mons[s2.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+  ok(s2.caughtDex[133] === true && s2.seenDex[133] === true, '火箭队解救奖励登记图鉴');
+  T.newGame(4);
+  const s3 = T.getState();
+  s3.money = 99999;
+  s3.merchantOffer = { kind: 'mon', id: 133, price: 8000 };
+  T.resolveMerchantOffer(true);
+  ok(s3.caughtDex[133] === true && s3.seenDex[133] === true, '神秘商人购买登记图鉴');
+}
+{
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）
   T.newGame(4);
   const s = T.getState();

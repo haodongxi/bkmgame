@@ -480,6 +480,8 @@ function startBattle(kind, opts) {
   });
   playerMons.forEach(function (bm) { bm.side = 'player'; });
   foeMons.forEach(function (bm) { bm.side = 'foe'; });
+  // 对战中见到的敌方宝可梦登记图鉴（已见）
+  foeMons.forEach(function (bm) { STATE.seenDex[bm.m.species] = true; });
   STATE.battle = {
     kind: kind,
     title: opts.title || '',
@@ -1307,6 +1309,7 @@ function endBattle(outcome) {
       const lv = MAP_NODES[STATE.nodeId].levels ? MAP_NODES[STATE.nodeId].levels[1] : 10;
       const mon = makeMon(b.rewardMon, lv);
       addToPartyOrBox(mon);
+      STATE.seenDex[b.rewardMon] = true;
       STATE.caughtDex[b.rewardMon] = true;
       addLog(b.rewardMonName || (mon.name + ' 加入了你的队伍！'), 'good');
     }
@@ -1594,11 +1597,13 @@ function resolveRocketSell(pay) {
       const lv = MAP_NODES[STATE.nodeId].levels ? MAP_NODES[STATE.nodeId].levels[1] : 10;
       const mon = makeMon(monId, lv);
       addToPartyOrBox(mon);
+      STATE.seenDex[monId] = true;
       STATE.caughtDex[monId] = true;
       addLog('球里装的居然是 ' + mon.name + '！赚翻了！', 'good');
     } else {
       const mon = makeMon(ev.junk, 5);
       addToPartyOrBox(mon);
+      STATE.seenDex[ev.junk] = true;
       STATE.caughtDex[ev.junk] = true;
       addLog('球里是一条鲤鱼王……「嘻嘻，谢啦冤大头！」火箭队小兵跑没影了。', 'info');
     }
@@ -1641,6 +1646,7 @@ function resolveMagikarpOffer(pay) {
     STATE.money -= price;
     const mon = makeMon(129, 5);
     addToPartyOrBox(mon);
+    STATE.seenDex[129] = true;
     STATE.caughtDex[129] = true;
     addLog('你花了 ' + price + ' 金币买下了鲤鱼王！鲤鱼王大叔心满意足地离开了。', 'good');
     STATE.magikarpDone = true;
@@ -1709,6 +1715,7 @@ function resolveMerchantOffer(buy) {
     const lv = node.levels ? node.levels[1] : 10;
     const mon = makeMon(d.id, lv);
     addToPartyOrBox(mon);
+    STATE.seenDex[d.id] = true;
     STATE.caughtDex[d.id] = true;
     addLog('你花 ' + d.price + ' 金币买下了 ' + mon.name + '！', 'good');
   }
@@ -2075,6 +2082,7 @@ function newGame(starterId) {
   STATE.weatherBias = null;
   STATE.weatherBoost = 0;
   STATE.seenDex[starterId] = true;
+  STATE.caughtDex[starterId] = true;
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！', 'info');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！', 'info');
   save();

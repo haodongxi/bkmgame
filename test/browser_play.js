@@ -76,7 +76,8 @@ async function main() {
   await evaljs('closeModal();');
   await evaljs('doMapAction(\'pokedex\');');
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '图鉴显示 151 只');
-  ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen') !== null"), '图鉴已见宝可梦有标记');
+  ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen, #modal-root .dex-cell.caught') !== null"), '图鉴宝可梦有已见/已捕获标记');
+  ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught') !== null"), '御三家开局已捕获有标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('已见') !== -1"), '图鉴显示进度');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
