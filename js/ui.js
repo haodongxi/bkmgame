@@ -814,7 +814,7 @@ function renderBattle() {
   if (playerIcon) playerIcon.appendChild(monIcon(pm.m.species, 48));
   const bLog = $id('battle-log');
   let start = b.logStart || 0;
-  if (start > STATE.log.length) start = Math.max(0, STATE.log.length - 50);
+  if (start >= STATE.log.length) start = Math.max(0, STATE.log.length - 50);
   bLog.innerHTML = STATE.log.slice(start).map(function (s, i) { return logLineHtml(s, start + i); }).join('');
   bLog.scrollTop = bLog.scrollHeight;
 

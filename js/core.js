@@ -71,8 +71,11 @@ function addLog(text, kind) {
   STATE.logKinds.push(kind || '');
   // 战斗内每行日志都记录一份当前 HP 快照，供播放层血条分步结算
   if (STATE.battle && STATE.battle.hpSteps) STATE.battle.hpSteps.push(battleHpSnapshot());
-  if (STATE.log.length > 2000) STATE.log.splice(0, STATE.log.length - 2000);
-  if (STATE.logKinds.length > 2000) STATE.logKinds.splice(0, STATE.logKinds.length - 2000);
+  // 日志上限裁剪只在非战斗时进行：战斗中裁剪会让 logStart/播放索引失效，导致战斗日志框清空、播放被跳过
+  if (!STATE.battle && STATE.log.length > 5000) {
+    STATE.log.splice(0, STATE.log.length - 5000);
+    STATE.logKinds.splice(0, STATE.logKinds.length - 5000);
+  }
 }
 
 function findPartyMonIdx(pred) {

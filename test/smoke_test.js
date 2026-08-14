@@ -1123,6 +1123,27 @@ section('经典回合制');
   ok(s3.caughtDex[133] === true && s3.seenDex[133] === true, '神秘商人购买登记图鉴');
 }
 {
+  // 日志上限不截断战斗内日志（修复战斗日志框清空/播放被跳过）
+  T.newGame(4);
+  const s = T.getState();
+  for (let i = 0; i < 2000; i++) { s.log.push('历史 ' + i); s.logKinds.push(''); }
+  s.party = [T.makeMon(16, 40, { nature: '勤奋' })];
+  s.party[0].moves = ['gust'];
+  s.party[0].pp = [35];
+  T.startWildBattle(11, 30);
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  const logStart = s.battle.logStart;
+  const lenBefore = s.log.length;
+  T.battleMove(0);
+  ok(s.log.length > lenBefore, '战斗内日志不被上限截断');
+  ok(!!s.log[logStart], 'logStart 指向的战斗起始行仍存在');
+  while (s.battle && !s.battle.over && s.battle.turn < 10) {
+    const a = s.battle.player.mons[s.battle.player.active];
+    T.battleMove(damageMoveIdx(a));
+  }
+}
+{
   // HP 快照与日志逐行对齐（播放层血条分步结算，不再一块掉血）
   T.newGame(4);
   const s = T.getState();
