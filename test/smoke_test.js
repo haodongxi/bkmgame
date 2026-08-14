@@ -1195,6 +1195,34 @@ section('经典回合制');
   ok(T.getState().caughtDex[5] === true && T.getState().seenDex[5] === true, '旧存档读档回填已进化宝可梦图鉴');
 }
 {
+  // 进化链祖先点亮：旧档直接拥有喷火龙 → 小火龙/火恐龙/喷火龙全部点亮；但不点亮未获得的后代
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(6, 50, { nature: '勤奋' })]; // 直接拥有喷火龙（模拟旧档）
+  s.caughtDex = {};
+  s.seenDex = {};
+  T.save();
+  s.party = [];
+  T.load();
+  const s2 = T.getState();
+  ok(s2.caughtDex[4] && s2.caughtDex[5] && s2.caughtDex[6] && s2.seenDex[4] && s2.seenDex[5] && s2.seenDex[6], '拥有喷火龙点亮整条小火龙进化链（4/5/6）');
+  // 开局选小火龙：只点亮自己，不剧透火恐龙/喷火龙
+  T.newGame(4);
+  const s3 = T.getState();
+  ok(s3.caughtDex[4] === true && !s3.caughtDex[5] && !s3.caughtDex[6], '开局选小火龙不剧透进化后代');
+}
+{
+  // 石头进化只点亮祖先，不误点亮兄弟分支（伊布→雷伊布 ≠ 水/火伊布）
+  T.newGame(4);
+  const s = T.getState();
+  s.caughtDex = {};
+  s.seenDex = {};
+  const eevee = T.makeMon(133, 20, { nature: '勤奋' });
+  T.tryStoneEvolution(eevee, '雷之石');
+  ok(s.caughtDex[135] && s.caughtDex[133], '雷伊布进化点亮祖先伊布');
+  ok(!s.caughtDex[134] && !s.caughtDex[136], '不误点亮水伊布/火伊布兄弟分支');
+}
+{
   // 日志上限不截断战斗内日志（修复战斗日志框清空/播放被跳过）
   T.newGame(4);
   const s = T.getState();

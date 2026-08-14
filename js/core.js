@@ -457,8 +457,7 @@ function evolveTo(mon, intoId, log, kinds) {
   if (kinds && log) kinds.push('good');
   // 图鉴登记：进化形态点亮（已见 + 已捕获），等级进化与石头进化共用此入口
   const isNew = !STATE.caughtDex[intoId];
-  STATE.seenDex[intoId] = true;
-  STATE.caughtDex[intoId] = true;
+  lightUpFamily(intoId);
   if (log && isNew) log.push('图鉴登记了新种类：' + newData.name + '（No.' + intoId + '）！');
   if (kinds && log && isNew) kinds.push('good');
 }
@@ -1662,6 +1661,30 @@ function endBattle(outcome) {
 function addToPartyOrBox(mon) {
   if (STATE.party.length < PARTY_LIMIT) STATE.party.push(mon);
   else STATE.box.push(mon);
+  lightUpFamily(mon.species); // 拥有该宝可梦即点亮整条进化链
+}
+
+// 点亮进化祖先链：拥有任一进化形，其祖先（等级/石头进化）全部登记已见+已捕获；
+// 不点亮未获得的后代，保留「进化出什么」的惊喜
+function lightUpFamily(id) {
+  const queue = [Number(id)];
+  const done = {};
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    if (done[cur] || !POKEDEX[cur]) continue;
+    done[cur] = true;
+    STATE.seenDex[cur] = true;
+    STATE.caughtDex[cur] = true;
+    Object.keys(POKEDEX).forEach(function (sid) { // 等级进化祖先
+      const s = POKEDEX[sid];
+      if (s.evo && s.evo.into === cur) queue.push(+sid);
+    });
+    Object.keys(STONE_EVOLUTIONS).forEach(function (stone) { // 石头进化祖先
+      Object.keys(STONE_EVOLUTIONS[stone]).forEach(function (from) {
+        if (STONE_EVOLUTIONS[stone][from] === cur) queue.push(+from);
+      });
+    });
+  }
 }
 
 // 电脑箱取回：用队伍里的一只宝可梦与箱内宝可梦交换
@@ -2392,6 +2415,7 @@ function newGame(starterId) {
   STATE.weatherBoost = 0;
   STATE.seenDex[starterId] = true;
   STATE.caughtDex[starterId] = true;
+  lightUpFamily(starterId);
   addLog('大木博士：好！从今天起你就是宝可梦训练家了！', 'info');
   addLog('你带着 ' + mon.name + ' 从真新镇出发了！', 'info');
   save();
@@ -2495,9 +2519,9 @@ function load() {
     });
     STATE.seenDex = data.seenDex || {};
     STATE.caughtDex = data.caughtDex || {};
-    // 回填：队伍/电脑箱已有的宝可梦（含旧档已进化的）点亮图鉴
-    STATE.party.forEach(function (m) { STATE.seenDex[m.species] = true; STATE.caughtDex[m.species] = true; });
-    STATE.box.forEach(function (m) { STATE.seenDex[m.species] = true; STATE.caughtDex[m.species] = true; });
+    // 回填：队伍/电脑箱已有的宝可梦点亮整条进化链（旧档拥有喷火龙 → 小火龙/火恐龙/喷火龙全点亮）
+    STATE.party.forEach(function (m) { lightUpFamily(m.species); });
+    STATE.box.forEach(function (m) { lightUpFamily(m.species); });
     STATE.trainersDefeated = data.trainersDefeated || {};
     STATE.lastTown = data.lastTown || 'pallet';
     STATE.heldObtained = !!data.heldObtained;
