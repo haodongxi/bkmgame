@@ -116,8 +116,8 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#modal-root .shop-row').length >= 20"), '商店列出全部商品');
   ok(await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('大师球')!==-1;})[0]; return r && r.querySelector('button[disabled]') !== null;})()"), '0徽章时大师球置灰未解锁');
   await evaljs('closeModal();');
-  await evaljs("STATE.badges = ['灰色徽章','蓝色徽章','橙色徽章','彩虹徽章','金色徽章','粉红徽章','深红徽章','绿色徽章']; doMapAction('mart');");
-  ok(await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('大师球')!==-1;})[0]; return r && r.querySelector('button[disabled]') === null;})()"), '8徽章时大师球可购买');
+  await evaljs("STATE.badges = ['灰色徽章','蓝色徽章','橙色徽章','彩虹徽章','金色徽章','粉红徽章','深红徽章','绿色徽章']; STATE.money = 999999; doMapAction('mart');");
+  ok(await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('大师球')!==-1;})[0]; var bs=r?r.querySelectorAll('button'):[]; return Array.prototype.some.call(bs, b => b.textContent.indexOf('购买') !== -1 && !b.disabled);})()"), '8徽章时大师球购买按钮可用');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('求雨符') !== -1; })"), '商店有天气符');
   await evaljs('closeModal();');
   await evaljs('STATE.badges = [];');

@@ -1825,25 +1825,28 @@ function getMartStock() {
   return MART_STOCK.filter(function (s) { return s.minBadges <= STATE.badges.length; }).map(function (s) { return s.name; });
 }
 
-function buyItem(name) {
+function buyItem(name, qty) {
+  qty = qty || 1;
   const item = ITEMS[name];
   if (!item) return;
   const stock = getMartStock();
   if (stock.indexOf(name) === -1) { addLog('商店里没有这个商品。', 'info'); return; }
-  if (STATE.money < item.price) { addLog('金币不够……', 'info'); return; }
-  STATE.money -= item.price;
-  addItem(name, 1);
-  addLog('购买了【' + name + '】，花费 ' + item.price + ' 金币。', 'info');
+  const total = item.price * qty;
+  if (STATE.money < total) { addLog('金币不够……', 'info'); return; }
+  STATE.money -= total;
+  addItem(name, qty);
+  addLog('购买了【' + name + '】×' + qty + '，花费 ' + total + ' 金币。', 'info');
 }
 
-function sellItem(name) {
-  if (bagCount(name) <= 0) { addLog('没有这个道具。', 'info'); return; }
+function sellItem(name, qty) {
+  qty = qty || 1;
+  if (bagCount(name) < qty) { addLog('没有这个道具。', 'info'); return; }
   const item = ITEMS[name];
   const price = item.sell || Math.floor((item.price || 0) / 2);
   if (price <= 0) { addLog('这个道具不能卖。', 'info'); return; }
-  removeItem(name, 1);
-  STATE.money += price;
-  addLog('卖掉了【' + name + '】，获得 ' + price + ' 金币。', 'good');
+  removeItem(name, qty);
+  STATE.money += price * qty;
+  addLog('卖掉了【' + name + '】×' + qty + '，获得 ' + (price * qty) + ' 金币。', 'good');
 }
 
 function wanderTown() {

@@ -874,6 +874,22 @@ T.buyItem('好伤药');
 ok(T.getState().bag['好伤药'] === 1 && T.getState().money === 5000 - 700, '购买成功');
 T.sellItem('精灵球');
 ok(T.getState().money === 5000 - 700 + 100 && T.getState().bag['精灵球'] === 4, '半价出售成功');
+{
+  // 批量购买/出售
+  T.newGame(4);
+  const s = T.getState();
+  s.money = 5000;
+  T.buyItem('精灵球', 3);
+  ok(s.bag['精灵球'] === 8 && s.money === 5000 - 600, '批量购买 3 个精灵球扣 600 金');
+  T.sellItem('精灵球', 2);
+  ok(s.bag['精灵球'] === 6 && s.money === 5000 - 600 + 200, '批量出售 2 个精灵球得 200 金');
+  const moneyBefore = s.money;
+  T.buyItem('高级球', 10); // 4000*10 远超余额
+  ok(s.money === moneyBefore && (s.bag['高级球'] || 0) === 0, '批量购买超出余额时被拦截');
+  const cntBefore = s.bag['精灵球'];
+  T.sellItem('精灵球', 99);
+  ok(s.bag['精灵球'] === cntBefore, '批量出售超出持有数时被拦截');
+}
 
 // ---------- 12. 2026-08-13 bug 修复回归 ----------
 section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / 学招存档）');

@@ -465,16 +465,32 @@ function doTravel(nodeId) {
 // ---------------- 商店 ----------------
 
 function showShopModal() {
+  const buyQty = function (name) {
+    const item = ITEMS[name];
+    const max = item ? Math.max(0, Math.min(99, Math.floor(STATE.money / item.price))) : 0;
+    return { qty: max <= 0 ? 0 : Math.min(_buyQty[name] || 1, max), max: max };
+  };
+  const sellQty = function (name) {
+    const max = bagCount(name);
+    return { qty: max <= 0 ? 0 : Math.min(_sellQty[name] || 1, max), max: max };
+  };
   let html = '<div class="shop-hint">持有徽章：' + STATE.badges.length + ' 枚，金钱：' + STATE.money + '</div>';
   for (let i = 0; i < MART_STOCK.length; i++) {
     const entry = MART_STOCK[i];
     const item = ITEMS[entry.name];
     if (!item) continue;
     const locked = entry.minBadges > STATE.badges.length;
+    const bq = buyQty(item.name);
     html += '<div class="shop-row' + (locked ? ' locked' : '') + '"><span title="' + item.desc + '">' + item.name + '（' + item.price + '金）' +
       (locked ? ' <span class="shop-lock">需 ' + entry.minBadges + ' 徽章</span>' : '') + '</span>' +
       (locked ? '<button class="btn btn-sm" disabled>未解锁</button>' :
-        '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\')">购买</button>') + '</div>';
+        '<span class="shop-qty">' +
+        '<button class="btn btn-sm" onclick="shopStep(\'buy\',\'' + item.name + '\',-1)"' + (bq.qty <= 1 ? ' disabled' : '') + '>−</button>' +
+        '<b>' + bq.qty + '</b>' +
+        '<button class="btn btn-sm" onclick="shopStep(\'buy\',\'' + item.name + '\',1)"' + (bq.qty >= bq.max ? ' disabled' : '') + '>+</button>' +
+        '<button class="btn btn-sm" onclick="doBuy(\'' + item.name + '\',' + bq.qty + ')"' + (bq.max <= 0 ? ' disabled' : '') + '>购买（' + item.price * bq.qty + '金）</button>' +
+        '</span>') + '</div>' +
+      '<div class="shop-desc">' + item.desc + '</div>';
   }
   html += '<div class="shop-hint">—— 出售 ——</div>';
   const keys = Object.keys(STATE.bag).filter(function (k) { return bagCount(k) > 0; });
@@ -484,20 +500,40 @@ function showShopModal() {
     if (!item) continue;
     const price = item.sell || Math.floor((item.price || 0) / 2);
     if (price <= 0) continue;
+    const sq = sellQty(keys[i]);
     html += '<div class="shop-row"><span title="' + (item.desc || '') + '">' + keys[i] + ' ×' + bagCount(keys[i]) + '（卖' + price + '金）</span>' +
-      '<button class="btn btn-sm" onclick="doSell(\'' + keys[i] + '\')">卖出</button></div>';
+      '<span class="shop-qty">' +
+      '<button class="btn btn-sm" onclick="shopStep(\'sell\',\'' + keys[i] + '\',-1)"' + (sq.qty <= 1 ? ' disabled' : '') + '>−</button>' +
+      '<b>' + sq.qty + '</b>' +
+      '<button class="btn btn-sm" onclick="shopStep(\'sell\',\'' + keys[i] + '\',1)"' + (sq.qty >= sq.max ? ' disabled' : '') + '>+</button>' +
+      '<button class="btn btn-sm" onclick="doSell(\'' + keys[i] + '\',' + sq.qty + ')"' + (sq.max <= 0 ? ' disabled' : '') + '>卖出（' + price * sq.qty + '金）</button>' +
+      '</span></div>' +
+      '<div class="shop-desc">' + (item.desc || '') + '</div>';
   }
   openModal('友好商店', html);
 }
 
-function doBuy(name) {
-  buyItem(name);
+const _buyQty = {};
+const _sellQty = {};
+
+// 商店数量加减：delta = ±1，受金钱/持有数限制
+function shopStep(kind, name, delta) {
+  const max = kind === 'buy' ? Math.max(0, Math.min(99, Math.floor(STATE.money / (ITEMS[name] ? ITEMS[name].price : 1)))) : bagCount(name);
+  const cur = kind === 'buy' ? (_buyQty[name] || 1) : (_sellQty[name] || 1);
+  const next = Math.max(1, Math.min(Math.max(1, max), cur + delta));
+  if (kind === 'buy') _buyQty[name] = next;
+  else _sellQty[name] = next;
+  showShopModal();
+}
+
+function doBuy(name, qty) {
+  buyItem(name, qty || 1);
   save();
   showShopModal();
 }
 
-function doSell(name) {
-  sellItem(name);
+function doSell(name, qty) {
+  sellItem(name, qty || 1);
   save();
   showShopModal();
 }
