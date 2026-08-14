@@ -320,6 +320,63 @@ function stoneTargets(stoneName) {
   return out.sort(function (a, b) { return a.fromId - b.fromId; });
 }
 
+// 神秘商人可买的宝可梦（acquisitionPaths 与事件共用，单一数据源）
+const MERCHANT_MONS = [
+  { id: 133, price: 8000 },
+  { id: 131, price: 12000 },
+  { id: 143, price: 15000 },
+  { id: 147, price: 10000 }
+];
+
+// 获取途径：给定图鉴编号，返回所有可获取渠道（野生/钓鱼/交换/商人/火箭队/初始/进化）
+function acquisitionPaths(id) {
+  const n = Number(id);
+  const out = [];
+  // 1) 野生池
+  Object.keys(MAP_NODES).forEach(function (nid) {
+    const node = MAP_NODES[nid];
+    const spots = [];
+    Object.keys(node.pools || {}).forEach(function (w) {
+      (node.pools[w] || []).forEach(function (p) { if (p.id === n) spots.push(w); });
+    });
+    if (spots.length > 0) out.push(node.name + '（' + spots.join(' / ') + '）');
+  });
+  // 2) 钓鱼
+  Object.keys(FISH_POOLS).forEach(function (nid) {
+    if (FISH_POOLS[nid].some(function (p) { return p.id === n; })) out.push(MAP_NODES[nid].name + ' 钓鱼');
+  });
+  if (FISH_POOL_FALLBACK.some(function (p) { return p.id === n; })) out.push('任意水域钓鱼（通用池）');
+  // 3) NPC 交换
+  TRADES.forEach(function (t) {
+    if (t.give === n) out.push('NPC交换：用 ' + POKEDEX[t.want].name + ' 交换');
+  });
+  // 4) 神秘商人
+  MERCHANT_MONS.forEach(function (m) {
+    if (m.id === n) out.push('神秘商人（' + m.price + '金）');
+  });
+  // 5) 火箭队
+  if (ROCKET_EVENTS.sell.rare.indexOf(n) !== -1) out.push('火箭队强买强卖（3000金，50%概率）');
+  if (ROCKET_EVENTS.sell.junk === n) out.push('火箭队强买强卖（可能买到鲤鱼王）');
+  if (ROCKET_EVENTS.rescue.rewardMon === n) out.push('火箭队解救事件（打赢入队）');
+  // 6) 鲤鱼王大叔
+  if (n === 129) out.push('华蓝市鲤鱼王大叔（500金）');
+  // 7) 御三家
+  if (n === 1 || n === 4 || n === 7) out.push('初始选择');
+  // 8) 进化来源
+  Object.keys(POKEDEX).forEach(function (sid) {
+    const d = POKEDEX[sid];
+    if (d.evo && d.evo.into === n) {
+      out.push('由 ' + d.name + (d.evo.level ? ' Lv.' + d.evo.level : ' 使用' + d.evo.stone) + ' 进化');
+    }
+  });
+  Object.keys(STONE_EVOLUTIONS).forEach(function (stone) {
+    Object.keys(STONE_EVOLUTIONS[stone]).forEach(function (from) {
+      if (STONE_EVOLUTIONS[stone][from] === n) out.push('由 ' + POKEDEX[from].name + ' 使用' + stone + ' 进化');
+    });
+  });
+  return out.filter(function (v, i, a) { return a.indexOf(v) === i; });
+}
+
 // 可学招式清单：该宝可梦当前等级及以下的学习面招式（去重、过滤非法招式、排除已学会）
 function learnableMoves(mon) {
   const ls = mon.speciesData && mon.speciesData.learnset;
@@ -1908,12 +1965,7 @@ function startMerchantOffer() {
     { kind: 'item', name: '吃剩的东西', price: 12000 },
     { kind: 'item', name: '幸运蛋', price: 15000 }
   ];
-  const monDeals = [
-    { kind: 'mon', id: 133, price: 8000 },
-    { kind: 'mon', id: 131, price: 12000 },
-    { kind: 'mon', id: 143, price: 15000 },
-    { kind: 'mon', id: 147, price: 10000 }
-  ];
+  const monDeals = MERCHANT_MONS.map(function (m) { return { kind: 'mon', id: m.id, price: m.price }; });
   const all = itemDeals.concat(monDeals);
   STATE.merchantOffer = all[randInt(0, all.length - 1)];
   addLog('神秘商人从草丛里冒了出来：「小伙子，我这里有件好东西，要不要看看？」', 'info');
@@ -2513,6 +2565,7 @@ if (typeof module !== 'undefined' && module.exports) {
     tryStoneEvolution: tryStoneEvolution, startBattle: startBattle, typeEffectiveness: typeEffectiveness,
     rarityOf: rarityOf,
     stoneTargets: stoneTargets,
+    acquisitionPaths: acquisitionPaths,
     learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather

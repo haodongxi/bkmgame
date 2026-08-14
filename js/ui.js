@@ -947,7 +947,7 @@ function showPokedexModal() {
     const seen = !!STATE.seenDex[id];
     const caught = !!STATE.caughtDex[id];
     const d = POKEDEX[id];
-    html += '<div class="dex-cell' + (caught ? ' caught' : (seen ? ' seen' : '')) + '" id="dex-icon-' + id + '">' +
+    html += '<div class="dex-cell' + (caught ? ' caught' : (seen ? ' seen' : '')) + '" id="dex-icon-' + id + '" onclick="showDexDetail(' + id + ')">' +
       '<div class="dex-icon">' + (seen ? '' : '?') + '</div>' +
       (seen ? dexRarityLine(d) : '') +
       '<div class="dex-name">' + (seen ? d.name : '???') + '</div>' +
@@ -962,6 +962,59 @@ function showPokedexModal() {
       if (box) box.appendChild(monIcon(id, 28));
     }
   }
+}
+
+// 图鉴详情：未发现保持神秘；已见/已捕获展示种族值、学习面与获取途径
+function showDexDetail(id) {
+  const d = POKEDEX[id];
+  if (!d) return;
+  if (!STATE.seenDex[id]) {
+    openModal('No.' + id,
+      '<div class="detail-head"><div class="detail-icon dex-unknown">？</div>' +
+      '<div><div class="detail-name">？？？ <span class="detail-no">No.' + id + '</span></div>' +
+      '<div class="detail-lv">尚未遇见……继续探索关都吧！</div></div></div>' +
+      '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>');
+    return;
+  }
+  const b = d.base;
+  const caught = !!STATE.caughtDex[id];
+  const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+  let statsHtml = '';
+  for (const k in statNames) {
+    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + b[k] + '</span></div>';
+  }
+  statsHtml += '<div class="detail-row"><span>种族值总和</span><span>' + (b.hp + b.atk + b.def + b.spa + b.spd + b.spe) + '</span></div>';
+  let evoHtml = '不会进化';
+  if (d.evo) {
+    if (d.evo.level) evoHtml = 'Lv.' + d.evo.level + ' 进化为 ' + POKEDEX[d.evo.into].name;
+    else if (d.evo.stone) evoHtml = '使用' + d.evo.stone + '进化为 ' + POKEDEX[d.evo.into].name;
+  }
+  let movesHtml = '';
+  const ls = d.learnset || {};
+  Object.keys(ls).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
+    (ls[lv] || []).forEach(function (mid) {
+      const mv = MOVES[mid];
+      if (!mv) return;
+      movesHtml += '<div class="detail-row"><span>Lv.' + lv + ' ' + mv.name + ' · ' + mv.type + '</span><span>' +
+        (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · PP ' + mv.pp +
+        (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
+    });
+  });
+  if (!movesHtml) movesHtml = '<div class="shop-hint">暂无学习面数据</div>';
+  const paths = acquisitionPaths(id);
+  const pathsHtml = '<div class="shop-hint">' +
+    (paths.length ? paths.map(function (p) { return '· ' + p; }).join('<br>') : '暂无获取途径（数据缺失）') + '</div>';
+  const html = '<div class="detail-head"><div class="detail-icon" id="dex-detail-icon"></div>' +
+    '<div><div class="detail-name">' + rarityTag(d) + d.name + (caught ? ' ✓已捕获' : ' ✓已见') + ' <span class="detail-no">No.' + id + '</span></div>' +
+    '<div class="detail-lv">' + d.types.join('/') + ' · 捕获率 ' + d.catchRate + ' · ' + rarityOf(d).label + '</div></div></div>' +
+    '<div class="shop-hint">—— 种族值 ——</div>' + statsHtml +
+    '<div class="shop-hint">进化：' + evoHtml + '</div>' +
+    '<div class="shop-hint">—— 可学招式 ——</div>' + movesHtml +
+    '<div class="shop-hint">—— 获取途径 ——</div>' + pathsHtml +
+    '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
+  openModal(d.name, html);
+  const box = $id('dex-detail-icon');
+  if (box) box.appendChild(monIcon(id, 48));
 }
 
 // 道具图鉴：按分类列出全部道具与用途说明（商店/背包/出售列表共用同一套增强描述）

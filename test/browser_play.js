@@ -82,6 +82,19 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught') !== null"), '御三家开局已捕获有标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught .dex-rarity.r-rare') !== null"), '图鉴格子显示稀有度词缀');
   ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('已见') !== -1"), '图鉴显示进度');
+  // 已见/已捕获：点击格子展示详情（种族值/学习面/获取途径）
+  await evaljs("document.querySelector('#modal-root .dex-cell.caught').click()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('种族值') !== -1"), '图鉴详情显示种族值');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('可学招式') !== -1"), '图鉴详情显示学习面');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('获取途径') !== -1"), '图鉴详情显示获取途径');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('初始选择') !== -1"), '小火龙获取途径含初始选择');
+  await evaljs('closeModal();');
+  // 未发现：保持神秘，不泄露种族值
+  await evaljs('doMapAction(\'pokedex\');');
+  await evaljs("document.querySelector('#modal-root .dex-cell:not(.seen):not(.caught)').click()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('尚未遇见') !== -1"), '未发现宝可梦保持神秘');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('种族值') === -1"), '未发现不泄露种族值');
+  await evaljs('closeModal();');
   await evaljs("for (var i = 1; i <= 151; i++) STATE.seenDex[i] = true; showPokedexModal();");
   ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .dex-cell'), function(c){ return c.scrollWidth <= c.clientWidth + 1; })"), '全图鉴 151 格横向无溢出（含稀有度词缀行）');
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-rarity').length > 100"), '绝大多数图鉴格子显示稀有度词缀');

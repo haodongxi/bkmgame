@@ -14,7 +14,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
   '  FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
-  '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,\n' +
+  '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove, acquisitionPaths: acquisitionPaths,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
   '  tryStoneEvolution: tryStoneEvolution, expForLevel: expForLevel,\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
@@ -1668,6 +1668,19 @@ section('MVP14：全图鉴投放');
   seq.push(0.7); // 呆呆兽区间 [0.65, 0.75)
   T.fish();
   ok(s.battle && s.battle.foe.mons[0].m.species === 79, '华蓝北水域钓鱼可出呆呆兽');
+}
+{
+  // 获取途径文本：图鉴详情数据源
+  const has = function (id, kw) { return T.acquisitionPaths(id).some(function (p) { return p.indexOf(kw) !== -1; }); };
+  ok(has(37, '7号道路'), '六尾途径含 7 号道路');
+  ok(has(79, '24号道路') && has(79, '钓鱼'), '呆呆兽途径含华蓝北水域与钓鱼');
+  ok(has(150, '冠军之路'), '超梦途径含冠军之路');
+  ok(has(133, '神秘商人') && has(133, '火箭队'), '伊布途径含商人与火箭队');
+  ok(has(135, '伊布') && has(135, '雷之石'), '雷伊布途径为伊布石头进化');
+  ok(has(129, '鲤鱼王大叔') && has(129, '钓鱼'), '鲤鱼王途径含大叔与钓鱼');
+  ok(has(1, '初始选择'), '妙蛙种子途径含初始选择');
+  ok(has(16, '1号道路') && has(16, 'NPC交换'), '波波途径含野生与交换');
+  ok(T.acquisitionPaths(37).length > 0 && T.acquisitionPaths(1).length > 0, '已见宝可梦都有可展示途径');
 }
 
 // ---------- 14. MVP11.1：喂养系统 ----------
