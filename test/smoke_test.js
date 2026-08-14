@@ -998,6 +998,36 @@ section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / �
   ok(s.party[0].hp === s.party[0].stats.hp, '宝可梦中心恢复生效');
 }
 {
+  // 满血满 PP 去宝可梦中心不收费
+  T.newGame(4);
+  const s = T.getState();
+  const moneyBefore = s.money;
+  const logLen = s.log.length;
+  T.visitCenter();
+  ok(s.money === moneyBefore, '满血满 PP 去宝可梦中心不收费');
+  ok(s.log.slice(logLen).some(function (l) { return l.indexOf('精神满满') !== -1; }), '满血时有对应提示文案');
+}
+{
+  // 仅 PP 未满：仍算需要恢复，正常收费
+  T.newGame(4);
+  const s = T.getState();
+  s.party[0].pp = s.party[0].pp.map(function (p) { return p - 1; });
+  const moneyBefore = s.money;
+  T.visitCenter();
+  ok(s.money === moneyBefore - 50, '仅 PP 未满时正常收费并恢复');
+  ok(s.party[0].pp.every(function (p, i) { return p === T.MOVES[s.party[0].moves[i]].pp; }), 'PP 恢复满');
+}
+{
+  // 仅异常状态：仍算需要恢复，正常收费
+  T.newGame(4);
+  const s = T.getState();
+  s.party[0].status = '中毒';
+  const moneyBefore = s.money;
+  T.visitCenter();
+  ok(s.money === moneyBefore - 50, '仅异常状态时正常收费');
+  ok(!s.party[0].status, '异常状态被治愈');
+}
+{
   // 日志着色标记与日志行一一对应
   T.newGame(4);
   const s = T.getState();

@@ -1915,6 +1915,10 @@ function resolveMedic(option) {
 }
 
 function visitCenter() {
+  if (!needsCenterHeal()) {
+    addLog('乔伊小姐：「你的宝可梦都精神满满，不需要恢复哦！」', 'info');
+    return;
+  }
   const cost = centerCost();
   if (cost > 0) {
     if (STATE.money >= cost) {
@@ -1926,6 +1930,18 @@ function visitCenter() {
   }
   healAll();
   addLog('宝可梦中心的乔伊小姐把你的宝可梦都恢复了！', 'good');
+}
+
+// 队伍是否真的需要中心恢复（掉血 / 异常 / PP 未满任一即需要）
+function needsCenterHeal() {
+  return STATE.party.some(function (m) {
+    if (m.hp < m.stats.hp || m.status) return true;
+    for (let i = 0; i < m.moves.length; i++) {
+      const max = MOVES[m.moves[i]] ? MOVES[m.moves[i]].pp : 1;
+      if (!m.pp || m.pp[i] === undefined || m.pp[i] < max) return true;
+    }
+    return false;
+  });
 }
 
 // 宝可梦中心费用：按队伍平均等级 ×10 收取（等级越高越贵，作为软性续航成本）
