@@ -516,26 +516,55 @@ function showShopModal() {
 const _buyQty = {};
 const _sellQty = {};
 
-// 商店数量加减：delta = ±1，受金钱/持有数限制
+// 商店数量加减：原地更新该行数量与总价，不整表重渲染（避免滚动跳回顶部）
 function shopStep(kind, name, delta) {
   const max = kind === 'buy' ? Math.max(0, Math.min(99, Math.floor(STATE.money / (ITEMS[name] ? ITEMS[name].price : 1)))) : bagCount(name);
   const cur = kind === 'buy' ? (_buyQty[name] || 1) : (_sellQty[name] || 1);
   const next = Math.max(1, Math.min(Math.max(1, max), cur + delta));
   if (kind === 'buy') _buyQty[name] = next;
   else _sellQty[name] = next;
+  const item = ITEMS[name];
+  const price = kind === 'buy' ? item.price : (item.sell || Math.floor((item.price || 0) / 2));
+  const rows = document.querySelectorAll('#modal-root .shop-row');
+  for (let i = 0; i < rows.length; i++) {
+    const span = rows[i].querySelector('span');
+    if (!span || span.textContent.indexOf(name) === -1) continue;
+    const isSellRow = span.textContent.indexOf('卖') !== -1;
+    if ((kind === 'buy') === isSellRow) continue;
+    const qtyEl = rows[i].querySelector('.shop-qty b');
+    const btns = rows[i].querySelectorAll('.shop-qty button');
+    if (qtyEl) qtyEl.textContent = next;
+    if (btns.length >= 3) {
+      btns[0].disabled = next <= 1;
+      btns[1].disabled = next >= max;
+      const buyBtn = btns[btns.length - 1];
+      buyBtn.textContent = (kind === 'buy' ? '购买（' : '卖出（') + (price * next) + '金）';
+      buyBtn.disabled = next <= 0 || max <= 0;
+      buyBtn.setAttribute('onclick', (kind === 'buy' ? 'doBuy(\'' : 'doSell(\'') + name + '\',' + next + ')');
+    }
+    break;
+  }
+}
+
+// 商店重渲染并保持滚动位置（购买/出售后使用）
+function refreshShop() {
+  const sc = document.querySelector('#modal-root .modal');
+  const top = sc ? sc.scrollTop : 0;
   showShopModal();
+  const nsc = document.querySelector('#modal-root .modal');
+  if (nsc && top > 0) nsc.scrollTop = top;
 }
 
 function doBuy(name, qty) {
   buyItem(name, qty || 1);
   save();
-  showShopModal();
+  refreshShop();
 }
 
 function doSell(name, qty) {
   sellItem(name, qty || 1);
   save();
-  showShopModal();
+  refreshShop();
 }
 
 // ---------------- 背包 / 队伍 ----------------
