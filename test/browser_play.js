@@ -132,6 +132,11 @@ async function main() {
   ok(await evaljs("document.querySelector('.map-reset-wrap .btn') !== null && document.querySelector('#action-panel').textContent.indexOf('重开') === -1"), '重开按钮已移到右上角，不在操作面板中');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');
+  ok(await evaljs("document.querySelector('#meta-label .player-name') !== null && document.querySelector('#meta-label').textContent.indexOf('👤') !== -1"), '地图顶栏显示玩家名');
+  await evaljs("document.querySelector('#meta-label .player-name').click()");
+  ok(await evaljs("document.querySelector('#rename-input') !== null"), '点击玩家名弹出改名框');
+  await evaljs("document.querySelector('#rename-input').value = '皮卡丘训练家'; doRename();");
+  ok(await evaljs("STATE.name === '皮卡丘训练家' && document.querySelector('#meta-label').textContent.indexOf('皮卡丘训练家') !== -1"), '改名后顶栏立即更新');
   ok(await evaljs("document.querySelector('#goal-label').textContent.indexOf('小刚') !== -1"), '目标提示指向首个道馆');
   await evaljs("document.querySelector('#party-strip .party-card').click()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '点击队伍条宝可梦直接打开详情页');

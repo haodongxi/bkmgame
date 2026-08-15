@@ -34,7 +34,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
-  '  wanderTown: wanderTown\n' +
+  '  wanderTown: wanderTown,\n' +
+  '  randomPlayerName: randomPlayerName, renamePlayer: renamePlayer\n' +
   '};';
 
 // 可控随机：默认使用种子序列，需要时可切换
@@ -359,7 +360,7 @@ section('MVP3：道馆踢馆与城镇事件');
   T.getState().keyItems.push('破旧钓竿');
   T.getState().nodeId = 'route24';
   T.fish();
-  ok(T.getState().battle && [129, 120, 147, 130].indexOf(T.getState().battle.foe.mons[0].m.species) !== -1, '钓鱼遇到水边宝可梦');
+  ok(T.getState().battle && T.FISH_POOLS.route24.some(function (p) { return p.id === T.getState().battle.foe.mons[0].m.species; }), '钓鱼遇到该水域池中的宝可梦');
 }
 {
   // 宿敌小茂
@@ -2327,6 +2328,23 @@ function fightToEnd() {
   localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
   s.box = [];
   ok(T.load() && T.getState().box[0].locked === false, '旧档无锁定字段默认不上锁');
+}
+{
+  // 玩家名：新游戏随机分配、可改名、随存档保存、旧档自动分配
+  T.newGame(4);
+  const s = T.getState();
+  ok(!!s.name && s.name.length >= 2, '新游戏自动分配随机名字');
+  ok(T.renamePlayer('星野光太') === true && s.name === '星野光太', '改名成功');
+  T.save();
+  s.name = '';
+  ok(T.load() && T.getState().name === '星野光太', '名字随存档保存');
+  ok(T.renamePlayer('') === false && s.name === '星野光太', '空名字被拒绝');
+  ok(T.renamePlayer('一二三四五六七八九十一') === false && s.name === '星野光太', '超长名字被拒绝（10 字上限）');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.name;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.name = '';
+  ok(T.load() && !!T.getState().name, '旧档无名字自动分配');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
