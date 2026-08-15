@@ -672,7 +672,7 @@ const BAG_TABS = [
   { id: 'ball', label: '精灵球', match: function (item) { return item.type === 'ball'; } },
   { id: 'tm', label: '技能机', match: function (item) { return item.type === 'tm'; } },
   { id: 'key', label: '关键物品', match: function (item) { return item.type === 'key'; } },
-  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy', 'shiny', 'shard'].indexOf(item.type) !== -1; } },
+  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy', 'shiny', 'shard', 'egg'].indexOf(item.type) !== -1; } },
   { id: 'titles', label: '🏅 称号', match: function () { return false; } }
 ];
 
@@ -710,7 +710,7 @@ function showBagModal(inBattle, tab) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy' || item.type === 'egg')) usable = true;
     html += '<div class="shop-row"><span title="' + itemDesc(item) + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + itemDesc(item) + '</div>';
@@ -747,6 +747,13 @@ function doBagUse(name, inBattle) {
   }
   if (item.type === 'weather' || item.type === 'weatherboost') {
     useWeatherItem(name);
+    save();
+    closeModal();
+    render();
+    return;
+  }
+  if (item.type === 'egg') {
+    useEggItem();
     save();
     closeModal();
     render();

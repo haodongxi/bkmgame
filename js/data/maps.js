@@ -51,6 +51,7 @@ const ITEMS = {
   '闪光石':   { id: 'shiny_stone', name: '闪光石', type: 'shiny', desc: '让一只宝可梦变为闪光形态（金色闪耀）' },
   '虹色闪光石': { id: 'rainbow_shiny_stone', name: '虹色闪光石', type: 'shiny', desc: '让一只宝可梦变为闪光形态（虹色闪耀，最稀有）' },
   '称号碎片': { id: 'title_shard', name: '称号碎片', type: 'shard', desc: '分解称号所得，5 个可在称号图鉴兑换任意称号的普通版' },
+  '走私的精灵蛋': { id: 'smuggled_egg', name: '走私的精灵蛋', type: 'egg', desc: '火箭队秘密仓库里缴获的精灵蛋，使用后孵化出一只御三家' },
   'HP糖果':   { id: 'hp_candy', name: 'HP糖果', type: 'candy', stat: 'hp', sell: 500, desc: '喂养后提升 1 点最大HP（单项上限 15），可在商店出售' },
   '攻击糖果': { id: 'atk_candy', name: '攻击糖果', type: 'candy', stat: 'atk', sell: 500, desc: '喂养后提升 1 点攻击（单项上限 15），可在商店出售' },
   '防御糖果': { id: 'def_candy', name: '防御糖果', type: 'candy', stat: 'def', sell: 500, desc: '喂养后提升 1 点防御（单项上限 15），可在商店出售' },

@@ -46,6 +46,7 @@ const STATE = {
   trashFound: false,
   wanderUsed: false,
   ssAnneDone: false,
+  rocketWarehouseDone: false,
   magikarpDone: false,
   magikarpOffer: false,
   merchantOffer: null,
@@ -805,6 +806,40 @@ function startRocketBattle(kind) {
     trainerText: opening,
     opening: opening
   });
+}
+
+// 火箭队秘密仓库（彩虹市隐蔽支线）：打赢得走私的精灵蛋（孵化未选御三家）
+function startRocketWarehouseBattle() {
+  const top = STATE.party.reduce(function (m, mon) { return Math.max(m, mon.level); }, 5);
+  const lv = Math.max(5, top - 2);
+  startBattle('rocket_warehouse', {
+    foe: [
+      { id: 109, level: lv, moves: ['sludge_bomb', 'acid', 'confuse_ray'] },
+      { id: 110, level: lv + 1, moves: ['sludge_bomb', 'acid', 'take_down', 'sludge'] }
+    ],
+    canRun: false,
+    trainerName: '火箭队精英',
+    title: '火箭队秘密仓库',
+    trainerText: '居然被你找到了这里！看来不能留你活口了！',
+    opening: '仓库里的火箭队精英吓了一跳：「什么人？！既然被你发现了——那就打一架吧！」'
+  });
+}
+
+// 使用走私的精灵蛋：孵化出一只未选中的御三家（Lv5，同款初始羁绊）
+function useEggItem() {
+  if (bagCount('走私的精灵蛋') <= 0) { addLog('没有精灵蛋。', 'info'); return; }
+  const unselected = [1, 4, 7].filter(function (id) { return !STATE.caughtDex[id]; });
+  if (unselected.length === 0) { addLog('御三家已经集齐了，蛋壳轻轻晃动了一下……', 'info'); return; }
+  const id = unselected[randInt(0, unselected.length - 1)];
+  const mon = makeMon(id, 5);
+  mon.bond = 20;
+  removeItem('走私的精灵蛋', 1);
+  addToPartyOrBox(mon);
+  STATE.seenDex[id] = true;
+  STATE.caughtDex[id] = true;
+  addLog('蛋壳裂开了！里面钻出来的是——' + mon.name + '！', 'good');
+  addLog(mon.name + ' 加入了你的队伍！', 'good');
+  save();
 }
 
 // ---------- 宿敌小茂 ----------
@@ -1940,6 +1975,11 @@ function endBattle(outcome) {
       STATE.ssAnneDone = true;
       addLog('水手：「不愧是优秀的训练家！这枚 TM 居合斩送给你了！」', 'good');
     }
+    if (b.kind === 'rocket_warehouse') {
+      addItem('走私的精灵蛋', 1);
+      STATE.rocketWarehouseDone = true;
+      addLog('你掀翻了火箭队的秘密仓库！在保温箱里缴获了一颗【走私的精灵蛋】！', 'good');
+    }
     const gym = MAP_NODES[STATE.nodeId] && MAP_NODES[STATE.nodeId].gym;
     if (b.kind === 'gym' && gym && gym.winText) addLog(gym.leader + '：' + gym.winText, 'good');
   } else if (outcome === 'lose') {
@@ -2576,6 +2616,12 @@ function wanderTown() {
     addLog('鲤鱼王大叔凑过来：「小伙子，稀有宝可梦鲤鱼王，只要 500 金，怎么样？」', 'info');
     return;
   }
+  // 火箭队秘密仓库：彩虹市隐蔽支线（10% 概率，打赢得走私的精灵蛋）
+  if (STATE.nodeId === 'celadon' && !STATE.rocketWarehouseDone && Math.random() < 0.1) {
+    addLog('你在彩虹市后巷的垃圾桶旁发现一扇半掩的铁门，门缝里透出灯光和嘈杂声……你推开了门！', 'warn');
+    startRocketWarehouseBattle();
+    return;
+  }
   // 关键道具：常磐市自行车店
   if (STATE.nodeId === 'viridian' && STATE.keyItems.indexOf('自行车') === -1 && Math.random() < 0.5) {
     STATE.keyItems.push('自行车');
@@ -2809,6 +2855,7 @@ function newGame(starterId) {
   STATE.trashFound = false;
   STATE.wanderUsed = false;
   STATE.ssAnneDone = false;
+  STATE.rocketWarehouseDone = false;
   STATE.magikarpDone = false;
   STATE.magikarpOffer = false;
   STATE.merchantOffer = null;
@@ -2859,6 +2906,7 @@ function save() {
       rivalWon: STATE.rivalWon,
       trashFound: STATE.trashFound,
       ssAnneDone: STATE.ssAnneDone,
+      rocketWarehouseDone: STATE.rocketWarehouseDone,
       magikarpDone: STATE.magikarpDone
     };
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
@@ -2957,6 +3005,7 @@ function load() {
     STATE.rivalWon = data.rivalWon || [];
     STATE.trashFound = !!data.trashFound;
     STATE.ssAnneDone = !!data.ssAnneDone;
+    STATE.rocketWarehouseDone = !!data.rocketWarehouseDone;
     STATE.magikarpDone = !!data.magikarpDone;
     STATE.wildBattles = data.wildBattles || 0;
     STATE.magikarpOffer = false;
@@ -3021,7 +3070,8 @@ if (typeof module !== 'undefined' && module.exports) {
     STATE: STATE, save: save, load: load, hasSave: hasSave, resetGame: resetGame,
     newGame: newGame, gotoNode: gotoNode, explore: explore,
     startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle,
-    startRocketBattle: startRocketBattle, startGymBattle: startGymBattle,
+    startRocketBattle: startRocketBattle, startRocketWarehouseBattle: startRocketWarehouseBattle,
+    useEggItem: useEggItem, startGymBattle: startGymBattle,
     battleMove: battleMove, battleUseItem: battleUseItem, battleSwitch: battleSwitch, battleRun: battleRun,
     resolveRocketSell: resolveRocketSell, resolvePendingLearn: resolvePendingLearn,
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
