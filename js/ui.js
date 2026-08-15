@@ -484,7 +484,10 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'dex\')">📚 图鉴合集</button>';
-    html += '<button class="btn" onclick="doMapAction(\'move\')">🧭 移动</button>';
+    html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
+    // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
+    if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
+    html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
   }
   html += '<button class="btn" onclick="exportSave()">📤 导出存档</button>';
@@ -512,7 +515,6 @@ function doMapAction(type) {
     case 'map': showMapModal(); return;
     case 'towerFight': startTowerFloor(); save(); render(); break;
     case 'superFight': startSuperTowerFloor(); save(); render(); break;
-    case 'move': showMoveModal(); return;
     case 'towerInfo': showTowerInfo(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
@@ -526,17 +528,6 @@ function doMapAction(type) {
   }
   save();
   render();
-}
-
-// 移动弹窗：返回城镇 / 地图 / 前往下个地点（洞穴不显示返回城镇）
-function showMoveModal() {
-  const node = MAP_NODES[STATE.nodeId];
-  let html = '<div class="modal-btns">';
-  if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
-  html += '<button class="btn" onclick="showMapModal()">🗺️ 地图</button>';
-  html += '<button class="btn" onclick="showTravelModal()">🚶 前往下个地点</button>';
-  html += '<button class="btn" onclick="closeModal()">取消</button></div>';
-  openModal('🧭 移动', html);
 }
 
 function showTravelModal() {
