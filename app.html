@@ -124,7 +124,7 @@
     .party-icon { display: flex; justify-content: center; }
     .party-info { font-size: 10px; }
     .party-name { font-size: 10px; white-space: nowrap; overflow: hidden; }
-    .party-lv { color: var(--text-dim); font-size: 9px; margin: 2px 0; }
+    .party-lv { color: var(--text-dim); font-size: 9px; margin: 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .party-empty { color: var(--text-dim); font-size: 11px; padding: 10px; }
 
     .hpbar { height: 8px; background: #10131a; border: 2px solid var(--border); }
@@ -210,6 +210,7 @@
     .shop-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin: 6px 0; }
     .save-code { width: 100%; min-height: 90px; resize: vertical; background: #10131a; color: var(--text); border: 3px solid var(--border); font-family: var(--font); font-size: 10px; padding: 8px; }
     .party-row { display: flex; gap: 8px; align-items: center; padding: 8px; margin-bottom: 8px; }
+    .party-info { flex: 1 1 auto; min-width: 0; }
     /* 电脑箱行：锁角标在图标右上角，操作按钮独立成列 */
     .box-icon-wrap { position: relative; flex: 0 0 auto; }
     .box-lock-corner { position: absolute; top: -6px; right: -6px; font-size: 10px; line-height: 1; padding: 1px 2px; background: var(--bg-panel); border: 2px solid var(--border); cursor: pointer; opacity: 0.7; }
