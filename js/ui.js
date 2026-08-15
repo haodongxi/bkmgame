@@ -455,7 +455,6 @@ function renderMap() {
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
   }
   html += '<button class="btn" onclick="exportSave()">📤 导出存档</button>';
-  html += '<button class="btn btn-danger" onclick="doMapAction(\'reset\')">🗑️ 重开</button>';
   $id('action-panel').innerHTML = html;
 }
 

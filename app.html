@@ -92,9 +92,12 @@
     .starter-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin-top: 18px; }
 
     /* ---------- 主场景 ---------- */
-    #screen-map { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
+    #screen-map { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; position: relative; }
     #screen-map.active { display: flex !important; }
-    .scene-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; flex-wrap: wrap; gap: 4px; }
+    /* 右上角重开按钮：远离底部操作区，避免误触 */
+    .map-reset-wrap { position: absolute; top: 8px; right: 8px; z-index: 10; }
+    .map-reset-wrap .btn { padding: 6px 9px; font-size: 9px; opacity: 0.9; }
+    .scene-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 8px; flex-wrap: wrap; gap: 4px; padding-right: 74px; }
     .meta-line { font-size: 10px; color: var(--gold); margin-bottom: 8px; }
     .goal-line { font-size: 10px; color: var(--blue); margin-bottom: 6px; }
     .log-box {
@@ -246,6 +249,7 @@
 
     <!-- 主界面 -->
     <div id="screen-map" class="screen">
+      <div class="map-reset-wrap"><button class="btn btn-sm btn-danger" onclick="doMapAction('reset')">🗑️ 重开</button></div>
       <div class="scene-top">
         <span id="loc-label"></span>
         <span id="weather-label"></span>
