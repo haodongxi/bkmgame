@@ -25,8 +25,9 @@ const STATE = {
   party: [],
   box: [],
   visitedNodes: [],
-  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false },
+  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false },
   titles: [],
+  equippedTitle: null,
   log: [],
   logKinds: [],
   wildBattles: 0,
@@ -229,7 +230,8 @@ function makeMon(speciesId, level, opts) {
     bond: 0,
     exploreSteps: 0,
     forgottenMoves: [], // 玩家明确不学/遗忘的招式：升级不再重复提示
-    locked: false // 电脑箱锁定：上锁后不可取出/传送（默认不上锁）
+    locked: false, // 电脑箱锁定：上锁后不可取出/传送（默认不上锁）
+    shiny: false // 闪光形态：超越之塔闪光石解锁，金色/虹色闪耀
   };
   return mon;
 }
@@ -565,7 +567,12 @@ const STAGE_MULT = {
 
 function effStat(bm, key) {
   const stage = bm.stages[key] || 0;
-  return Math.floor(bm.m.stats[key] * STAGE_MULT[String(stage)]);
+  let v = Math.floor(bm.m.stats[key] * STAGE_MULT[String(stage)]);
+  // 装备称号的属性加成（仅玩家方，基础+稀有度）
+  if (bm.side === 'player' && STATE.equippedTitle) {
+    v += (equippedTitleBonus()[key] || 0);
+  }
+  return v;
 }
 
 function calcDamage(attacker, defender, move, weather) {
@@ -672,7 +679,9 @@ function startBattle(kind, opts) {
   }
   const foeMons = opts.foe.map(function (fd) {
     const statMult = fd.statMult || 1;
-    return makeBattleMon(makeMon(fd.id, fd.level, { statMult: statMult, moves: fd.moves }));
+    const bm = makeBattleMon(makeMon(fd.id, fd.level, { statMult: statMult, moves: fd.moves }));
+    if (fd.displayLevel) bm.m.displayLevel = fd.displayLevel; // 超越之塔：显示等级与实际等级分离
+    return bm;
   });
   playerMons.forEach(function (bm) { bm.side = 'player'; });
   foeMons.forEach(function (bm) { bm.side = 'foe'; });
@@ -871,6 +880,197 @@ function startGymStep() {
 
 // ---------------- 无尽之塔 ----------------
 
+// 称号系统：可装备称号（图鉴展示 + 玩家名/首发前显示）
+const TITLES = [
+  { id: 'tower100', name: '无尽之塔征服者', desc: '通关无尽之塔第 100 层', base: { atk: 3, def: 2 }, unlock: function () { return STATE.tower.cleared; } },
+  { id: 'super10', name: '登塔者', desc: '突破超越之塔第 10 层', base: { atk: 2 }, unlock: function () { return STATE.tower.superBest >= 10; } },
+  { id: 'super30', name: '塔中豪杰', desc: '突破超越之塔第 30 层', base: { atk: 3 }, unlock: function () { return STATE.tower.superBest >= 30; } },
+  { id: 'super50', name: '破界者', desc: '突破超越之塔第 50 层', base: { atk: 3, def: 2 }, unlock: function () { return STATE.tower.superBest >= 50; } },
+  { id: 'super70', name: '传说挑战者', desc: '突破超越之塔第 70 层', base: { atk: 3, def: 2, spa: 2, spd: 1 }, unlock: function () { return STATE.tower.superBest >= 70; } },
+  { id: 'super100', name: '超越者', desc: '通关超越之塔第 100 层', base: { atk: 3, def: 3, spa: 3, spd: 3, spe: 3 }, unlock: function () { return STATE.tower.superCleared; } }
+];
+
+// 称号稀有度五档：普通 → 少见 → 稀有 → 传说 → 史诗
+const RARITIES = ['普通', '少见', '稀有', '传说', '史诗'];
+// 各稀有度属性加成：按顺序解锁 攻击/防御/特攻/特防/速度，每项 +1
+const RARITY_BONUS = [
+  ['atk'],
+  ['atk', 'def'],
+  ['atk', 'def', 'spa'],
+  ['atk', 'def', 'spa', 'spd'],
+  ['atk', 'def', 'spa', 'spd', 'spe']
+];
+// 随机称号箱稀有度概率（普通40/少见30/稀有20/传说8/史诗2）
+const TITLE_RARITY_PROB = [0.40, 0.30, 0.20, 0.08, 0.02];
+
+function rarityIndex(r) { return RARITIES.indexOf(r); }
+function titleStatBonusKeys(rarity) { return RARITY_BONUS[Math.max(0, rarityIndex(rarity))] || []; }
+
+// 称号总加成：称号基础加成（按难度）+ 稀有度加成（五项逐档解锁，每项 +1）
+function titleBonusMap(id, rarity) {
+  const t = titleById(id);
+  const map = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const base = (t && t.base) || {};
+  ['atk', 'def', 'spa', 'spd', 'spe'].forEach(function (k) { map[k] = base[k] || 0; });
+  titleStatBonusKeys(rarity).forEach(function (k) { map[k] = (map[k] || 0) + 1; });
+  return map;
+}
+
+// 解析称号库存项 '称号id@稀有度'（旧格式无 @ 时按普通）
+function parseTitleEntry(entry) {
+  const parts = String(entry || '').split('@');
+  return { id: parts[0], rarity: RARITIES.indexOf(parts[1]) !== -1 ? parts[1] : '普通' };
+}
+
+// 聚合库存：{ 称号id: { 普通:n, 少见:n, 稀有:n, 传说:n, 史诗:n } }
+function titleCounts() {
+  const out = {};
+  STATE.titles.forEach(function (entry) {
+    const p = parseTitleEntry(entry);
+    if (!titleById(p.id)) return;
+    out[p.id] = out[p.id] || { 普通: 0, 少见: 0, 稀有: 0, 传说: 0, 史诗: 0 };
+    out[p.id][p.rarity]++;
+  });
+  return out;
+}
+
+function titleCount(id, rarity) {
+  const c = titleCounts();
+  return (c[id] && c[id][rarity]) || 0;
+}
+
+function titleLabel(id, rarity) {
+  const t = titleById(id);
+  return (t ? t.name : id) + '·' + rarity;
+}
+
+// 获得称号（带稀有度）
+function addTitle(id, rarity) {
+  const t = titleById(id);
+  if (!t) return;
+  rarity = rarity || '普通';
+  STATE.titles.push(id + '@' + rarity);
+  addLog('获得称号【' + t.name + '·' + rarity + '】！', 'good');
+}
+
+// 随机稀有度
+function randomTitleRarity() {
+  const r = Math.random();
+  let acc = 0;
+  for (let i = 0; i < RARITIES.length; i++) {
+    acc += TITLE_RARITY_PROB[i];
+    if (r < acc) return RARITIES[i];
+  }
+  return '史诗';
+}
+
+// 随机称号箱：随机称号名 × 随机稀有度（超越之塔每 10 层奖励）
+function rollTitleBox() {
+  const t = TITLES[randInt(0, TITLES.length - 1)];
+  addTitle(t.id, randomTitleRarity());
+}
+
+// 合成：3 个同名同稀有度 → 1 个同名高一级（史诗不可再升）
+function synthesizeTitle(id, rarity) {
+  const t = titleById(id);
+  if (!t) return { ok: false, msg: '称号不存在' };
+  const idx = rarityIndex(rarity);
+  if (idx === -1) return { ok: false, msg: '稀有度无效' };
+  if (idx >= RARITIES.length - 1) return { ok: false, msg: '史诗已是最高稀有度' };
+  if (titleCount(id, rarity) < 3) return { ok: false, msg: '需要 3 个同名同稀有度称号' };
+  const target = RARITIES[idx + 1];
+  let removed = 0;
+  for (let i = STATE.titles.length - 1; i >= 0 && removed < 3; i--) {
+    const p = parseTitleEntry(STATE.titles[i]);
+    if (p.id === id && p.rarity === rarity) { STATE.titles.splice(i, 1); removed++; }
+  }
+  STATE.titles.push(id + '@' + target);
+  addLog('合成了【' + t.name + '·' + target + '】！', 'good');
+  save();
+  return { ok: true };
+}
+
+// 分解：1 个称号 → 按档位给称号碎片（普通1/少见2/稀有3/传说4/史诗5，防堆积）
+function dismantleTitle(id, rarity) {
+  const t = titleById(id);
+  if (!t) return { ok: false, msg: '称号不存在' };
+  for (let i = STATE.titles.length - 1; i >= 0; i--) {
+    const p = parseTitleEntry(STATE.titles[i]);
+    if (p.id === id && p.rarity === rarity) {
+      STATE.titles.splice(i, 1);
+      const n = rarityIndex(rarity) + 1;
+      addItem('称号碎片', n);
+      addLog('分解了【' + t.name + '·' + rarity + '】，获得【称号碎片】×' + n + '！', 'info');
+      save();
+      return { ok: true };
+    }
+  }
+  return { ok: false, msg: '没有这个称号' };
+}
+
+// 碎片兑换：5 碎片 → 指定称号的普通版（只能兑换已获得过的称号，防止低层刷碎片提前合成最高称号）
+function exchangeTitle(id) {
+  const t = titleById(id);
+  if (!t) return { ok: false, msg: '称号不存在' };
+  const counts = titleCounts()[id];
+  let owned = false;
+  if (counts) {
+    for (let i = 0; i < RARITIES.length; i++) if (counts[RARITIES[i]] > 0) { owned = true; break; }
+  }
+  if (!owned) return { ok: false, msg: '需先获得过该称号才能兑换' };
+  if (bagCount('称号碎片') < 5) return { ok: false, msg: '需要 5 个称号碎片' };
+  removeItem('称号碎片', 5);
+  STATE.titles.push(id + '@普通');
+  addLog('用 5 个称号碎片兑换了【' + t.name + '·普通】！', 'good');
+  save();
+  return { ok: true };
+}
+
+function titleById(id) {
+  for (let i = 0; i < TITLES.length; i++) if (TITLES[i].id === id) return TITLES[i];
+  return null;
+}
+
+function titleName(id) {
+  const t = titleById(id);
+  return t ? t.name : id;
+}
+
+function isTitleUnlocked(id) {
+  const t = titleById(id);
+  if (!t) return false;
+  const counts = titleCounts()[id];
+  if (counts) {
+    for (let i = 0; i < RARITIES.length; i++) if (counts[RARITIES[i]] > 0) return true;
+  }
+  return !!(t.unlock && t.unlock());
+}
+
+// 装备/卸下称号（id, rarity）：装备后全队获得属性加成
+function equipTitle(id, rarity) {
+  if (!id) {
+    STATE.equippedTitle = null;
+    addLog('已卸下称号。', 'info');
+    save();
+    return true;
+  }
+  const t = titleById(id);
+  if (!t) return false;
+  rarity = rarity || '普通';
+  if (titleCount(id, rarity) < 1) { addLog('尚未获得这个称号。', 'warn'); return false; }
+  STATE.equippedTitle = id + '@' + rarity;
+  addLog('装备了称号【' + t.name + '·' + rarity + '】！', 'good');
+  save();
+  return true;
+}
+
+// 当前装备称号的属性加成 map（战斗 effStat 玩家侧生效）
+function equippedTitleBonus() {
+  if (!STATE.equippedTitle) return { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const p = parseTitleEntry(STATE.equippedTitle);
+  return titleBonusMap(p.id, p.rarity);
+}
+
 // 每 10 层一个属性主题（普通/水冰/火/草虫/电/岩地钢/飞龙/超能幽灵恶/毒斗/混合传说）
 const TOWER_THEMES = [
   ['普通'],
@@ -885,11 +1085,8 @@ const TOWER_THEMES = [
   null // 混合：高种族/传说
 ];
 
-// 按层生成塔内对手队伍：等级随层数上升，数量逐段增加
-function towerFoeTeam(floor) {
-  const lv = Math.min(100, Math.floor(48 + floor * 0.52));
-  const count = floor <= 10 ? 2 : floor <= 40 ? 3 : floor <= 70 ? 4 : 5;
-  const theme = TOWER_THEMES[Math.floor((floor - 1) / 10) % TOWER_THEMES.length];
+// 按主题收集候选宝可梦池
+function towerThemePool(theme) {
   const pool = [];
   Object.keys(POKEDEX).forEach(function (id) {
     const n = +id;
@@ -903,6 +1100,18 @@ function towerFoeTeam(floor) {
     }
   });
   if (pool.length === 0) pool.push(143);
+  return pool;
+}
+
+// 按层生成塔内对手队伍：等级随层数上升，数量逐段增加；superMode = 超越之塔
+function towerFoeTeam(floor, superMode) {
+  const lv = superMode ? 100 : Math.min(100, Math.floor(48 + floor * 0.52));
+  // 超越之塔：数量每 10 层 +1（1-10 层 3 只起步 → 91-100 层 12 只）
+  const count = superMode ? 3 + Math.floor((floor - 1) / 10) : (floor <= 10 ? 2 : floor <= 40 ? 3 : floor <= 70 ? 4 : 5);
+  const theme = TOWER_THEMES[Math.floor((floor - 1) / 10) % TOWER_THEMES.length];
+  const pool = towerThemePool(theme);
+  // 超越之塔强度：属性倍率 1.1 → 2.6 递增（模拟 Lv101-200 的压制感）
+  const statMult = superMode ? Math.min(2.6, 1.1 + (floor - 1) * 0.015) : 1;
   const used = {};
   const team = [];
   for (let i = 0; i < count; i++) {
@@ -910,7 +1119,12 @@ function towerFoeTeam(floor) {
     let guard = 0;
     while (used[id] && guard++ < 20) id = pool[randInt(0, pool.length - 1)];
     used[id] = true;
-    team.push({ id: id, level: Math.min(100, lv + i) });
+    const entry = { id: id, level: Math.min(100, lv + i) };
+    if (superMode) {
+      entry.statMult = statMult;
+      entry.displayLevel = 100 + floor; // 显示 Lv101-200
+    }
+    team.push(entry);
   }
   return team;
 }
@@ -947,6 +1161,36 @@ function startTowerFloor() {
     title: '无尽之塔',
     trainerText: '无尽之塔第 ' + t.floor + ' 层！',
     opening: '无尽之塔第 ' + t.floor + ' 层（' + (theme.types.length === 1 ? theme.types[0] : theme.types.join('/')) + ' 主题）！' + hint
+  });
+}
+
+// 超越之塔：无尽之塔 100 层通关后的毕业挑战（对手显示 Lv101-200，强度属性倍率递增）
+function startSuperTowerFloor() {
+  const t = STATE.tower;
+  if (!t.superCleared && !STATE.tower.cleared) {
+    addLog('只有通关无尽之塔的强者才能踏入超越之塔！', 'warn');
+    return;
+  }
+  if (t.superCleared) {
+    // 通关后重刷：从第 1 层重新开始，保留称号与历史最佳
+    t.superFloor = 1;
+    t.superCheckpoint = 0;
+    t.superCleared = false;
+    addLog('你再次踏入超越之塔，从第 1 层重新挑战！（称号与历史最佳保留）', 'info');
+  }
+  const floor = t.superFloor;
+  const team = towerFoeTeam(floor, true);
+  const theme = towerThemeFor(floor);
+  const hint = theme.counters.length ? '建议使用 ' + theme.counters.join(' / ') + ' 系招式克制！' : '这一层没有固定弱点，靠综合实力吧！';
+  startBattle('super_tower', {
+    foe: team,
+    canRun: false,
+    prize: floor * 50,
+    trainerName: floor === 100 ? '超越塔主' : '超越守层者',
+    title: '超越之塔',
+    trainerText: '超越之塔第 ' + floor + ' 层！',
+    opening: '超越之塔第 ' + floor + ' 层（Lv' + (100 + floor) + ' · ' +
+      (theme.types.length === 1 ? theme.types[0] : theme.types.join('/')) + ' 主题）！' + hint
   });
 }
 
@@ -1671,6 +1915,9 @@ function endBattle(outcome) {
       // 塔内败北：不回血、不回城，回到最近存档点继续
       STATE.tower.floor = Math.max(1, STATE.tower.checkpoint + 1);
       addLog('无尽之塔挑战失败……回到第 ' + STATE.tower.checkpoint + ' 层存档点。', 'bad');
+    } else if (b.kind === 'super_tower') {
+      STATE.tower.superFloor = Math.max(1, STATE.tower.superCheckpoint + 1);
+      addLog('超越之塔挑战失败……回到第 ' + STATE.tower.superCheckpoint + ' 层存档点。', 'bad');
     } else {
     if (b.kind === 'rocket_robbery') {
       const lost = Math.floor(STATE.money / 2);
@@ -1716,10 +1963,29 @@ function endBattle(outcome) {
     if (t.floor > 100) {
       t.cleared = true;
       t.floor = 100;
-      if (STATE.titles.indexOf('无尽之塔征服者') === -1) {
-        STATE.titles.push('无尽之塔征服者');
-        addLog('你征服了无尽之塔！获得称号【无尽之塔征服者】！', 'good');
-      }
+      addLog('你征服了无尽之塔！', 'good');
+      addTitle('tower100', '稀有'); // 保底稀有
+    }
+  }
+  if (b.kind === 'super_tower' && outcome === 'win') {
+    const t = STATE.tower;
+    t.superFloor++;
+    const clearedFloor = t.superFloor - 1;
+    if (clearedFloor > t.superBest) t.superBest = clearedFloor;
+    if (clearedFloor % 10 === 0) {
+      t.superCheckpoint = clearedFloor;
+      addItem('闪光石', 1);
+      rollTitleBox(); // 随机称号箱（普通40/少见30/稀有20/传说8/史诗2）
+      addLog('第 ' + clearedFloor + ' 层奖励：【闪光石】×1 + 随机称号箱！', 'good');
+    }
+    if (t.superFloor > 100) {
+      t.superCleared = true;
+      t.superFloor = 100;
+      addItem('虹色闪光石', 1);
+      addItem('大师球', 3);
+      addItem('幸运蛋', 1);
+      addLog('你登上了超越之塔之巅！获得【虹色闪光石】×1、【大师球】×3、【幸运蛋】×1！', 'good');
+      addTitle('super100', '史诗'); // 保底史诗
     }
   }
   if (b.kind === 'gym_apprentice' && STATE.gymSession && outcome === 'win') {
@@ -2456,6 +2722,13 @@ function useBagItemOnMon(itemName, partyIdx) {
     addLog(mon.name + ' 吃下了【' + itemName + '】，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了！', 'good');
     return;
   }
+  if (item.type === 'shiny') {
+    if (mon.shiny) { addLog(mon.name + ' 已经是闪光宝可梦了！', 'info'); return; }
+    removeItem(itemName, 1);
+    mon.shiny = true;
+    addLog('✨ ' + mon.name + ' 闪耀出 ' + (itemName === '虹色闪光石' ? '虹色' : '金色') + '的光芒，变成了闪光宝可梦！', 'good');
+    return;
+  }
   addLog('这个道具不能对宝可梦使用。', 'info');
 }
 
@@ -2476,8 +2749,9 @@ function newGame(starterId) {
   STATE.party = [mon];
   STATE.box = [];
   STATE.visitedNodes = ['pallet'];
-  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
   STATE.titles = [];
+  STATE.equippedTitle = null;
   STATE.log = [];
   STATE.logKinds = [];
   STATE.wildBattles = 0;
@@ -2530,6 +2804,7 @@ function save() {
       visitedNodes: STATE.visitedNodes,
       tower: STATE.tower,
       titles: STATE.titles,
+      equippedTitle: STATE.equippedTitle,
       wildBattles: STATE.wildBattles,
       pendingLearn: STATE.pendingLearn.map(function (p) {
         return { where: p.where, idx: p.idx, uid: p.uid, moveId: p.moveId, monName: p.monName, moveName: p.moveName };
@@ -2556,7 +2831,8 @@ function serializeMon(m) {
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
     candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0,
     forgottenMoves: m.forgottenMoves || [],
-    locked: !!m.locked
+    locked: !!m.locked,
+    shiny: !!m.shiny
   };
 }
 
@@ -2583,6 +2859,7 @@ function deserializeMon(d) {
     ? d.forgottenMoves.filter(function (id) { return MOVES[id]; })
     : [];
   mon.locked = !!d.locked; // 旧档无 locked 字段：默认不上锁
+  mon.shiny = !!d.shiny; // 旧档无 shiny 字段：默认普通
   return mon;
 }
 
@@ -2606,8 +2883,15 @@ function load() {
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
     STATE.visitedNodes = data.visitedNodes || [];
-    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false }, data.tower || {});
-    STATE.titles = data.titles || [];
+    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false }, data.tower || {});
+    // 旧档称号兼容：数组项可能是 id 或中文名（无稀有度）→ 统一转 '称号id@普通'
+    STATE.titles = (data.titles || []).map(function (item) {
+      if (typeof item !== 'string' || !item) return null;
+      if (item.indexOf('@') !== -1) return item;
+      const t = titleById(item) || TITLES.filter(function (x) { return x.name === item; })[0];
+      return t ? t.id + '@普通' : null;
+    }).filter(Boolean);
+    STATE.equippedTitle = data.equippedTitle || null; // 旧值无 @ 时按普通解析
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
       // 旧档待学招没有 uid：按当时下标补挂到对应宝可梦，防止换首发后错位
@@ -2664,8 +2948,9 @@ function resetGame() {
   STATE.wildBattles = 0;
   STATE.expPool = 0;
   STATE.visitedNodes = [];
-  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  STATE.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
   STATE.titles = [];
+  STATE.equippedTitle = null;
   STATE.rocketSell = false;
   STATE.lastResult = null;
   STATE.gymSession = null;
@@ -2696,7 +2981,15 @@ if (typeof module !== 'undefined' && module.exports) {
     visitCenter: visitCenter, getMartStock: getMartStock, buyItem: buyItem, sellItem: sellItem,
     wanderTown: wanderTown, useEscapeRope: useEscapeRope, useBagItemOnMon: useBagItemOnMon,
     challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,
-    startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,
+    startTowerFloor: startTowerFloor, startSuperTowerFloor: startSuperTowerFloor,
+    towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,
+    TITLES: TITLES, titleById: titleById, titleName: titleName, titleLabel: titleLabel,
+    isTitleUnlocked: isTitleUnlocked, equipTitle: equipTitle,
+    RARITIES: RARITIES, rarityIndex: rarityIndex, titleStatBonusKeys: titleStatBonusKeys, titleBonusMap: titleBonusMap,
+    parseTitleEntry: parseTitleEntry, titleCounts: titleCounts, titleCount: titleCount,
+    addTitle: addTitle, randomTitleRarity: randomTitleRarity, rollTitleBox: rollTitleBox,
+    synthesizeTitle: synthesizeTitle, dismantleTitle: dismantleTitle, exchangeTitle: exchangeTitle,
+    equippedTitleBonus: equippedTitleBonus,
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,

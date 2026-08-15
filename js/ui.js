@@ -100,13 +100,14 @@ function shadeColor(hex, percent) {
   return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
-function drawIcon(canvas, speciesId, pixelSize) {
+function drawIcon(canvas, speciesId, pixelSize, shiny) {
   const S = 16;
   const ctx = canvas.getContext('2d');
   const data = POKEDEX[speciesId];
   if (!data) return;
   const rng = mulberry32((speciesId * 2654435761) >>> 0);
-  const primary = data.color;
+  // 闪光形态：金色系配色（超越之塔闪光石解锁）
+  const primary = shiny ? '#f8c84f' : data.color;
   const secondary = shadeColor(primary, -30);
   const dark = shadeColor(primary, -55);
   const light = shadeColor(primary, 25);
@@ -133,15 +134,21 @@ function drawIcon(canvas, speciesId, pixelSize) {
   // 腮红（小点缀）
   ctx.fillStyle = shadeColor(primary, 15);
   ctx.fillRect(4, 10, 2, 1); ctx.fillRect(10, 10, 2, 1);
+  // 闪光星星标记（头顶）
+  if (shiny) {
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(7, 1, 2, 2);
+    ctx.fillRect(6, 2, 1, 1); ctx.fillRect(9, 2, 1, 1);
+  }
   canvas.style.width = pixelSize + 'px';
   canvas.style.height = pixelSize + 'px';
   canvas.style.imageRendering = 'pixelated';
 }
 
-function monIcon(speciesId, px) {
+function monIcon(speciesId, px, shiny) {
   const c = document.createElement('canvas');
   c.width = 16; c.height = 16;
-  drawIcon(c, speciesId, px || 40);
+  drawIcon(c, speciesId, px || 40, shiny);
   return c;
 }
 
@@ -409,8 +416,10 @@ function renderMap() {
   const node = MAP_NODES[STATE.nodeId];
   $id('loc-label').textContent = '[当前位置：' + node.name + ']';
   $id('weather-label').textContent = '[当前天气：' + WEATHER[STATE.weather].icon + ' ' + WEATHER[STATE.weather].name + ']';
-  $id('meta-label').innerHTML = '👤 <span class="player-name" title="点击改名" onclick="showRenameModal()">' + esc(STATE.name || '训练家') + '</span> · 💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151' +
-    (STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '');
+  const eqTitle = STATE.equippedTitle ? parseTitleEntry(STATE.equippedTitle) : null;
+  $id('meta-label').innerHTML = (eqTitle ? '<span class="' + rarityClass(eqTitle.rarity) + '">[' + esc(titleLabel(eqTitle.id, eqTitle.rarity)) + ']</span> ' : '') +
+    '👤 <span class="player-name" title="点击改名" onclick="showRenameModal()">' + esc(STATE.name || '训练家') + '</span> · 💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151' +
+    (STATE.titles.length ? ' · 称号：' + STATE.titles.length + ' 个' : '');
   $id('goal-label').textContent = goalHint();
 
   const logBox = $id('log-box');
@@ -424,13 +433,13 @@ function renderMap() {
     const m = STATE.party[i];
     strip += '<div class="party-card pixel-frame" onclick="showMonDetail(' + i + ')">' +
       '<div class="party-icon" id="party-icon-' + i + '"></div>' +
-      '<div class="party-info"><div class="party-name">' + (i === 0 ? '⭐ ' : '') + m.name + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + (i === 0 ? '⭐ ' : '') + m.name + (m.shiny ? ' ✨' : '') + (m.held ? ' ⚡' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div></div>';
   }
   $id('party-strip').innerHTML = strip;
   for (let i = 0; i < STATE.party.length; i++) {
-    $id('party-icon-' + i).appendChild(monIcon(STATE.party[i].species, 36));
+    $id('party-icon-' + i).appendChild(monIcon(STATE.party[i].species, 36, STATE.party[i].shiny));
   }
 
   // 操作按钮
@@ -458,6 +467,10 @@ function renderMap() {
     const t = STATE.tower;
     const btnText = t.cleared ? '重新挑战（第 1 层）' : (t.floor > 1 ? '挑战第 ' + t.floor + ' 层' : '开始挑战（第 1 层）');
     html += '<button class="btn btn-primary" onclick="doMapAction(\'towerFight\')">🗼 ' + btnText + '</button>';
+    if (t.cleared) {
+      const st = t.superCleared ? '重新挑战（第 1 层）' : (t.superFloor > 1 ? '挑战第 ' + t.superFloor + ' 层' : '开始挑战（第 1 层）');
+      html += '<button class="btn btn-primary" onclick="doMapAction(\'superFight\')">⛩️ 超越之塔：' + st + '</button>';
+    }
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 背包（塔内补给）</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'towerInfo\')">ℹ️ 塔内进度</button>';
@@ -501,6 +514,7 @@ function doMapAction(type) {
     case 'dex': showDexHub(); return;
     case 'map': showMapModal(); return;
     case 'towerFight': startTowerFloor(); save(); render(); break;
+    case 'superFight': startSuperTowerFloor(); save(); render(); break;
     case 'towerInfo': showTowerInfo(); return;
     case 'town': {
       const cur = MAP_NODES[STATE.nodeId];
@@ -649,7 +663,8 @@ const BAG_TABS = [
   { id: 'ball', label: '精灵球', match: function (item) { return item.type === 'ball'; } },
   { id: 'tm', label: '技能机', match: function (item) { return item.type === 'tm'; } },
   { id: 'key', label: '关键物品', match: function (item) { return item.type === 'key'; } },
-  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy'].indexOf(item.type) !== -1; } }
+  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy', 'shiny', 'shard'].indexOf(item.type) !== -1; } },
+  { id: 'titles', label: '🏅 称号', match: function () { return false; } }
 ];
 
 function showBagModal(inBattle, tab) {
@@ -664,7 +679,9 @@ function showBagModal(inBattle, tab) {
     html += '<button class="btn btn-sm' + (t.id === tab ? ' active' : '') + '" onclick="showBagModal(' + (inBattle ? 'true' : 'false') + ',\'' + t.id + '\')">' + t.label + '</button>';
   }
   html += '</div>';
-  if (tab === 'key') {
+  if (tab === 'titles') {
+    html += '<div id="bag-titles-body">' + titleDexBodyHtml(false) + '</div>';
+  } else if (tab === 'key') {
     if (STATE.keyItems.length === 0) html += '<div class="shop-hint">还没有关键道具</div>';
     for (let i = 0; i < STATE.keyItems.length; i++) {
       const item = ITEMS[STATE.keyItems[i]];
@@ -755,7 +772,7 @@ function showPartyModal(mode, itemName) {
     }
     html += '<div class="party-row pixel-frame">' +
       '<div class="party-icon" id="modal-icon-' + i + '"></div>' +
-      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
@@ -766,7 +783,7 @@ function showPartyModal(mode, itemName) {
   }
   openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : (isBoxSwap ? '选择要存入箱子的宝可梦' : '精灵队伍')), html);
   for (let i = 0; i < STATE.party.length; i++) {
-    $id('modal-icon-' + i).appendChild(monIcon(STATE.party[i].species, 36));
+    $id('modal-icon-' + i).appendChild(monIcon(STATE.party[i].species, 36, STATE.party[i].shiny));
   }
 }
 
@@ -780,7 +797,7 @@ function showBoxModal() {
     html += '<div class="party-row pixel-frame">' +
       '<div class="box-icon-wrap"><div class="party-icon" id="box-icon-' + i + '"></div>' +
       '<button class="box-lock-corner' + (m.locked ? ' on' : '') + '" onclick="toggleBoxLock(' + i + ')" title="' + (m.locked ? '解锁' : '上锁') + '">' + (m.locked ? '🔒' : '🔓') + '</button></div>' +
-      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
+      '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
@@ -791,7 +808,7 @@ function showBoxModal() {
   }
   openModal('电脑箱（' + STATE.box.length + '只）', html);
   for (let i = 0; i < STATE.box.length; i++) {
-    $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36));
+    $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36, STATE.box[i].shiny));
   }
 }
 
@@ -901,7 +918,7 @@ function openMonDetailModal(mon, inParty) {
   const moveReplaceBtn = inParty && learnable.length > 0 ?
     '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + STATE.party.indexOf(mon) + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
-    '<div><div class="detail-name">' + rarityTag(mon) + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
+    '<div><div class="detail-name">' + rarityTag(mon) + mon.name + (mon.shiny ? ' ✨' : '') + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
     '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
     '<div class="shop-hint">羁绊：' + bondTier(mon.bond || 0) + '</div>' +
@@ -913,7 +930,7 @@ function openMonDetailModal(mon, inParty) {
     '<div class="shop-hint">—— 招式 ——</div>' + movesHtml;
   openModal(mon.name, html);
   const iconBox = $id('detail-icon');
-  if (iconBox) iconBox.appendChild(monIcon(mon.species, 48));
+  if (iconBox) iconBox.appendChild(monIcon(mon.species, 48, mon.shiny));
 }
 
 // 更换招式弹窗：选栏位 → 从可学清单选新招（满级也能换）
@@ -1003,7 +1020,8 @@ function showDexHub(tabId) {
   const tabs = [
     { id: 'pokedex', label: '📖 宝可梦' },
     { id: 'itemdex', label: '📘 道具' },
-    { id: 'movedex', label: '📗 招式' }
+    { id: 'movedex', label: '📗 招式' },
+    { id: 'titles', label: '🏅 称号' }
   ];
   let html = '<div class="bag-tabs dex-hub-tabs">' + tabs.map(function (t) {
     return '<button class="btn btn-sm' + (_dexHubTab === t.id ? ' active' : '') + '" onclick="showDexHub(\'' + t.id + '\')">' + t.label + '</button>';
@@ -1032,6 +1050,8 @@ function renderDexHubBody() {
     drawDexIcons();
   } else if (_dexHubTab === 'itemdex') {
     body.innerHTML = itemdexBodyHtml();
+  } else if (_dexHubTab === 'titles') {
+    body.innerHTML = titleDexBodyHtml(true); // 图鉴：纯展示，称号操作在背包
   } else {
     body.innerHTML = movedexBodyHtml();
     $id('move-dex-list').innerHTML = moveDexListHtml();
@@ -1040,6 +1060,106 @@ function renderDexHubBody() {
       input.addEventListener('compositionend', function () { onMoveDexSearch(this.value); });
     }
   }
+}
+
+// 称号图鉴：全部称号 + 解锁条件 + 装备/卸下
+let _titleSel = { id: null, rarity: '普通' };
+let _titleMsg = '';
+
+function rarityClass(r) { return 'title-r' + Math.max(0, rarityIndex(r)); }
+
+// readOnly = true：图鉴纯展示（无操作）；false：背包管理（选中/装备/合成/分解/兑换）
+function titleDexBodyHtml(readOnly) {
+  const counts = titleCounts();
+  const shards = bagCount('称号碎片');
+  const eq = STATE.equippedTitle ? parseTitleEntry(STATE.equippedTitle) : null;
+  const eqBonus = eq ? equippedTitleBonus() : {};
+  const eqList = ['atk', 'def', 'spa', 'spd', 'spe'].filter(function (k) { return eqBonus[k] > 0; })
+    .map(function (k) { return STAT_NAME[k] + '+' + eqBonus[k]; }).join(' ') || '无';
+  let html = '<div class="dex-hint">' + (readOnly ? '称号收藏 · ' : '称号管理 · ') + '稀有度决定属性加成（史诗五项全 +1）· 碎片 ' + shards + ' 个</div>';
+  if (!readOnly && _titleMsg) html += '<div class="shop-hint title-msg">' + _titleMsg + '</div>';
+  if (eq) {
+    html += '<div class="shop-hint">已装备：<span class="' + rarityClass(eq.rarity) + '">【' + titleLabel(eq.id, eq.rarity) + '】</span> 加成：' +
+      eqList + '</div>';
+  }
+  for (let i = 0; i < TITLES.length; i++) {
+    const t = TITLES[i];
+    const c = counts[t.id] || { 普通: 0, 少见: 0, 稀有: 0, 传说: 0, 史诗: 0 };
+    html += '<div class="title-dex-name">' + t.name + '<small>' + t.desc + '</small></div><div class="title-dex-rows">';
+    for (let r = 0; r < RARITIES.length; r++) {
+      const rarity = RARITIES[r];
+      const sel = _titleSel.id === t.id && _titleSel.rarity === rarity;
+      const n = c[rarity] || 0;
+      const canSynth = r < RARITIES.length - 1; // 非史诗可合成
+      const ready = canSynth && n >= 3;
+      html += '<div class="title-cell' + (sel ? ' sel' : '') + (ready ? ' ready' : '') + '"' + (readOnly ? '' : ' onclick="doTitleSelect(\'' + t.id + '\',\'' + rarity + '\')"') + '>' +
+        '<span class="' + rarityClass(rarity) + '">' + rarity + '</span><b>' + (canSynth ? n + '/3' : n) + '</b></div>';
+    }
+    html += '</div>';
+  }
+  if (!readOnly && _titleSel.id) {
+    const sel = _titleSel;
+    const n = titleCount(sel.id, sel.rarity);
+    const idx = rarityIndex(sel.rarity);
+    const missing = idx < RARITIES.length - 1 ? Math.max(0, 3 - n) : 0;
+    const equipped = STATE.equippedTitle === sel.id + '@' + sel.rarity;
+    html += '<div class="shop-hint">—— ' + titleLabel(sel.id, sel.rarity) + '（持有 ' + n +
+      (idx < RARITIES.length - 1 ? ' · 合成还需 ' + missing + ' 个' : ' · 最高档') + '）——</div>' +
+      '<div class="modal-btns title-actions">' +
+      (equipped ? '<button class="btn btn-sm" onclick="doTitleEquip(\'\')">卸下称号</button>' :
+        '<button class="btn btn-sm btn-primary" onclick="doTitleEquip(\'' + sel.id + '\',\'' + sel.rarity + '\')">装备</button>') +
+      (n >= 3 && idx < RARITIES.length - 1 ? '<button class="btn btn-sm" onclick="doTitleSynth()">合成（3合1 → ' + RARITIES[idx + 1] + '）</button>' : '') +
+      (n >= 1 && !equipped ? '<button class="btn btn-sm btn-danger" onclick="doTitleDismantle()">分解（+' + (idx + 1) + '碎片）</button>' : '') +
+      '</div>';
+  }
+  if (!readOnly) {
+    html += '<div class="shop-hint">—— 碎片兑换（5 碎片 → 任意称号·普通）——</div>' +
+      '<div class="bag-tabs">' + TITLES.map(function (t) {
+        const owned = (counts[t.id] || {}).普通 > 0 || (counts[t.id] || {}).少见 > 0 || (counts[t.id] || {}).稀有 > 0 || (counts[t.id] || {}).传说 > 0 || (counts[t.id] || {}).史诗 > 0;
+        return '<button class="btn btn-sm' + (owned ? '" onclick="doTitleExchange(\'' + t.id + '\')"' : '" disabled') + '>' + t.name + (owned ? '' : '（需先获得）') + '</button>';
+      }).join('') + '</div>';
+  }
+  return html;
+}
+
+function doTitleSelect(id, rarity) {
+  _titleSel = { id: id, rarity: rarity };
+  refreshTitleArea();
+}
+
+function doTitleEquip(id, rarity) {
+  if (equipTitle(id || null, rarity)) {
+    _titleMsg = id ? '✔ 装备了【' + titleLabel(id, rarity) + '】' : '✔ 已卸下称号';
+    _titleSel = { id: null, rarity: '普通' };
+  }
+  refreshTitleArea();
+}
+
+function doTitleSynth() {
+  const r = synthesizeTitle(_titleSel.id, _titleSel.rarity);
+  if (r.ok) _titleMsg = '✔ 合成了【' + titleLabel(_titleSel.id, RARITIES[rarityIndex(_titleSel.rarity) + 1]) + '】';
+  else alert(r.msg);
+  refreshTitleArea();
+}
+
+function doTitleDismantle() {
+  const r = dismantleTitle(_titleSel.id, _titleSel.rarity);
+  if (r.ok) _titleMsg = '✔ 分解了【' + titleLabel(_titleSel.id, _titleSel.rarity) + '】，+' + (rarityIndex(_titleSel.rarity) + 1) + ' 碎片';
+  else alert(r.msg);
+  refreshTitleArea();
+}
+
+function doTitleExchange(id) {
+  const r = exchangeTitle(id);
+  if (r.ok) _titleMsg = '✔ 兑换了【' + titleLabel(id, '普通') + '】';
+  else alert(r.msg);
+  refreshTitleArea();
+}
+
+// 刷新当前称号界面（图鉴 Tab 或背包称号 Tab）
+function refreshTitleArea() {
+  if ($id('dex-hub-body')) renderDexHubBody();
+  else if ($id('bag-titles-body')) showBagModal(false, 'titles');
 }
 
 function pokedexBodyHtml() {
@@ -1065,8 +1185,10 @@ function drawDexIcons() {
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
     if (STATE.seenDex[id]) {
+      const shiny = STATE.party.some(function (m) { return m.species === id && m.shiny; }) ||
+                    STATE.box.some(function (m) { return m.species === id && m.shiny; });
       const box = document.querySelector('#dex-icon-' + id + ' .dex-icon');
-      if (box) box.appendChild(monIcon(id, 28));
+      if (box) box.appendChild(monIcon(id, 28, shiny));
     }
   }
 }
@@ -1396,15 +1518,24 @@ function showTowerInfo() {
   const theme = towerThemeFor(cur);
   const themeText = theme.types.length === 1 ? theme.types[0] : theme.types.join('/');
   const counterText = theme.counters.length ? '建议使用 ' + theme.counters.join(' / ') + ' 系招式克制！' : '这一层没有固定弱点，靠综合实力吧！';
-  const titleLine = STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '';
-  openModal('无尽之塔',
+  let superHtml = '';
+  if (t.cleared) {
+    const sc = t.superCleared ? 100 : t.superFloor;
+    superHtml = '<div class="shop-hint">—— 超越之塔（通关无尽之塔解锁） ——</div>' +
+      '<div class="shop-hint">当前：第 ' + sc + ' 层（显示 Lv' + (100 + sc) + '）' + (t.superCleared ? '（已通关）' : '') + '</div>' +
+      '<div class="shop-hint">存档点：第 ' + t.superCheckpoint + ' 层（每 10 层存档）</div>' +
+      '<div class="shop-hint">历史最佳：第 ' + t.superBest + ' 层</div>' +
+      '<div class="shop-hint">奖励：每 10 层给【闪光石】×1（可让宝可梦变闪光形态）；100 层通关获称号「超越者」+ 虹色闪光石。</div>';
+  }
+  openModal('无尽之塔 / 超越之塔',
     '<div class="shop-hint">当前层数：第 ' + cur + ' 层' + (t.cleared ? '（已通关）' : '') + '</div>' +
     '<div class="shop-hint">本层主题：' + themeText + '（' + counterText + '）</div>' +
     '<div class="shop-hint">存档点：第 ' + t.checkpoint + ' 层（每 5 层存档）</div>' +
     '<div class="shop-hint">历史最佳：第 ' + t.bestFloor + ' 层</div>' +
     '<div class="shop-hint">规则：塔内不能回城补给、不能捕捉、不能逃跑；只能靠背包道具续航；全灭回到存档点。</div>' +
     '<div class="shop-hint">奖励：每 5 层给道具，100 层通关获得称号。</div>' +
-    '<div class="shop-hint">已获称号：' + (STATE.titles.length ? STATE.titles.join('、') : '（暂无）') + '</div>' +
+    superHtml +
+    '<div class="shop-hint">已获称号：' + (STATE.titles.length ? STATE.titles.length + ' 个（详见图鉴合集·称号）' : '（暂无）') + '</div>' +
     '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>');
 }
 
@@ -1478,9 +1609,9 @@ function renderBattle() {
   $id('battle-foe').innerHTML = battleCard(foe, 'foe', foeHit);
   $id('battle-player').innerHTML = battleCard(pm, 'player', playerHit);
   const foeIcon = $id('battle-icon-foe');
-  if (foeIcon) foeIcon.appendChild(monIcon(foe.m.species, 48));
+  if (foeIcon) foeIcon.appendChild(monIcon(foe.m.species, 48, foe.m.shiny));
   const playerIcon = $id('battle-icon-player');
-  if (playerIcon) playerIcon.appendChild(monIcon(pm.m.species, 48));
+  if (playerIcon) playerIcon.appendChild(monIcon(pm.m.species, 48, pm.m.shiny));
   const bLog = $id('battle-log');
   let start = b.logStart || 0;
   if (start >= STATE.log.length) start = Math.max(0, STATE.log.length - 50);
@@ -1514,8 +1645,8 @@ function battleCard(bm, side, hit) {
   const m = bm.m;
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
-    '<div class="battle-info"><div class="battle-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
-    '<div class="battle-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
+    '<div class="battle-info"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
+    '<div class="battle-lv">Lv.' + (m.displayLevel || m.level) + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
     '</div></div>';
 }
 
