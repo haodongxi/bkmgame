@@ -416,9 +416,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'mart\')">🏪 友好商店</button>';
     html += '<button class="btn" onclick="doMapAction(\'wander\')">🚶 在镇上逛逛</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
-    html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
-    html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
-    html += '<button class="btn" onclick="doMapAction(\'movedex\')">📗 招式图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'dex\')">📚 图鉴合集</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
@@ -447,9 +445,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'bag\')">🎒 打开背包</button>';
     html += '<button class="btn" onclick="doMapAction(\'party\')">🐾 精灵队伍</button>';
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
-    html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
-    html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
-    html += '<button class="btn" onclick="doMapAction(\'movedex\')">📗 招式图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'dex\')">📚 图鉴合集</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
     if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
@@ -477,6 +473,7 @@ function doMapAction(type) {
     case 'pokedex': showPokedexModal(); return;
     case 'itemdex': showItemDexModal(); return;
     case 'movedex': showMoveDexModal(); return;
+    case 'dex': showDexHub(); return;
     case 'map': showMapModal(); return;
     case 'towerFight': startTowerFloor(); save(); render(); break;
     case 'towerInfo': showTowerInfo(); return;
@@ -762,6 +759,7 @@ function showBoxModal() {
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       '<div class="row-btns">' +
+      '<button class="btn btn-sm" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
       '<button class="btn btn-sm" onclick="doBoxSwap(' + i + ')">取回</button>' +
       '<button class="btn btn-sm btn-danger" onclick="doTransfer(' + i + ')">传送</button></div></div>';
   }
@@ -825,6 +823,17 @@ function doItemOnMon(name, idx) {
 function showMonDetail(idx) {
   const mon = STATE.party[idx];
   if (!mon) return;
+  openMonDetailModal(mon, true);
+}
+
+// 电脑箱宝可梦详情（只读：队伍专属的换招/分配经验不显示）
+function showBoxMonDetail(boxIdx) {
+  const mon = STATE.box[boxIdx];
+  if (!mon) return;
+  openMonDetailModal(mon, false);
+}
+
+function openMonDetailModal(mon, inParty) {
   const d = mon.speciesData;
   const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
   let statsHtml = '';
@@ -851,11 +860,11 @@ function showMonDetail(idx) {
     if (d.evo.level) evoHtml = 'Lv.' + d.evo.level + ' 进化为 ' + POKEDEX[d.evo.into].name;
     else if (d.evo.stone) evoHtml = '使用' + d.evo.stone + '进化为 ' + POKEDEX[d.evo.into].name;
   }
-  const expPoolBtn = STATE.expPool > 0 ?
-    '<button class="btn btn-sm" onclick="showAllocateExp(' + idx + ')">📊 分配经验（经验池 ' + STATE.expPool + '）</button>' : '';
-  const learnable = learnableMoves(mon);
-  const moveReplaceBtn = learnable.length > 0 ?
-    '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + idx + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
+  const expPoolBtn = inParty && STATE.expPool > 0 ?
+    '<button class="btn btn-sm" onclick="showAllocateExp(' + STATE.party.indexOf(mon) + ')">📊 分配经验（经验池 ' + STATE.expPool + '）</button>' : '';
+  const learnable = inParty ? learnableMoves(mon) : [];
+  const moveReplaceBtn = inParty && learnable.length > 0 ?
+    '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + STATE.party.indexOf(mon) + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
     '<div><div class="detail-name">' + rarityTag(mon) + mon.name + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
@@ -948,8 +957,58 @@ function doAllocateExp(idx, mode) {
   showMonDetail(idx);
 }
 
-function showPokedexModal() {
-  const ids = Object.keys(POKEDEX).map(Number).filter(function (id) { return id >= 1 && id <= 151; }).sort(function (a, b) { return a - b; });
+// ---------------- 图鉴合集：宝可梦 / 道具 / 招式 统一入口（Tab 切换） ----------------
+
+let _dexHubTab = 'pokedex';
+
+function showDexHub(tabId) {
+  if (tabId) _dexHubTab = tabId;
+  const sc = document.querySelector('#modal-root .modal');
+  const top = sc ? sc.scrollTop : 0;
+  const tabs = [
+    { id: 'pokedex', label: '📖 宝可梦' },
+    { id: 'itemdex', label: '📘 道具' },
+    { id: 'movedex', label: '📗 招式' }
+  ];
+  let html = '<div class="bag-tabs dex-hub-tabs">' + tabs.map(function (t) {
+    return '<button class="btn btn-sm' + (_dexHubTab === t.id ? ' active' : '') + '" onclick="showDexHub(\'' + t.id + '\')">' + t.label + '</button>';
+  }).join('') + '</div>';
+  html += '<div id="dex-hub-body"></div>';
+  openModal('图鉴合集', html);
+  renderDexHubBody();
+  const nsc = document.querySelector('#modal-root .modal');
+  if (nsc && top > 0) nsc.scrollTop = top;
+}
+
+// 兼容旧入口：doMapAction / 测试仍可单独打开对应页
+function showPokedexModal() { showDexHub('pokedex'); }
+function showItemDexModal() { showDexHub('itemdex'); }
+function showMoveDexModal(cat) { if (cat) _moveDexCat = cat; showDexHub('movedex'); }
+
+function allDexIds() {
+  return Object.keys(POKEDEX).map(Number).filter(function (id) { return id >= 1 && id <= 151; }).sort(function (a, b) { return a - b; });
+}
+
+function renderDexHubBody() {
+  const body = $id('dex-hub-body');
+  if (!body) return;
+  if (_dexHubTab === 'pokedex') {
+    body.innerHTML = pokedexBodyHtml();
+    drawDexIcons();
+  } else if (_dexHubTab === 'itemdex') {
+    body.innerHTML = itemdexBodyHtml();
+  } else {
+    body.innerHTML = movedexBodyHtml();
+    $id('move-dex-list').innerHTML = moveDexListHtml();
+    const input = $id('move-dex-search');
+    if (input) {
+      input.addEventListener('compositionend', function () { onMoveDexSearch(this.value); });
+    }
+  }
+}
+
+function pokedexBodyHtml() {
+  const ids = allDexIds();
   let html = '<div class="dex-hint">已见 ' + Object.keys(STATE.seenDex).length + ' · 已捕获 ' + Object.keys(STATE.caughtDex).length + ' / 151</div>' +
     '<div class="dex-grid">';
   for (let i = 0; i < ids.length; i++) {
@@ -963,8 +1022,11 @@ function showPokedexModal() {
       '<div class="dex-name">' + (seen ? d.name : '???') + '</div>' +
       '<div class="dex-no">No.' + id + '</div></div>';
   }
-  html += '</div>';
-  openModal('宝可梦图鉴', html);
+  return html + '</div>';
+}
+
+function drawDexIcons() {
+  const ids = allDexIds();
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
     if (STATE.seenDex[id]) {
@@ -1027,8 +1089,8 @@ function showDexDetail(id) {
   if (box) box.appendChild(monIcon(id, 48));
 }
 
-// 道具图鉴：按分类列出全部道具与用途说明（商店/背包/出售列表共用同一套增强描述）
-function showItemDexModal() {
+// 道具图鉴内容：按分类列出全部道具与用途说明（商店/背包/出售列表共用同一套增强描述）
+function itemdexBodyHtml() {
   let html = '<div class="dex-hint">全部道具说明 · 共 ' + Object.keys(ITEMS).length + ' 种</div>';
   for (let ti = 0; ti < BAG_TABS.length; ti++) {
     const tab = BAG_TABS[ti];
@@ -1045,8 +1107,7 @@ function showItemDexModal() {
         '<div class="shop-desc">' + itemDesc(item) + '</div>';
     }
   }
-  html += '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
-  openModal('道具图鉴', html);
+  return html;
 }
 
 // ---------------- 招式图鉴：全部招式按属性分组，可搜索 / 按类别筛选 ----------------
@@ -1054,10 +1115,7 @@ function showItemDexModal() {
 let _moveDexCat = 'all';
 let _moveDexQuery = '';
 
-function showMoveDexModal(cat) {
-  if (cat) _moveDexCat = cat;
-  const sc = document.querySelector('#modal-root .modal');
-  const top = sc ? sc.scrollTop : 0;
+function movedexBodyHtml() {
   const cats = [
     { id: 'all', label: '全部' },
     { id: '物理', label: '物理' },
@@ -1068,19 +1126,23 @@ function showMoveDexModal(cat) {
   // 搜索框固定不重建，避免输入法（中文拼音）组合过程被打断
   html += '<input class="move-dex-search" id="move-dex-search" placeholder="搜索，如：火 / 喷 / 光…" value="' + _moveDexQuery + '" oninput="onMoveDexSearch(this.value, event)">';
   html += '<div class="bag-tabs">' + cats.map(function (c) {
-    return '<button class="btn btn-sm' + (_moveDexCat === c.id ? ' active' : '') + '" onclick="showMoveDexModal(\'' + c.id + '\')">' + c.label + '</button>';
+    return '<button class="btn btn-sm' + (_moveDexCat === c.id ? ' active' : '') + '" onclick="onMoveDexCat(\'' + c.id + '\')">' + c.label + '</button>';
   }).join('') + '</div>';
   html += '<div id="move-dex-list"></div>';
-  html += '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
-  openModal('招式图鉴', html);
+  return html;
+}
+
+// 招式图鉴类别 Tab：只重建招式内容区，不重建整个合集弹窗
+function onMoveDexCat(cat) {
+  _moveDexCat = cat;
+  const body = $id('dex-hub-body');
+  if (!body) return;
+  const sc = document.querySelector('#modal-root .modal');
+  const top = sc ? sc.scrollTop : 0;
+  body.innerHTML = movedexBodyHtml();
   $id('move-dex-list').innerHTML = moveDexListHtml();
-  // 输入法上屏（compositionend）后主动刷新一次，覆盖拼音整词上屏后无 input 事件的情况
   const input = $id('move-dex-search');
-  if (input) {
-    input.addEventListener('compositionend', function () {
-      onMoveDexSearch(this.value);
-    });
-  }
+  if (input) input.addEventListener('compositionend', function () { onMoveDexSearch(this.value); });
   const nsc = document.querySelector('#modal-root .modal');
   if (nsc && top > 0) nsc.scrollTop = top;
 }
