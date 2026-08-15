@@ -2302,6 +2302,32 @@ function fightToEnd() {
   const fs2 = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
   ok(fs1 === 1 && fs2 === 1, '塔内先发制人只在首回合（后续回合无加成）');
 }
+{
+  // 电脑箱锁定：上锁后不可取出/传送，解锁恢复；默认不上锁；随存档保存
+  T.newGame(4);
+  const s = T.getState();
+  s.box = [T.makeMon(16, 10, { nature: '勤奋' })];
+  ok(s.box[0].locked === false, '新宝可梦默认不上锁');
+  s.box[0].locked = true;
+  const expBefore = s.expPool;
+  T.transferMon(0);
+  ok(s.box.length === 1 && s.expPool === expBefore, '上锁宝可梦无法传送');
+  T.boxSwap(0, 0);
+  ok(s.box[0].species === 16 && s.party[0].species === 4, '上锁宝可梦无法取出');
+  s.box[0].locked = false;
+  T.transferMon(0);
+  ok(s.box.length === 0, '解锁后可正常传送');
+  s.box = [T.makeMon(19, 10, { nature: '勤奋' })];
+  s.box[0].locked = true;
+  T.save();
+  s.box = [];
+  ok(T.load() && T.getState().box[0].locked === true, '锁定状态随存档保存');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.box[0].locked;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.box = [];
+  ok(T.load() && T.getState().box[0].locked === false, '旧档无锁定字段默认不上锁');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);
