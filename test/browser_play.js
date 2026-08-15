@@ -318,7 +318,7 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（2只）') !== -1; })"), '地图显示电脑箱 2 只');
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（2只）') !== -1"), '箱子弹窗显示 2 只');
-  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('传送需 2500 金') !== -1 && Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent === '传送'; })"), '传送按钮简洁 + 弹窗顶部提示 2500 金费用');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('传送费用 = 等级²') !== -1 && Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent === '传送'; })"), '传送按钮简洁 + 弹窗顶部提示费用公式');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent.indexOf('详情') !== -1; })"), '箱子弹窗有详情按钮');
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '箱内宝可梦可查看详情（含个体值）');

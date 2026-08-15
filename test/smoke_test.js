@@ -30,7 +30,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
+  '  transferMon: transferMon, boxTransferFee: boxTransferFee, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -1849,7 +1849,7 @@ section('MVP11.1：喂养系统');
   T.transferMon(0);
   ok(s.box.length === 0, '传送后宝可梦从电脑箱移除');
   ok(s.expPool === expBefore + Math.max(10, mon.level * 150), '万能经验按等级×150 入池（30级=4500）');
-  ok(s.money === 7500, '传送扣 2500 金币');
+  ok(s.money === 9100, '传送扣 900 金币（30级=900）');
   ok(s.bag['攻击糖果'] === 1, '按最高种族值掉落攻击糖果');
   ok(s.bag['吃剩的东西'] === 1, '传送后携带物退回背包');
 }
@@ -1865,17 +1865,20 @@ section('MVP11.1：喂养系统');
   ok(s.bag['速度糖果'] === 1, '波波掉落速度糖果');
 }
 {
-  // 传送收费：钱不够拦截、扣 2500、经验按等级产出
+  // 传送收费：等级²（最低 500）→ 钱不够拦截、扣费、经验按等级产出
   T.newGame(4);
   const s = T.getState();
   s.box = [T.makeMon(16, 10, { nature: '勤奋' })];
-  s.money = 2000;
+  ok(T.boxTransferFee(s.box[0]) === 500, '10级传送费保底 500');
+  const feeEdge = { lv5: T.boxTransferFee(T.makeMon(16, 5)), lv22: T.boxTransferFee(T.makeMon(16, 22)), lv23: T.boxTransferFee(T.makeMon(16, 23)), lv50: T.boxTransferFee(T.makeMon(16, 50)), lv100: T.boxTransferFee(T.makeMon(16, 100)) };
+  ok(feeEdge.lv5 === 500 && feeEdge.lv22 === 500 && feeEdge.lv23 === 529 && feeEdge.lv50 === 2500 && feeEdge.lv100 === 10000, '费用曲线：≤22级保底500，23级529，50级2500，100级10000');
+  s.money = 300;
   T.transferMon(0);
-  ok(s.box.length === 1 && s.money === 2000, '钱不够时传送被拦截');
+  ok(s.box.length === 1 && s.money === 300, '钱不够时传送被拦截');
   s.money = 10000;
   const expBefore = s.expPool;
   T.transferMon(0);
-  ok(s.box.length === 0 && s.money === 7500, '传送扣 2500 金币');
+  ok(s.box.length === 0 && s.money === 9500, '传送扣 500 金币（10级保底）');
   ok(s.expPool === expBefore + Math.max(10, 10 * 150), '经验按等级×150（10级=1500）');
 }
 {

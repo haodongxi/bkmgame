@@ -2135,13 +2135,19 @@ function candyForSpecies(speciesId) {
   return best.name;
 }
 
+// 电脑箱传送费用：等级²，最低 500（卡住糖果售价，避免低等级怪“传送→卖糖”倒刷金币）
+function boxTransferFee(mon) {
+  const lv = mon ? mon.level : 0;
+  return Math.max(lv * lv, 500);
+}
+
 // 传送：宝可梦消失 → 万能经验（保底 10）+ 1 颗属性糖果
 function transferMon(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) { addLog('没有这只宝可梦。', 'info'); return; }
   if (mon.locked) { addLog(mon.name + ' 已上锁，无法传送。', 'warn'); return; }
-  // 传送收费 2500 金
-  const FEE = 2500;
+  // 传送收费：等级²（最低 500）
+  const FEE = boxTransferFee(mon);
   if (STATE.money < FEE) { addLog('传送需要 ' + FEE + ' 金币，你的钱不够！', 'warn'); return; }
   STATE.money -= FEE;
   // 万能经验：按等级 ×150 线性产出（避免高等级宝可梦按累计经验 ×0.3 产出爆炸）
@@ -3089,7 +3095,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    transferMon: transferMon, boxTransferFee: boxTransferFee, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
     addBond: addBond,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,

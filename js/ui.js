@@ -795,7 +795,7 @@ function showPartyModal(mode, itemName) {
 }
 
 function showBoxModal() {
-  let html = '<div class="shop-hint">💡 传送需 2500 金 · 锁定的宝可梦不可传送</div>';
+  let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 500 金）· 锁定的宝可梦不可传送</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
   }
@@ -832,7 +832,7 @@ function toggleBoxLock(boxIdx) {
 function doTransfer(idx) {
   const mon = STATE.box[idx];
   if (!mon) return;
-  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 2500 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
+  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 ' + boxTransferFee(mon) + ' 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
     transferMon(idx);
     save();
     // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
