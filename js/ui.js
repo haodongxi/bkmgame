@@ -1388,7 +1388,7 @@ function showLearnModal() {
     const mv = MOVES[mon.moves[i]];
     html += '<button class="btn btn-sm learn-btn" onclick="doLearn(' + i + ')">遗忘 ' + mv.name + '</button>';
   }
-  html += '<button class="btn btn-sm" onclick="doLearn(-1)">不学了</button>';
+  html += '<button class="btn btn-sm" onclick="doLearn(-1)">不学了（不再提示）</button>';
   openModal('学习新招式', html);
 }
 

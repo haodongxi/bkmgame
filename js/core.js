@@ -203,7 +203,8 @@ function makeMon(speciesId, level, opts) {
     stats: stats,
     candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 },
     bond: 0,
-    exploreSteps: 0
+    exploreSteps: 0,
+    forgottenMoves: [] // 玩家明确不学/遗忘的招式：升级不再重复提示
   };
   return mon;
 }
@@ -251,6 +252,7 @@ function grantExp(mon, amount, log, kinds) {
     Object.keys(mon.speciesData.learnset || {}).map(Number).sort(function (a, b) { return a - b; }).forEach(function (lv) {
       if (lv > mon.level) return;
       (mon.speciesData.learnset[lv] || []).forEach(function (mid) {
+        if ((mon.forgottenMoves || []).indexOf(mid) !== -1) return; // 遗忘过的招式不再提示
         if (mon.moves.indexOf(mid) !== -1) return;
         const alreadyPending = STATE.pendingLearn.some(function (p) { return p.uid === mon.uid && p.moveId === mid; });
         if (!alreadyPending) tryLearnMove(mon, mid, log, false, kinds);
@@ -297,11 +299,16 @@ function resolvePendingLearn(moveId, replaceIdx) {
     mon = holder[p.idx];
   }
   if (!mon) return { ok: false, reason: '宝可梦不存在' };
+  if (!mon.forgottenMoves) mon.forgottenMoves = [];
   if (replaceIdx === null || replaceIdx === undefined) {
+    // 玩家点“不学了”：记录为遗忘，后续升级不再重复提示
+    if (mon.forgottenMoves.indexOf(p.moveId) === -1) mon.forgottenMoves.push(p.moveId);
     addLog(mon.name + ' 没有学习【' + p.moveName + '】。');
     return { ok: true };
   }
   const old = mon.moves[replaceIdx];
+  // 被替换掉的旧招：记录为遗忘，后续升级不再重复提示
+  if (old !== p.moveId && mon.forgottenMoves.indexOf(old) === -1) mon.forgottenMoves.push(old);
   mon.moves[replaceIdx] = moveId;
   if (mon.pp) mon.pp[replaceIdx] = MOVES[moveId].pp;
   addLog(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + MOVES[moveId].name + '】！');
@@ -406,7 +413,8 @@ function learnableMoves(mon) {
     });
   });
   const known = mon.moves || [];
-  return all.filter(function (id) { return known.indexOf(id) === -1; });
+  const forgotten = mon.forgottenMoves || [];
+  return all.filter(function (id) { return known.indexOf(id) === -1 && forgotten.indexOf(id) === -1; });
 }
 
 // 招式更换费用：500 + 等级×30（等级越高越贵，保留技能位选择成本）
@@ -425,6 +433,9 @@ function replaceMove(partyIdx, slotIdx, moveId) {
   if (STATE.money < cost) return { ok: false, msg: '金币不足（需要 ' + cost + ' 金）。' };
   const oldId = mon.moves[slotIdx];
   STATE.money -= cost;
+  // 付费换掉的旧招：记录为遗忘，后续升级不再重复提示
+  if (!mon.forgottenMoves) mon.forgottenMoves = [];
+  if (oldId !== moveId && mon.forgottenMoves.indexOf(oldId) === -1) mon.forgottenMoves.push(oldId);
   mon.moves[slotIdx] = moveId;
   if (!mon.pp) mon.pp = [];
   mon.pp[slotIdx] = MOVES[moveId].pp;
@@ -2461,7 +2472,8 @@ function serializeMon(m) {
     uid: m.uid || 0, species: m.species, level: m.level, exp: m.exp, hp: m.hp,
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
-    candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0
+    candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0,
+    forgottenMoves: m.forgottenMoves || []
   };
 }
 
@@ -2483,6 +2495,10 @@ function deserializeMon(d) {
   mon.tradeBonus = !!d.tradeBonus;
   mon.bond = d.bond === undefined ? 0 : Math.max(0, Math.min(100, d.bond));
   mon.exploreSteps = d.exploreSteps || 0;
+  // 旧档无遗忘清单字段：默认空数组，不影响升级学招
+  mon.forgottenMoves = Array.isArray(d.forgottenMoves)
+    ? d.forgottenMoves.filter(function (id) { return MOVES[id]; })
+    : [];
   return mon;
 }
 
