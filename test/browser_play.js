@@ -174,6 +174,12 @@ async function main() {
   ok(await evaljs("STATE.nodeId === 'pallet' && STATE.money === 100"), '钱不够时传送被拦截');
   await evaljs("STATE.nodeId='route1'; render();");
   ok(await evaljs("document.querySelectorAll('#action-panel .btn')[0].textContent.indexOf('探索') !== -1"), '野外探索按钮');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('移动') !== -1; }) && !Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('返回城镇') !== -1 || b.textContent.indexOf('地图') !== -1; })"), '野外移动整合为单个按钮');
+  await evaljs("doMapAction('move');");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('返回城镇') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('前往下个地点') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('地图') !== -1"), '移动弹窗含返回城镇/地图/前往下个地点');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-btns .btn')).filter(function(x){return x.textContent.indexOf('前往下个地点') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .travel-btn').length >= 1"), '移动弹窗可进入前往下个地点');
+  await evaljs('closeModal();');
   await evaljs('doMapAction(\'travel\');');
   ok(await evaljs("document.querySelectorAll('.travel-btn').length >= 1"), '野外节点也有移动弹窗');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('.travel-btn'), function(b){ return b.textContent.indexOf('常磐市') !== -1; })"), '可从 1 号道路前往常磐市');
