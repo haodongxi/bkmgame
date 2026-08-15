@@ -505,6 +505,7 @@ section('问题修复回归');
 {
   // 逃跑后战斗状态清空
   T.newGame(4);
+  T.getState().party[0].stats.spe = 999; // 速度碾压：逃跑必成功
   T.startWildBattle(16, 3);
   T.battleRun();
   ok(T.getState().battle === null && T.getState().lastResult === 'run', '逃跑后战斗状态清空');
@@ -736,6 +737,8 @@ section('MVP7：招式 PP');
   const maxPp = mon.pp[0];
   ok(mon.pp && mon.pp.length === mon.moves.length, '生成招式时带 PP');
   T.startWildBattle(16, 2);
+  T.getState().battle.foe.mons[0].m.stats.hp = 999; // 高血量：PP 测试聚焦扣减逻辑，不受暴击/先手秒杀影响
+  T.getState().battle.foe.mons[0].m.hp = 999;
   T.battleMove(0);
   ok(mon.pp[0] === maxPp - 1, '使用招式后 PP -1');
   mon.pp = mon.moves.map(function () { return 0; });
@@ -1371,6 +1374,8 @@ section('无尽之塔');
   s.badges.push('绿色徽章');
   s.party = [T.makeMon(6, 60, { nature: '勤奋' }), T.makeMon(25, 60, { nature: '勤奋' })];
   s.party.forEach(function (m) { m.moves = ['flamethrower', 'thunderbolt']; m.pp = [20, 20]; });
+  s.party[1].stats.hp = 9999; // 高血量：换人测试聚焦逻辑本身，不受随机敌方伤害影响
+  s.party[1].hp = 9999;
   s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
   s.nodeId = 'tower';
   T.startTowerFloor();
@@ -2036,6 +2041,108 @@ section('MVP11.2：羁绊系统');
   ok(critHigh > critLow, '羁绊 60+ 暴击次数明显更多（' + critHigh + ' vs ' + critLow + '）');
 }
 {
+  // 速度利用：首回合速度对比提示 + 先发制人（先手伤害 +10%）
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(25, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['thunderbolt']; // 用伤害招验证先发制人
+  s.party[0].pp = [15];
+  s.party[0].stats.spe = 999;
+  T.startWildBattle(16, 10);
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  const logLen = s.log.length;
+  T.battleMove(0);
+  const newLogs = s.log.slice(logLen);
+  ok(newLogs.some(function (l) { return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; }), '首回合显示速度对比与先手提示');
+  ok(newLogs.some(function (l) { return l.indexOf('先发制人') !== -1; }), '先手方出招有“先发制人”提示');
+}
+{
+  // 先发制人伤害 +10%（统计平均）
+  const atk = T.makeMon(4, 50, { nature: '勤奋' });
+  const defMon = T.makeMon(16, 50, { nature: '勤奋' });
+  const mk = function (fs) { return { m: atk, stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, firstStrike: fs }; };
+  const d = { m: defMon, stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } };
+  let sumA = 0, sumB = 0;
+  for (let i = 0; i < 400; i++) {
+    sumA += T.calcDamage(mk(true), d, T.MOVES.ember, null).dmg;
+    sumB += T.calcDamage(mk(false), d, T.MOVES.ember, null).dmg;
+  }
+  ok(sumA > sumB * 1.02 && sumA <= sumB * 1.1, '先发制人伤害平均高约 5%（' + (sumA / 400).toFixed(1) + ' vs ' + (sumB / 400).toFixed(1) + '）');
+}
+{
+  // 速度碾压暴击率提升（统计）
+  const mk = function (spe) {
+    const mon = T.makeMon(4, 50, { nature: '勤奋' });
+    mon.stats.spe = spe;
+    return { m: mon, stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } };
+  };
+  const defMon = T.makeMon(16, 50, { nature: '勤奋' });
+  defMon.stats.spe = 100;
+  const def = { m: defMon, stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 } };
+  let critHigh = 0, critLow = 0;
+  for (let i = 0; i < 600; i++) {
+    if (T.calcDamage(mk(200), def, T.MOVES.ember, null).crit) critHigh++;
+    if (T.calcDamage(mk(100), def, T.MOVES.ember, null).crit) critLow++;
+  }
+  ok(critHigh > critLow, '速度碾压（200 vs 100）暴击次数更多（' + critHigh + ' vs ' + critLow + '）');
+}
+{
+  // 逃跑成功率与速度挂钩：高速必成、低速可能失败且敌方行动
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(25, 20, { nature: '勤奋' })];
+  s.party[0].stats.spe = 999;
+  T.startWildBattle(16, 5);
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  T.battleRun();
+  ok(s.battle === null && s.lastResult === 'run', '速度碾压时逃跑必成功');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(25, 20, { nature: '勤奋' })];
+  s.party[0].stats.spe = 1;
+  T.startWildBattle(16, 20);
+  s.battle.foe.mons[0].m.stats.spe = 100;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  const hp0 = s.battle.player.mons[0].m.hp;
+  const logLen = s.log.length;
+  seq.length = 0;
+  seq.push(0.9); // 90 ≥ 成功率 50 → 逃跑失败
+  T.battleRun();
+  ok(s.battle !== null, '低速逃跑失败后战斗继续');
+  ok(s.log.slice(logLen).some(function (l) { return l.indexOf('逃跑失败了') !== -1; }), '逃跑失败有提示');
+  ok(s.battle.player.mons[0].m.hp < hp0, '逃跑失败后敌方行动造成伤害');
+}
+{
+  // 速度提示不刷屏 + 先发制人只在首回合
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(25, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['thunderbolt'];
+  s.party[0].pp = [15];
+  s.party[0].stats.spe = 999;
+  s.party[0].stats.hp = 99999;
+  T.startWildBattle(16, 30);
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  s.battle.foe.mons[0].m.stats.hp = 99999;
+  T.battleMove(0);
+  const c1 = s.log.filter(function (l) { return l.indexOf('速度') !== -1; }).length;
+  const fs1 = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  T.battleMove(0);
+  const c2 = s.log.filter(function (l) { return l.indexOf('速度') !== -1; }).length;
+  const fs2 = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  ok(c1 === 1 && c2 === 1, '先手方不变时速度提示只在首回合出现');
+  ok(fs1 === 1 && fs2 === 1, '先发制人只在首回合出现（后续回合无加成）');
+}
+{
   // 阶段四：20% 毅力锁血（每场一次）
   T.newGame(4);
   const s = T.getState();
@@ -2082,6 +2189,81 @@ section('MVP11.2：羁绊系统');
   s.party = [];
   T.load();
   ok(T.getState().party[0].bond === 77, '羁绊随存档保存');
+}
+
+// ---------- 全战斗类型回归（速度机制后）：每种战斗完整打到胜利 ----------
+section('全战斗类型回归（速度机制后）');
+function strongTeam() {
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(6, 99, { nature: '固执' })];
+  s.party[0].stats.spe = 999;
+  s.party[0].stats.hp = 9999;
+  s.party[0].hp = 9999;
+  s.party[0].moves = ['flamethrower', 'dragon_claw', 'earthquake', 'hyper_beam'];
+  s.party[0].pp = [15, 15, 10, 5];
+  return s;
+}
+function fightToEnd() {
+  let guard = 0;
+  while (T.getState().battle && !T.getState().battle.over && guard++ < 160) {
+    T.battleMove(strongMoveIdx(T.getState().battle));
+  }
+  return T.getState().lastResult;
+}
+{
+  const s = strongTeam();
+  T.startWildBattle(16, 20);
+  ok(fightToEnd() === 'win', '野生战斗胜利');
+}
+{
+  const s = strongTeam();
+  T.startTrainerBattle(T.MAP_NODES.route1.trainers[0]);
+  ok(fightToEnd() === 'win' && s.trainersDefeated['r1_t1'] === true, '路人训练家战斗胜利并记录');
+}
+{
+  const s = strongTeam();
+  T.startRocketBattle('robbery');
+  ok(fightToEnd() === 'win' && s.bag['金珠'] === 1, '火箭队抢劫战胜利并掉落金珠');
+}
+{
+  const s = strongTeam();
+  T.startRocketBattle('rescue');
+  ok(fightToEnd() === 'win' && (s.party.concat(s.box)).some(function (m) { return m.species === 133; }) && s.caughtDex[133] === true, '火箭队解救战胜利且伊布入队');
+}
+{
+  const s = strongTeam();
+  T.startRivalBattle({ step: 'r3', team: [{ id: 7, level: 13 }, { id: 16, level: 13 }] });
+  ok(fightToEnd() === 'win' && s.rivalWon.indexOf('r3') !== -1, '宿敌战胜利并记录');
+}
+{
+  const s = strongTeam();
+  s.nodeId = 'pewter';
+  T.challengeGym();
+  ok(s.battle && s.battle.kind === 'gym_apprentice', '道馆连战从学徒开始');
+  ok(fightToEnd() === 'win' && s.badges.indexOf('灰色徽章') !== -1 && s.bag['TM岩石封锁'] === 1, '道馆连战（学徒×2+馆主）胜利获徽章与 TM');
+}
+{
+  const s = strongTeam();
+  s.nodeId = 'vermilion';
+  T.startSSAnne();
+  ok(fightToEnd() === 'win' && s.ssAnneDone === true && s.bag['TM居合斩'] === 1, '圣安奴号战胜利获 TM 居合斩');
+}
+{
+  const s = strongTeam();
+  s.nodeId = 'route1';
+  s.banditToll = true;
+  T.resolveBandit(false);
+  ok(s.battle && s.battle.kind === 'bandit', '强盗战开战');
+  ok(fightToEnd() === 'win' && s.money === 3000 + 1600, '强盗战胜利获 1600 金');
+}
+{
+  const s = strongTeam();
+  s.badges.push('绿色徽章');
+  s.nodeId = 'tower';
+  s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  T.startTowerFloor();
+  ok(fightToEnd() === 'win' && s.tower.floor === 2 && s.tower.bestFloor === 1, '无尽之塔首层胜利并推进');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

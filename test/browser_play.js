@@ -153,6 +153,7 @@ async function main() {
   ok(await evaljs("effHint({type:'电', power:40}, ['地面']).indexOf('没有效果') !== -1"), '克制提示：电对地面没有效果');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}return STATE.lastResult;})()");
   ok(await evaljs("STATE.lastResult === 'win'"), '战斗胜利结算');
+  ok(await evaljs("STATE.log.some(function(l){ return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; })"), '战斗首回合显示速度对比与先手提示');
   await evaljs('render();');
   ok(await evaljs("document.querySelector('#screen-map').classList.contains('active')"), '战斗后回到地图页');
   ok(await evaljs("getComputedStyle(document.querySelector('#screen-battle')).display === 'none'"), '回到地图后战斗屏隐藏');
