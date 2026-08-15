@@ -131,6 +131,25 @@
     #action-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .travel-btn, .learn-btn, .modal-btns .btn { width: 100%; margin-top: 6px; }
     .btn[disabled].travel-btn { opacity: 0.45; }
+    /* 弹窗正文里的独立按钮统一等宽，避免随文字长度大小不一 */
+    #modal-root .modal-body > .btn { width: 100%; display: block; text-align: left; }
+    /* 招式状态标签：已学会（绿块）/ 要学习（金块），实心色块避免基线错位 */
+    .tag-known, .tag-learn { display: inline-block; font-size: 8px; padding: 2px 5px; margin-right: 6px; line-height: 1.2; vertical-align: middle; flex: 0 0 auto; }
+    .tag-known { color: #10241a; background: var(--green); }
+    .tag-learn { color: #241b06; background: var(--gold); }
+    .mv-name { color: var(--mv-tc, var(--text)); }
+    /* 学招弹窗：新招信息卡 */
+    .learn-new { border: 3px solid var(--gold); background: #26200f; padding: 8px; margin-bottom: 8px; }
+    .learn-new-tag { font-size: 9px; color: var(--gold); margin-bottom: 3px; }
+    .learn-new-name { font-size: 15px; color: var(--tc, var(--gold)); margin: 2px 0; }
+    .learn-new-meta { font-size: 9px; color: var(--text-dim); line-height: 1.7; }
+    /* 学招弹窗旧招按钮：flex 两行对齐（标签+招名 / 效果说明） */
+    .learn-btn { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; }
+    .learn-btn-line { display: flex; align-items: center; width: 100%; }
+    .learn-old-meta { display: block; font-size: 8px; color: var(--text-dim); margin-top: 2px; line-height: 1.5; }
+    /* 更换招式槽位按钮：flex 横向对齐（标签+编号+招名） */
+    .slot-btn { display: flex; align-items: center; width: 100%; text-align: left; }
+    .slot-no { color: var(--text-dim); min-width: 24px; flex: 0 0 auto; }
 
     /* ---------- 战斗 ---------- */
     #screen-battle { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
@@ -149,7 +168,7 @@
     .battle-lv { font-size: 10px; color: var(--text-dim); margin: 4px 0; }
     .vs-divider { text-align: center; color: var(--red); font-size: 11px; margin: 2px 0; }
     #battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
-    .move-btn { position: relative; }
+    .move-btn { position: relative; width: 100%; display: block; text-align: left; }
     .move-type { display: block; font-size: 9px; color: var(--tc); margin-top: 3px; }
     .move-eff { display: block; font-size: 9px; margin-top: 2px; }
     .move-pp { display: block; font-size: 9px; color: var(--text-dim); margin-top: 2px; }

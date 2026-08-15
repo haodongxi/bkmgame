@@ -838,7 +838,8 @@ function showMonDetail(idx) {
     const mv = MOVES[mon.moves[i]];
     if (!mv) continue;
     const left = (mon.pp && mon.pp[i] !== undefined) ? mon.pp[i] : mv.pp;
-    movesHtml += '<div class="detail-row"><span>' + mv.name + ' · ' + mv.type + '</span><span>' +
+    movesHtml += '<div class="detail-row"><span><span class="tag-known">已学会</span>' +
+      '<span class="mv-name" style="color:' + typeColor(mv.type) + '">' + mv.name + '</span> · ' + mv.type + '</span><span>' +
       (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp +
       (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
   }
@@ -878,22 +879,25 @@ function showMoveReplaceModal(idx) {
   let slotHtml = '';
   for (let i = 0; i < mon.moves.length; i++) {
     const mv = MOVES[mon.moves[i]];
-    slotHtml += '<button class="btn btn-sm' + (_moveReplaceSlot === i ? ' active' : '') + '" onclick="pickMoveSlot(' + idx + ',' + i + ')">' +
-      (i + 1) + '. ' + (mv ? mv.name : '?') + '</button>';
+    slotHtml += '<button class="btn btn-sm slot-btn' + (_moveReplaceSlot === i ? ' active' : '') + '" onclick="pickMoveSlot(' + idx + ',' + i + ')">' +
+      '<span class="tag-known">已学会</span><span class="slot-no">' + (i + 1) + '. </span>' +
+      '<span class="mv-name" style="--mv-tc:' + (mv ? typeColor(mv.type) : 'inherit') + '">' +
+      (mv ? mv.name : '?') + '</span></button>';
   }
   let learnHtml = '';
   for (let i = 0; i < learnable.length; i++) {
     const mv = MOVES[learnable[i]];
     if (!mv) continue;
     learnHtml += '<button class="btn btn-sm move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doReplaceMove(' + idx + ',' + _moveReplaceSlot + ',\'' + learnable[i] + '\')">' +
-      mv.name + '<span class="move-type">' + mv.type + '</span>' +
+      '<span class="tag-learn">要学习</span>' + mv.name + '<span class="move-type">' + mv.type + '</span>' +
       (mv.power > 0 ? '<span class="move-eff">威力 ' + mv.power + '</span>' : '<span class="move-eff">变化</span>') +
       (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') + '</button>';
   }
   openModal('更换招式 · ' + mon.name,
-    '<div class="shop-hint">把第 ' + (_moveReplaceSlot + 1) + ' 招替换成其他招式（花费 ' + cost + ' 金，当前余额 ' + STATE.money + ' 金）</div>' +
+    '<div class="shop-hint">选择下方「要学习」的技能，将替换第 ' + (_moveReplaceSlot + 1) + ' 招（已学会的 ' +
+    (MOVES[mon.moves[_moveReplaceSlot]] ? MOVES[mon.moves[_moveReplaceSlot]].name : '?') + '），花费 ' + cost + ' 金（当前余额 ' + STATE.money + ' 金）</div>' +
     '<div class="bag-tabs">' + slotHtml + '</div>' +
-    '<div class="shop-hint">—— 可学招式（Lv.' + mon.level + ' 及以下） ——</div>' +
+    '<div class="shop-hint">—— 可学招式（要学习，Lv.' + mon.level + ' 及以下） ——</div>' +
     (learnHtml || '<div class="shop-hint">没有可学习的招式</div>') +
     '<div class="modal-btns"><button class="btn" onclick="closeModal()">取消</button></div>');
 }
@@ -1368,7 +1372,6 @@ function doBattleRun() {
 function showLearnModal() {
   const p = STATE.pendingLearn[0];
   if (!p) return;
-  let html = '<div class="shop-hint">' + p.monName + ' 想学会【' + p.moveName + '】，要遗忘哪个招式？</div>';
   let mon = null;
   if (p.uid) {
     mon = STATE.party.filter(function (m) { return m.uid === p.uid; })[0] ||
@@ -1384,9 +1387,26 @@ function showLearnModal() {
     render();
     return;
   }
+  const newMv = MOVES[p.moveId];
+  let html = newMv ?
+    '<div class="learn-new" style="--tc:' + typeColor(newMv.type) + '">' +
+      '<div class="learn-new-tag">✦ 要学习的技能</div>' +
+      '<div class="learn-new-name">' + newMv.name + '</div>' +
+      '<div class="learn-new-meta">' + newMv.type + ' · ' +
+        (newMv.power > 0 ? newMv.category + ' · 威力 ' + newMv.power + ' · ' : '变化类 · ') +
+        (newMv.acc === 0 ? '必中' : '命中 ' + newMv.acc) + ' · PP ' + newMv.pp +
+        (moveEffectText(newMv) ? '<br>' + moveEffectText(newMv) : '') +
+      '</div></div>' :
+    '<div class="learn-new"><div class="learn-new-tag">✦ 要学习的技能</div><div class="learn-new-name">' + p.moveName + '</div></div>';
+  html += '<div class="shop-hint">' + p.monName + ' 想学会上面的技能，请遗忘一个已学会的招式：</div>';
   for (let i = 0; i < mon.moves.length; i++) {
     const mv = MOVES[mon.moves[i]];
-    html += '<button class="btn btn-sm learn-btn" onclick="doLearn(' + i + ')">遗忘 ' + mv.name + '</button>';
+    html += '<button class="btn btn-sm learn-btn" onclick="doLearn(' + i + ')">' +
+      '<span class="learn-btn-line"><span class="tag-known">已学会</span>' +
+      '<span class="mv-name" style="--mv-tc:' + typeColor(mv.type) + '">' + mv.name + '</span></span>' +
+      '<span class="learn-old-meta">' + (mv.power > 0 ? '威力 ' + mv.power + ' · ' : '变化类 · ') +
+      (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + (mon.pp && mon.pp[i] !== undefined ? mon.pp[i] : mv.pp) + '/' + mv.pp +
+      (moveEffectText(mv) ? '<br>' + moveEffectText(mv) : '') + '</span></button>';
   }
   html += '<button class="btn btn-sm" onclick="doLearn(-1)">不学了（不再提示）</button>';
   openModal('学习新招式', html);
