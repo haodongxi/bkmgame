@@ -317,6 +317,15 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（1只）') !== -1; })"), '传送后地图按钮同步为 1 只');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（1只）') !== -1"), '传送后箱子弹窗同步为 1 只');
   await evaljs('closeModal();');
+  // 火箭队秘密仓库与精灵蛋
+  await evaljs("STATE.caughtDex={4:true}; STATE.party=[makeMon(6,50,{nature:'固执'})]; STATE.bag={'走私的精灵蛋':1}; render(); doMapAction('bag');");
+  await evaljs("showBagModal(false,'misc');");
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('走私的精灵蛋') !== -1;})[0]; var btn=b?b.querySelector('button'):null; if(btn)btn.click();})()");
+  ok(await evaljs("STATE.party.some(function(m){return m.species===1||m.species===7;})"), '背包使用精灵蛋孵出未选御三家');
+  await evaljs("STATE.bag={}; STATE.party=[makeMon(6,50,{nature:'固执'})]; STATE.party[0].moves=['flamethrower','dragon_claw','earthquake','hyper_beam']; STATE.party[0].pp=[15,15,10,5]; STATE.party[0].stats.hp=9999; STATE.party[0].hp=9999; STATE.nodeId='celadon'; STATE.rocketWarehouseDone=false; startRocketWarehouseBattle(); render();");
+  ok(await evaljs("STATE.battle && STATE.battle.kind==='rocket_warehouse'"), '火箭队秘密仓库战斗开启');
+  await evaljs("(function(){while(STATE.battle&&!STATE.battle.over){var b=STATE.battle;var a=b.player.mons[b.player.active];var idx=-1;for(var i=0;i<a.m.moves.length;i++){var mv=MOVES[a.m.moves[i]];if(mv&&mv.power>0&&(!a.m.pp||a.m.pp[i]>0)&&typeEffectiveness(mv.type,b.foe.mons[b.foe.active].m.speciesData.types)>0){idx=i;break;}}battleMove(idx);}})()");
+  ok(await evaljs("STATE.bag['走私的精灵蛋']===1 && STATE.rocketWarehouseDone===true"), '仓库打赢得蛋并标记');
 
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });

@@ -20,6 +20,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +
   '  startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle, startGymBattle: startGymBattle,\n' +
   '  startRocketBattle: startRocketBattle,\n' +
+  '  startRocketWarehouseBattle: startRocketWarehouseBattle, useEggItem: useEggItem,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
   '  startTowerFloor: startTowerFloor, startSuperTowerFloor: startSuperTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,\n' +
   '  TITLES: TITLES, titleName: titleName, titleLabel: titleLabel, RARITIES: RARITIES, rarityIndex: rarityIndex,\n' +
@@ -2541,6 +2542,37 @@ function fightToEnd() {
   localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
   s.teleportCost = 0;
   ok(T.load() && T.getState().teleportCost === 500, '旧档无传送费用字段默认 500');
+}
+{
+  // 火箭队秘密仓库（彩虹市）：10% 触发、打赢得蛋、蛋孵出未选御三家、一次性
+  T.newGame(4); // 开局选小火龙
+  const s = T.getState();
+  s.party = [T.makeMon(6, 50, { nature: '固执' })];
+  s.party[0].moves = ['flamethrower', 'dragon_claw', 'earthquake', 'hyper_beam'];
+  s.party[0].pp = [15, 15, 10, 5];
+  s.nodeId = 'celadon';
+  seq.length = 0; seq.push(0.5);
+  s.wanderUsed = false;
+  T.wanderTown();
+  ok(!s.battle, '闲逛未触发仓库（概率外）');
+  seq.length = 0; seq.push(0.05);
+  s.wanderUsed = false;
+  T.wanderTown();
+  ok(s.battle && s.battle.kind === 'rocket_warehouse', '彩虹市闲逛触发火箭队秘密仓库');
+  ok(fightToEnd() === 'win', '仓库战斗胜利');
+  ok(s.bag['走私的精灵蛋'] === 1 && s.rocketWarehouseDone === true, '打赢得走私的精灵蛋并标记');
+  seq.length = 0; seq.push(0.01);
+  s.wanderUsed = false;
+  s.battle = null;
+  T.wanderTown();
+  ok(!s.battle, '已领取后不再触发仓库');
+  T.useEggItem();
+  ok(!s.bag['走私的精灵蛋'], '蛋使用后消耗');
+  const got = s.party.concat(s.box).filter(function (m) { return m.species === 1 || m.species === 7; });
+  ok(got.length === 1 && (s.caughtDex[1] === true || s.caughtDex[7] === true), '蛋孵出未选御三家（妙蛙种子或杰尼龟）');
+  T.save();
+  s.rocketWarehouseDone = false;
+  ok(T.load() && T.getState().rocketWarehouseDone === true, '仓库标记随存档保存');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
