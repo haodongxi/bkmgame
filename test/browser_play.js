@@ -104,6 +104,7 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
+  ok(await evaljs("document.querySelector('.map-reset-wrap .btn') !== null && document.querySelector('#action-panel').textContent.indexOf('重开') === -1"), '重开按钮已移到右上角，不在操作面板中');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');
   ok(await evaljs("document.querySelector('#goal-label').textContent.indexOf('小刚') !== -1"), '目标提示指向首个道馆');
