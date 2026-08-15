@@ -1849,7 +1849,7 @@ section('MVP11.1：喂养系统');
   T.transferMon(0);
   ok(s.box.length === 0, '传送后宝可梦从电脑箱移除');
   ok(s.expPool === expBefore + Math.max(10, mon.level * 150), '万能经验按等级×150 入池（30级=4500）');
-  ok(s.money === 5000, '传送扣 5000 金币');
+  ok(s.money === 7500, '传送扣 2500 金币');
   ok(s.bag['攻击糖果'] === 1, '按最高种族值掉落攻击糖果');
   ok(s.bag['吃剩的东西'] === 1, '传送后携带物退回背包');
 }
@@ -1865,17 +1865,17 @@ section('MVP11.1：喂养系统');
   ok(s.bag['速度糖果'] === 1, '波波掉落速度糖果');
 }
 {
-  // 传送收费：钱不够拦截、扣 5000、经验按等级产出
+  // 传送收费：钱不够拦截、扣 2500、经验按等级产出
   T.newGame(4);
   const s = T.getState();
   s.box = [T.makeMon(16, 10, { nature: '勤奋' })];
-  s.money = 4000;
+  s.money = 2000;
   T.transferMon(0);
-  ok(s.box.length === 1 && s.money === 4000, '钱不够时传送被拦截');
+  ok(s.box.length === 1 && s.money === 2000, '钱不够时传送被拦截');
   s.money = 10000;
   const expBefore = s.expPool;
   T.transferMon(0);
-  ok(s.box.length === 0 && s.money === 5000, '传送扣 5000 金币');
+  ok(s.box.length === 0 && s.money === 7500, '传送扣 2500 金币');
   ok(s.expPool === expBefore + Math.max(10, 10 * 150), '经验按等级×150（10级=1500）');
 }
 {
