@@ -2100,7 +2100,12 @@ function transferMon(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) { addLog('没有这只宝可梦。', 'info'); return; }
   if (mon.locked) { addLog(mon.name + ' 已上锁，无法传送。', 'warn'); return; }
-  const exp = Math.max(10, Math.floor(mon.exp * 0.3));
+  // 传送收费 5000 金
+  const FEE = 5000;
+  if (STATE.money < FEE) { addLog('传送需要 ' + FEE + ' 金币，你的钱不够！', 'warn'); return; }
+  STATE.money -= FEE;
+  // 万能经验：按等级 ×150 线性产出（避免高等级宝可梦按累计经验 ×0.3 产出爆炸）
+  const exp = Math.max(10, mon.level * 150);
   const candy = candyForSpecies(mon.species);
   STATE.expPool += exp;
   addItem(candy, 1);
@@ -2110,7 +2115,7 @@ function transferMon(boxIdx) {
     addLog('你把 ' + mon.name + ' 身上携带的【' + mon.held + '】放回了背包。', 'good');
   }
   STATE.box.splice(boxIdx, 1);
-  addLog('你把 ' + mon.name + ' 传送给了大木博士。', 'info');
+  addLog('你花了 5000 金币把 ' + mon.name + ' 传送给了大木博士。', 'info');
   addLog('万能经验 +' + exp + '，获得了【' + candy + '】×1！', 'good');
 }
 

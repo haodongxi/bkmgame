@@ -788,7 +788,7 @@ function showPartyModal(mode, itemName) {
 }
 
 function showBoxModal() {
-  let html = '';
+  let html = '<div class="shop-hint">💡 传送需 5000 金 · 锁定的宝可梦不可取出/传送</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
   }
@@ -825,7 +825,7 @@ function toggleBoxLock(boxIdx) {
 function doTransfer(idx) {
   const mon = STATE.box[idx];
   if (!mon) return;
-  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
+  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 5000 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
     transferMon(idx);
     save();
     // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
@@ -1202,7 +1202,7 @@ function showDexDetail(id) {
       '<div class="detail-head"><div class="detail-icon dex-unknown">？</div>' +
       '<div><div class="detail-name">？？？ <span class="detail-no">No.' + id + '</span></div>' +
       '<div class="detail-lv">尚未遇见……继续探索关都吧！</div></div></div>' +
-      '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>');
+      '<div class="modal-btns"><button class="btn" onclick="showDexHub(\'pokedex\')">← 返回图鉴</button></div>');
     return;
   }
   const b = d.base;
@@ -1240,7 +1240,7 @@ function showDexDetail(id) {
     '<div class="shop-hint">进化：' + evoHtml + '</div>' +
     '<div class="shop-hint">—— 可学招式 ——</div>' + movesHtml +
     '<div class="shop-hint">—— 获取途径 ——</div>' + pathsHtml +
-    '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
+    '<div class="modal-btns"><button class="btn" onclick="showDexHub(\'pokedex\')">← 返回图鉴</button></div>';
   openModal(d.name, html);
   const box = $id('dex-detail-icon');
   if (box) box.appendChild(monIcon(id, 48));
