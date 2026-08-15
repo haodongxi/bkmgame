@@ -1680,6 +1680,69 @@ section('技能效果与学习面');
   ok(s3.pendingLearn[0] && s3.pendingLearn[0].uid === legacyUid, '旧档待学招读档自动补挂 uid');
 }
 
+// ---------- 13.7.1 遗忘技能不再重复提示（升级/替换/更换面板） ----------
+section('遗忘技能不再重复提示');
+{
+  // 场景 1：升级弹窗点“不学了”→ 后续升级不再重复提示该招
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 29, { nature: '勤奋' })]; // 卡比兽 29 级，4 招已满
+  s.party[0].moves = ['tackle', 'growl', 'quick_attack', 'take_down'];
+  s.party[0].pp = [35, 40, 30, 25];
+  const log = [];
+  T.grantExp(s.party[0], T.expForLevel('slow', 30) - s.party[0].exp + 1, log, []);
+  ok(s.pendingLearn.length === 1 && s.pendingLearn[0].moveId === 'rest', '30 级睡觉进入待学队列');
+  const r = T.resolvePendingLearn('rest', null); // 玩家点“不学了”
+  ok(r.ok && (s.party[0].forgottenMoves || []).indexOf('rest') !== -1, '不学了的招式记入遗忘清单');
+  s.pendingLearn = [];
+  T.grantExp(s.party[0], T.expForLevel('slow', 100) - s.party[0].exp, log, []);
+  ok(s.pendingLearn.length >= 1 && s.pendingLearn.every(function (p) { return p.moveId !== 'rest'; }), '后续升级不再重复提示已遗忘的睡觉');
+}
+{
+  // 场景 2：升级学招时替换掉旧招 → 被替换的旧招后续升级不再提示
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 29, { nature: '勤奋' })];
+  s.party[0].moves = ['tackle', 'growl', 'quick_attack', 'take_down'];
+  s.party[0].pp = [35, 40, 30, 25];
+  const log = [];
+  T.grantExp(s.party[0], T.expForLevel('slow', 30) - s.party[0].exp + 1, log, []);
+  const r = T.resolvePendingLearn('rest', 0); // 遗忘撞击学睡觉
+  ok(r.ok && s.party[0].moves.indexOf('rest') !== -1, '替换学习成功');
+  ok((s.party[0].forgottenMoves || []).indexOf('tackle') !== -1, '被替换掉的旧招记入遗忘清单');
+  s.pendingLearn = [];
+  T.grantExp(s.party[0], T.expForLevel('slow', 100) - s.party[0].exp, log, []);
+  ok(s.pendingLearn.every(function (p) { return p.moveId !== 'tackle'; }), '被替换的旧招后续升级不再提示');
+}
+{
+  // 场景 3：招式更换面板付费换掉旧招 → 旧招记入遗忘清单且不再出现在可学清单
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 100, { nature: '勤奋' })];
+  s.party[0].moves = ['tackle', 'growl', 'amnesia', 'agility']; // 模拟旧档残留
+  s.party[0].pp = [35, 40, 20, 30];
+  s.money = 10000;
+  const res = T.replaceMove(0, 0, 'body_slam'); // 遗忘撞击，学泰山压顶
+  ok(res.ok && s.party[0].moves[0] === 'body_slam', '付费替换成功');
+  ok((s.party[0].forgottenMoves || []).indexOf('tackle') !== -1, '被换掉的旧招记入遗忘清单');
+  ok(T.learnableMoves(s.party[0]).indexOf('tackle') === -1, '可学清单不再显示已遗忘的旧招');
+}
+{
+  // 场景 4：遗忘清单随存档保存，旧档无该字段默认空数组
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(143, 30, { nature: '勤奋' })];
+  s.party[0].forgottenMoves = ['rest', 'amnesia'];
+  T.save();
+  s.party = [];
+  ok(T.load() && T.getState().party[0].forgottenMoves.join(',') === 'rest,amnesia', '遗忘清单随存档保存');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.party[0].forgottenMoves;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.party = [];
+  ok(T.load() && Array.isArray(T.getState().party[0].forgottenMoves) && T.getState().party[0].forgottenMoves.length === 0, '旧档无遗忘清单字段默认空数组');
+}
+
 // ---------- 13.8 MVP14：全图鉴投放补全 ----------
 section('MVP14：全图鉴投放');
 {

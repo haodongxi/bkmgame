@@ -156,6 +156,17 @@ async function main() {
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-body .move-btn')).filter(function(x){return x.textContent.indexOf('泰山压顶')!==-1;})[0]; if(b)b.click();})()");
   ok(await evaljs("STATE.party[0].moves[3] === 'body_slam' && STATE.money === 6500"), '替换成功：高速移动换成泰山压顶并扣除 3500 金');
 
+  // 遗忘技能：升级弹窗点“不学了”后不再重复提示
+  await evaljs("STATE.party = [makeMon(143, 29, { nature: '勤奋' })]; STATE.party[0].moves = ['tackle','growl','quick_attack','take_down']; STATE.party[0].pp=[35,40,30,25]; STATE.party[0].exp = expForLevel('slow', 29); STATE.pendingLearn=[]; STATE.log=[]; STATE.logKinds=[]; render();");
+  await evaljs("grantExp(STATE.party[0], expForLevel('slow', 30)-STATE.party[0].exp+1, [], []); render();");
+  ok(await evaljs("STATE.pendingLearn.length === 1 && STATE.pendingLearn[0].moveId === 'rest'"), '升级后睡觉进入待学队列');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('不再提示') !== -1"), '学招弹窗标注“不学了（不再提示）”');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-body .btn')).filter(function(x){return x.textContent.indexOf('不学了') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("(STATE.party[0].forgottenMoves||[]).indexOf('rest') !== -1"), '不学了记入遗忘清单');
+  await evaljs("grantExp(STATE.party[0], expForLevel('slow', 100)-STATE.party[0].exp, [], []); render();");
+  ok(await evaljs("STATE.pendingLearn.every(function(p){ return p.moveId !== 'rest'; })"), '后续升级不再重复提示已遗忘的睡觉');
+  await evaljs('STATE.pendingLearn = []; closeModal(); render();');
+
   await evaljs('doMapAction(\'mart\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '商店弹窗打开');
   ok(await evaljs("document.querySelectorAll('#modal-root .shop-row').length >= 20"), '商店列出全部商品');
