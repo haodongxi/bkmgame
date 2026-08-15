@@ -1852,6 +1852,23 @@ section('MVP11.1：喂养系统');
   ok(s.bag['速度糖果'] === 1, '波波掉落速度糖果');
 }
 {
+  // 糖果可出售（500金）、商店不可购买
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['HP糖果'] = 2;
+  const money0 = s.money;
+  T.sellItem('HP糖果', 1);
+  ok(s.money === money0 + 500 && s.bag['HP糖果'] === 1, '糖果可出售（+500 金）');
+  ok(T.getMartStock().indexOf('HP糖果') === -1 && T.getMartStock().indexOf('速度糖果') === -1, '商店货架不含糖果（不可购买）');
+  const money1 = s.money;
+  T.buyItem('HP糖果', 1);
+  ok(s.money === money1 && s.bag['HP糖果'] === 1, '购买糖果被拦截');
+  delete s.bag['HP糖果'];
+  const money2 = s.money;
+  T.sellItem('HP糖果', 1);
+  ok(s.money === money2, '无糖果时出售无影响');
+}
+{
   T.newGame(4);
   const s = T.getState();
   const mon = s.party[0]; // 小火龙 Lv5
@@ -2264,6 +2281,26 @@ function fightToEnd() {
   s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
   T.startTowerFloor();
   ok(fightToEnd() === 'win' && s.tower.floor === 2 && s.tower.bestFloor === 1, '无尽之塔首层胜利并推进');
+}
+{
+  // 塔内 × 速度机制：逃跑仍不可、首回合速度提示、先发制人仅首回合生效
+  const s = strongTeam();
+  s.badges.push('绿色徽章');
+  s.nodeId = 'tower';
+  s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
+  T.startTowerFloor();
+  ok(s.battle.canRun === false, '塔内不可逃跑（速度机制不改变）');
+  T.battleRun();
+  ok(s.battle && !s.battle.over, '塔内逃跑仍被拦截');
+  const logLen = s.log.length;
+  T.battleMove(strongMoveIdx(s.battle));
+  const logs = s.log.slice(logLen);
+  ok(logs.some(function (l) { return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; }), '塔内首回合显示速度对比');
+  ok(logs.some(function (l) { return l.indexOf('先发制人') !== -1; }), '塔内首回合先发制人生效');
+  const fs1 = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  T.battleMove(strongMoveIdx(s.battle));
+  const fs2 = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  ok(fs1 === 1 && fs2 === 1, '塔内先发制人只在首回合（后续回合无加成）');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

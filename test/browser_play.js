@@ -192,6 +192,9 @@ async function main() {
   ok(await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('大师球')!==-1;})[0]; var bs=r?r.querySelectorAll('button'):[]; return Array.prototype.some.call(bs, b => b.textContent.indexOf('购买') !== -1 && !b.disabled);})()"), '8徽章时大师球购买按钮可用');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('求雨符') !== -1; })"), '商店有天气符');
   await evaljs('closeModal();');
+  await evaljs("STATE.bag['HP糖果'] = 2; doMapAction('mart');");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('HP糖果') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('卖500金') !== -1"), '商店出售区列出糖果（可卖 500 金）');
+  await evaljs('closeModal(); STATE.bag = {};');
   await evaljs('STATE.badges = [];');
 
   await evaljs('doMapAction(\'bag\');');
