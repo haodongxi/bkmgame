@@ -21,7 +21,12 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  startWildBattle: startWildBattle, startTrainerBattle: startTrainerBattle, startGymBattle: startGymBattle,\n' +
   '  startRocketBattle: startRocketBattle,\n' +
   '  challengeGym: challengeGym, fish: fish, doTownTrade: doTownTrade,\n' +
-  '  startTowerFloor: startTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,\n' +
+  '  startTowerFloor: startTowerFloor, startSuperTowerFloor: startSuperTowerFloor, towerFoeTeam: towerFoeTeam, towerThemeFor: towerThemeFor,\n' +
+  '  TITLES: TITLES, titleName: titleName, titleLabel: titleLabel, RARITIES: RARITIES, rarityIndex: rarityIndex,\n' +
+  '  parseTitleEntry: parseTitleEntry, titleCounts: titleCounts, titleCount: titleCount, addTitle: addTitle,\n' +
+  '  randomTitleRarity: randomTitleRarity, rollTitleBox: rollTitleBox, isTitleUnlocked: isTitleUnlocked,\n' +
+  '  equipTitle: equipTitle, synthesizeTitle: synthesizeTitle, dismantleTitle: dismantleTitle,\n' +
+  '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
   '  transferMon: transferMon, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
@@ -1345,12 +1350,12 @@ section('无尽之塔');
   }
   ok(s.lastResult === 'win' && s.tower.cleared === true && s.tower.floor === 100, '100 层通关');
   ok(Object.keys(s.bag).reduce(function (sum, k) { return sum + s.bag[k]; }, 0) === bagBefore + 1, '100 层边界同样发放最终道具奖励');
-  ok(s.titles.indexOf('无尽之塔征服者') !== -1, '获得称号');
+  ok(s.titles.indexOf('tower100@稀有') !== -1, '获得称号（保底稀有）');
   T.save();
   s.titles = [];
   s.tower = null;
   ok(T.load(), '读档成功');
-  ok(T.getState().titles.indexOf('无尽之塔征服者') !== -1, '称号随存档保存');
+  ok(T.getState().titles.indexOf('tower100@稀有') !== -1, '称号随存档保存');
 }
 {
   // 边界：1 层新档（无存档点）中途全灭
@@ -2222,6 +2227,19 @@ function strongTeam() {
   s.party[0].pp = [15, 15, 10, 5];
   return s;
 }
+function superTeam() {
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(6, 100, { nature: '固执' }), T.makeMon(150, 100, { nature: '内敛' }), T.makeMon(143, 100, { nature: '固执' }), T.makeMon(149, 100, { nature: '固执' })];
+  s.party.forEach(function (m) {
+    m.stats.spe = 999;
+    m.stats.hp = 9999;
+    m.hp = 9999;
+    m.moves = ['flamethrower', 'dragon_claw', 'earthquake', 'hyper_beam'];
+    m.pp = [15, 15, 10, 5];
+  });
+  return s;
+}
 function fightToEnd() {
   let guard = 0;
   while (T.getState().battle && !T.getState().battle.over && guard++ < 160) {
@@ -2345,6 +2363,130 @@ function fightToEnd() {
   localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
   s.name = '';
   ok(T.load() && !!T.getState().name, '旧档无名字自动分配');
+}
+{
+  // 超越之塔数据：数量每 10 层 +1、显示 Lv101-200、强度 1.1→2.6
+  ok(T.towerFoeTeam(1, true).length === 3, '超越之塔 1 层 3 只');
+  ok(T.towerFoeTeam(10, true).length === 3, '超越之塔 10 层 3 只');
+  ok(T.towerFoeTeam(11, true).length === 4, '超越之塔 11 层 4 只（每 10 层 +1）');
+  ok(T.towerFoeTeam(100, true).length === 12, '超越之塔 100 层 12 只');
+  const f1 = T.towerFoeTeam(1, true)[0];
+  ok(f1.displayLevel === 101 && Math.abs(f1.statMult - 1.1) < 0.001, '1 层显示 Lv101、强度 1.1');
+  const f100 = T.towerFoeTeam(100, true)[0];
+  ok(f100.displayLevel === 200 && f100.statMult > 2.5 && f100.statMult <= 2.6, '100 层显示 Lv200、强度 2.5+ 且封顶 2.6');
+}
+{
+  // 超越之塔流程：解锁→推进→10 层闪光石奖励与称号→败北回档→100 层通关虹色石
+  const s = superTeam();
+  s.nodeId = 'tower';
+  T.startSuperTowerFloor();
+  ok(!s.battle, '未通关无尽之塔不能进入超越之塔');
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true, superFloor: 9, superCheckpoint: 0, superBest: 8, superCleared: false };
+  T.startSuperTowerFloor();
+  ok(s.battle && s.battle.kind === 'super_tower' && s.battle.foe.mons[0].m.displayLevel === 109, '解锁后进入超越之塔第 9 层（显示 Lv109）');
+  ok(fightToEnd() === 'win', '超越之塔第 9 层胜利');
+  ok(s.tower.superFloor === 10 && s.tower.superBest === 9, '胜利推进到第 10 层');
+  T.startSuperTowerFloor();
+  ok(fightToEnd() === 'win', '超越之塔第 10 层胜利');
+  ok(s.tower.superFloor === 11 && s.tower.superCheckpoint === 10, '10 层存档点推进');
+  ok(s.bag['闪光石'] === 1, '10 层奖励闪光石');
+  ok(T.isTitleUnlocked('super10'), '10 层解锁称号登塔者');
+  // 败北回档
+  s.tower.superFloor = 12;
+  s.tower.superCheckpoint = 10;
+  s.party.forEach(function (m) { m.hp = 1; });
+  T.startSuperTowerFloor();
+  ok(fightToEnd() === 'lose', '超越之塔第 12 层败北');
+  ok(s.tower.superFloor === 11, '败北回到存档点+1（第 11 层）');
+  // 100 层通关（单只对手，验证奖励分支）
+  s.tower.superFloor = 100;
+  s.tower.superCheckpoint = 90;
+  s.tower.superBest = 99;
+  T.startBattle('super_tower', { foe: [{ id: 16, level: 100, statMult: 1, displayLevel: 200 }], canRun: false });
+  ok(fightToEnd() === 'win', '超越之塔第 100 层胜利');
+  ok(s.tower.superCleared === true && s.tower.superFloor === 100, '100 层通关');
+  ok(s.bag['虹色闪光石'] === 1 && s.bag['大师球'] === 3 && s.bag['幸运蛋'] === 1, '通关奖励虹色闪光石/大师球/幸运蛋');
+  ok(T.isTitleUnlocked('super100'), '通关解锁称号超越者');
+}
+{
+  // 闪光：闪光石让宝可梦变闪光，重复使用拦截
+  const s = superTeam();
+  s.bag['闪光石'] = 1;
+  ok(s.party[0].shiny === false, '初始非闪光');
+  T.useBagItemOnMon('闪光石', 0);
+  ok(s.party[0].shiny === true && !s.bag['闪光石'], '闪光石让宝可梦变闪光并消耗');
+  s.bag['闪光石'] = 1;
+  T.useBagItemOnMon('闪光石', 0);
+  ok(s.party[0].shiny === true && s.bag['闪光石'] === 1, '已闪光重复使用被拦截（不消耗）');
+}
+{
+  // 称号：未解锁拒绝、解锁可装备/卸下、随存档保存、旧档塔进度默认超塔字段
+  const s = superTeam();
+  ok(T.equipTitle('tower100') === false && s.equippedTitle === null, '未解锁称号不能装备');
+  s.tower.cleared = true;
+  s.titles.push('tower100');
+  ok(T.equipTitle('tower100') === true && s.equippedTitle === 'tower100@普通', '装备称号成功（旧格式默认普通）');
+  ok(T.equipTitle(null) === true && s.equippedTitle === null, '卸下称号成功');
+  T.save();
+  s.equippedTitle = null;
+  s.titles = [];
+  ok(T.load() && T.getState().titles.indexOf('tower100@普通') !== -1, '称号随存档保存');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.tower.superFloor;
+  delete legacy.tower.superCleared;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.tower = null;
+  ok(T.load() && T.getState().tower.superFloor === 1 && T.getState().tower.superCleared === false, '旧档塔进度默认补全超越之塔字段');
+}
+{
+  // 称号稀有度：属性加成、3合1合成、分解碎片、兑换、随机箱、旧档兼容
+  const s = superTeam();
+  s.titles = ['super100@史诗'];
+  T.equipTitle('super100', '史诗');
+  ok(s.equippedTitle === 'super100@史诗', '装备史诗称号');
+  ok(T.titleBonusMap('super100', '史诗').atk === 4 && T.titleBonusMap('super100', '史诗').spe === 4, '超越者史诗五项 +4');
+  ok(T.titleBonusMap('super10', '史诗').atk === 3, '登塔者史诗攻击 +3（基础2+稀有度1）');
+  ok(T.titleBonusMap('super70', '史诗').atk === 4 && T.titleBonusMap('super70', '史诗').spd === 2, '传说挑战者史诗含特防加成');
+  const pm = { m: s.party[0], stages: { atk: 0, def: 0, spa: 0, spd: 0, spe: 0 }, side: 'player' };
+  const withBonus = T.effStat(pm, 'atk');
+  T.equipTitle(null);
+  const withoutBonus = T.effStat(pm, 'atk');
+  ok(withBonus === withoutBonus + 4, '超越者史诗攻击 +4（玩家侧生效）');
+  // 合成：3 普通 → 1 少见
+  s.titles = ['tower100@普通', 'tower100@普通', 'tower100@普通'];
+  const synth = T.synthesizeTitle('tower100', '普通');
+  ok(synth.ok && T.titleCount('tower100', '普通') === 0 && T.titleCount('tower100', '少见') === 1, '3 合 1 合成少见');
+  // 分解按档位：少见 → 2 碎片
+  const shardsBefore = s.bag['称号碎片'] || 0;
+  const dis = T.dismantleTitle('tower100', '少见');
+  ok(dis.ok && T.titleCount('tower100', '少见') === 0 && (s.bag['称号碎片'] || 0) === shardsBefore + 2, '分解少见得 2 碎片');
+  // 史诗分解 → 5 碎片
+  s.titles = ['super10@史诗'];
+  const shards2 = s.bag['称号碎片'] || 0;
+  T.dismantleTitle('super10', '史诗');
+  ok((s.bag['称号碎片'] || 0) === shards2 + 5, '分解史诗得 5 碎片');
+  // 兑换堵漏：未获得过不能兑换
+  s.titles = [];
+  ok(!T.exchangeTitle('super100').ok, '未获得过超越者不能兑换（堵漏）');
+  // 获得过（任意档）后可兑换：5 碎片 → 普通版
+  s.titles = ['super100@普通'];
+  s.bag['称号碎片'] = 5;
+  const ex = T.exchangeTitle('super100');
+  ok(ex.ok && T.titleCount('super100', '普通') === 2 && (s.bag['称号碎片'] || 0) === 0, '获得过后可兑换普通版');
+  // 史诗不可再合成
+  s.titles = ['super100@史诗'];
+  ok(!T.synthesizeTitle('super100', '史诗').ok, '史诗不可再合成');
+  // 随机称号箱
+  const beforeN = s.titles.length;
+  T.rollTitleBox();
+  ok(s.titles.length === beforeN + 1, '随机称号箱获得一个称号');
+  // 旧档中文名/id → 普通版
+  T.save();
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  legacy.titles = ['无尽之塔征服者', 'tower100'];
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.titles = [];
+  ok(T.load() && T.getState().titles.filter(function (x) { return x === 'tower100@普通'; }).length === 2, '旧档中文名/id 转普通版');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

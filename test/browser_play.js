@@ -121,13 +121,16 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('图鉴合集') !== -1; }) && !Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('道具图鉴') !== -1 || b.textContent.indexOf('招式图鉴') !== -1; })"), '图鉴/道具/招式统一为图鉴合集按钮');
   await evaljs('doMapAction(\'dex\');');
-  ok(await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn').length === 3"), '图鉴合集含三个 Tab');
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn').length === 4"), '图鉴合集含四个 Tab（宝可梦/道具/招式/称号）');
   await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[0].click()");
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '合集默认显示宝可梦图鉴');
   await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[2].click()");
   ok(await evaljs("document.querySelector('#move-dex-search') !== null"), '切到招式 Tab 显示搜索框');
   await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[1].click()");
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '切到道具 Tab 显示道具列表');
+  await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[3].click()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('稀有度') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('超越者') !== -1"), '称号 Tab 显示称号图鉴（含超越者）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('合成（3合1') === -1"), '图鉴称号 Tab 为纯展示（操作在背包）');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelector('.map-reset-wrap .btn') !== null && document.querySelector('#action-panel').textContent.indexOf('重开') === -1"), '重开按钮已移到右上角，不在操作面板中');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
@@ -137,6 +140,14 @@ async function main() {
   ok(await evaljs("document.querySelector('#rename-input') !== null"), '点击玩家名弹出改名框');
   await evaljs("document.querySelector('#rename-input').value = '皮卡丘训练家'; doRename();");
   ok(await evaljs("STATE.name === '皮卡丘训练家' && document.querySelector('#meta-label').textContent.indexOf('皮卡丘训练家') !== -1"), '改名后顶栏立即更新');
+  // 超越之塔入口（通关无尽塔后）+ 称号装备显示 + 闪光石使用
+  await evaljs("STATE.nodeId='tower'; STATE.tower={floor:100,checkpoint:95,bestFloor:100,cleared:true,superFloor:1,superCheckpoint:0,superBest:0,superCleared:false}; STATE.titles=['tower100']; render();");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('超越之塔') !== -1; })"), '通关后塔内出现超越之塔入口');
+  await evaljs("equipTitle('tower100'); render();");
+  ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('[无尽之塔征服者·普通]') !== -1"), '装备称号显示在玩家名前（带稀有度）');
+  await evaljs("STATE.bag['闪光石']=1; STATE.party[0].shiny=false; render(); useBagItemOnMon('闪光石', 0); render();");
+  ok(await evaljs("STATE.party[0].shiny === true && document.querySelector('#party-strip').textContent.indexOf('✨') !== -1"), '闪光石使用后队伍条显示✨');
+  await evaljs("STATE.nodeId='pallet'; STATE.tower.cleared=false; STATE.equippedTitle=null; render();");
   ok(await evaljs("document.querySelector('#goal-label').textContent.indexOf('小刚') !== -1"), '目标提示指向首个道馆');
   await evaljs("document.querySelector('#party-strip .party-card').click()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '点击队伍条宝可梦直接打开详情页');
@@ -214,6 +225,16 @@ async function main() {
 
   await evaljs('doMapAction(\'bag\');');
   ok(await evaljs("document.querySelector('#modal-root .modal') !== null"), '背包弹窗打开');
+  // 称号管理在背包：合成/分解/兑换
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .bag-tabs .btn')).filter(function(x){return x.textContent.indexOf('称号') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#bag-titles-body') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('称号管理') !== -1"), '背包称号 Tab 打开称号管理');
+  await evaljs("STATE.titles=['tower100@普通','tower100@普通','tower100@普通']; showBagModal(false,'titles'); document.querySelector('#bag-titles-body .title-cell').click();");
+  ok(await evaljs("document.querySelector('#bag-titles-body').textContent.indexOf('合成（3合1') !== -1"), '背包称号 Tab 显示合成按钮（3合1）');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#bag-titles-body .btn')).filter(function(x){return x.textContent.indexOf('合成') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("STATE.titles.length === 1 && STATE.titles[0] === 'tower100@少见'"), '背包内 3合1 合成成功');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#bag-titles-body .title-cell')).filter(function(x){return x.textContent.indexOf('少见') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#bag-titles-body').textContent.indexOf('分解（+2碎片）') !== -1"), '分解按钮显示档位碎片数（少见+2）');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#bag-titles-body .bag-tabs .btn'), function(b){ return b.disabled && b.textContent.indexOf('超越者') !== -1; })"), '未获得称号的兑换按钮置灰');
   await evaljs('closeModal();');
 
   await evaljs('doMapAction(\'wander\');');
