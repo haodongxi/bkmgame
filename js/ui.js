@@ -753,20 +753,30 @@ function showBoxModal() {
   for (let i = 0; i < STATE.box.length; i++) {
     const m = STATE.box[i];
     html += '<div class="party-row pixel-frame">' +
-      '<div class="party-icon" id="box-icon-' + i + '"></div>' +
+      '<div class="box-icon-wrap"><div class="party-icon" id="box-icon-' + i + '"></div>' +
+      '<button class="box-lock-corner' + (m.locked ? ' on' : '') + '" onclick="toggleBoxLock(' + i + ')" title="' + (m.locked ? '解锁' : '上锁') + '">' + (m.locked ? '🔒' : '🔓') + '</button></div>' +
       '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
       (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
-      '<div class="row-btns">' +
-      '<button class="btn btn-sm" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
-      '<button class="btn btn-sm" onclick="doBoxSwap(' + i + ')">取回</button>' +
-      '<button class="btn btn-sm btn-danger" onclick="doTransfer(' + i + ')">传送</button></div></div>';
+      '<div class="box-actions">' +
+      '<button class="btn btn-xs" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
+      '<button class="btn btn-xs" onclick="doBoxSwap(' + i + ')"' + (m.locked ? ' disabled' : '') + '>取回</button>' +
+      '<button class="btn btn-xs btn-danger" onclick="doTransfer(' + i + ')"' + (m.locked ? ' disabled' : '') + '>传送</button></div></div>';
   }
   openModal('电脑箱（' + STATE.box.length + '只）', html);
   for (let i = 0; i < STATE.box.length; i++) {
     $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36));
   }
+}
+
+// 电脑箱锁定切换：上锁后不可取出/传送（默认不上锁）
+function toggleBoxLock(boxIdx) {
+  const mon = STATE.box[boxIdx];
+  if (!mon) return;
+  mon.locked = !mon.locked;
+  save();
+  showBoxModal();
 }
 
 // 传送（删除操作，需确认）：转化为万能经验 + 属性糖果

@@ -204,7 +204,8 @@ function makeMon(speciesId, level, opts) {
     candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 },
     bond: 0,
     exploreSteps: 0,
-    forgottenMoves: [] // 玩家明确不学/遗忘的招式：升级不再重复提示
+    forgottenMoves: [], // 玩家明确不学/遗忘的招式：升级不再重复提示
+    locked: false // 电脑箱锁定：上锁后不可取出/传送（默认不上锁）
   };
   return mon;
 }
@@ -1745,6 +1746,7 @@ function boxSwap(boxIdx, partyIdx) {
   const boxMon = STATE.box[boxIdx];
   const partyMon = STATE.party[partyIdx];
   if (!boxMon || !partyMon) { addLog('宝可梦不存在。'); return; }
+  if (boxMon.locked) { addLog(boxMon.name + ' 已上锁，无法取出。', 'warn'); return; }
   STATE.party[partyIdx] = boxMon;
   STATE.box[boxIdx] = partyMon;
   addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！', 'good');
@@ -1775,6 +1777,7 @@ function candyForSpecies(speciesId) {
 function transferMon(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) { addLog('没有这只宝可梦。', 'info'); return; }
+  if (mon.locked) { addLog(mon.name + ' 已上锁，无法传送。', 'warn'); return; }
   const exp = Math.max(10, Math.floor(mon.exp * 0.3));
   const candy = candyForSpecies(mon.species);
   STATE.expPool += exp;
@@ -2526,7 +2529,8 @@ function serializeMon(m) {
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
     candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0,
-    forgottenMoves: m.forgottenMoves || []
+    forgottenMoves: m.forgottenMoves || [],
+    locked: !!m.locked
   };
 }
 
@@ -2552,6 +2556,7 @@ function deserializeMon(d) {
   mon.forgottenMoves = Array.isArray(d.forgottenMoves)
     ? d.forgottenMoves.filter(function (id) { return MOVES[id]; })
     : [];
+  mon.locked = !!d.locked; // 旧档无 locked 字段：默认不上锁
   return mon;
 }
 

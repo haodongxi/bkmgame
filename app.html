@@ -69,7 +69,9 @@
     .btn[disabled] { opacity: 0.35; cursor: not-allowed; }
     .btn-primary { background: #7a2a30; border-color: #a83a42; color: #ffd9d9; }
     .btn-danger { background: #4a2428; border-color: #6a3438; color: #ffb3b3; }
+    .btn.lock-on { border-color: var(--gold); color: var(--gold); }
     .btn-sm { padding: 6px 8px; font-size: 10px; }
+    .btn-xs { padding: 4px 6px; font-size: 9px; text-align: center; }
     .btn-big { width: 100%; padding: 14px; font-size: 13px; margin-top: 10px; text-align: center; }
 
     /* ---------- 标题 ---------- */
@@ -206,6 +208,12 @@
     .shop-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin: 6px 0; }
     .save-code { width: 100%; min-height: 90px; resize: vertical; background: #10131a; color: var(--text); border: 3px solid var(--border); font-family: var(--font); font-size: 10px; padding: 8px; }
     .party-row { display: flex; gap: 8px; align-items: center; padding: 8px; margin-bottom: 8px; }
+    /* 电脑箱行：锁角标在图标右上角，操作按钮独立成列 */
+    .box-icon-wrap { position: relative; flex: 0 0 auto; }
+    .box-lock-corner { position: absolute; top: -6px; right: -6px; font-size: 10px; line-height: 1; padding: 1px 2px; background: var(--bg-panel); border: 2px solid var(--border); cursor: pointer; opacity: 0.7; }
+    .box-lock-corner.on { border-color: var(--gold); opacity: 1; }
+    .box-actions { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+    .box-actions .btn { min-width: 46px; }
     .lead-tag { font-size: 10px; color: var(--gold); border: 2px solid var(--gold); padding: 3px 7px; }
     .rarity { font-size: 9px; margin-right: 4px; white-space: nowrap; }
     .rarity.r-legendary { color: var(--gold); text-shadow: 0 0 6px rgba(248,200,79,0.55); }
