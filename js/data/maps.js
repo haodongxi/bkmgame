@@ -48,12 +48,12 @@ const ITEMS = {
   '电气球':   { id: 'lightball', name: '电气球', type: 'held', held: '电气球', onlySpecies: 25, desc: '只有皮卡丘能携带，携带后攻击与特攻翻倍' },
   '吃剩的东西': { id: 'leftovers', name: '吃剩的东西', type: 'held', held: '吃剩的东西', price: 15000, minBadges: 8, desc: '携带后每回合结束恢复 1/16 最大HP' },
   '幸运蛋':   { id: 'luckyegg', name: '幸运蛋', type: 'held', held: '幸运蛋', price: 20000, minBadges: 8, desc: '携带后获得的经验值变为 1.5 倍' },
-  'HP糖果':   { id: 'hp_candy', name: 'HP糖果', type: 'candy', stat: 'hp', desc: '喂养后提升 1 点最大HP（单项上限 15）' },
-  '攻击糖果': { id: 'atk_candy', name: '攻击糖果', type: 'candy', stat: 'atk', desc: '喂养后提升 1 点攻击（单项上限 15）' },
-  '防御糖果': { id: 'def_candy', name: '防御糖果', type: 'candy', stat: 'def', desc: '喂养后提升 1 点防御（单项上限 15）' },
-  '特攻糖果': { id: 'spa_candy', name: '特攻糖果', type: 'candy', stat: 'spa', desc: '喂养后提升 1 点特攻（单项上限 15）' },
-  '特防糖果': { id: 'spd_candy', name: '特防糖果', type: 'candy', stat: 'spd', desc: '喂养后提升 1 点特防（单项上限 15）' },
-  '速度糖果': { id: 'spe_candy', name: '速度糖果', type: 'candy', stat: 'spe', desc: '喂养后提升 1 点速度（单项上限 15）' },
+  'HP糖果':   { id: 'hp_candy', name: 'HP糖果', type: 'candy', stat: 'hp', sell: 500, desc: '喂养后提升 1 点最大HP（单项上限 15），可在商店出售' },
+  '攻击糖果': { id: 'atk_candy', name: '攻击糖果', type: 'candy', stat: 'atk', sell: 500, desc: '喂养后提升 1 点攻击（单项上限 15），可在商店出售' },
+  '防御糖果': { id: 'def_candy', name: '防御糖果', type: 'candy', stat: 'def', sell: 500, desc: '喂养后提升 1 点防御（单项上限 15），可在商店出售' },
+  '特攻糖果': { id: 'spa_candy', name: '特攻糖果', type: 'candy', stat: 'spa', sell: 500, desc: '喂养后提升 1 点特攻（单项上限 15），可在商店出售' },
+  '特防糖果': { id: 'spd_candy', name: '特防糖果', type: 'candy', stat: 'spd', sell: 500, desc: '喂养后提升 1 点特防（单项上限 15），可在商店出售' },
+  '速度糖果': { id: 'spe_candy', name: '速度糖果', type: 'candy', stat: 'spe', sell: 500, desc: '喂养后提升 1 点速度（单项上限 15），可在商店出售' },
   '破旧钓竿': { id: 'old_rod', name: '破旧钓竿', type: 'key', desc: '可以在水边钓鱼，说不定能钓上好东西' },
   '自行车':   { id: 'bicycle', name: '自行车', type: 'key', desc: '骑行让你探索更高效，有几率连续探索两次' }
 };

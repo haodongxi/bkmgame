@@ -1040,6 +1040,7 @@ function showItemDexModal() {
       const owned = bagCount(names[i]);
       html += '<div class="shop-row"><span>' + names[i] +
         (item.price ? '（' + item.price + '金）' : '') +
+        (item.sell ? ' · 可卖' + item.sell + '金' : '') +
         (owned > 0 ? ' · 持有×' + owned : '') + '</span></div>' +
         '<div class="shop-desc">' + itemDesc(item) + '</div>';
     }
