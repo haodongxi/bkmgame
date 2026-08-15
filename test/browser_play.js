@@ -88,12 +88,16 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('可学招式') !== -1"), '图鉴详情显示学习面');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('获取途径') !== -1"), '图鉴详情显示获取途径');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('初始选择') !== -1"), '小火龙获取途径含初始选择');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('返回图鉴') !== -1"), '图鉴详情有返回按钮');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-btns .btn')).filter(function(x){return x.textContent.indexOf('返回图鉴') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '返回图鉴后回到宝可梦网格');
   await evaljs('closeModal();');
   // 未发现：保持神秘，不泄露种族值
   await evaljs('doMapAction(\'pokedex\');');
   await evaljs("document.querySelector('#modal-root .dex-cell:not(.seen):not(.caught)').click()");
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('尚未遇见') !== -1"), '未发现宝可梦保持神秘');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('种族值') === -1"), '未发现不泄露种族值');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('返回图鉴') !== -1"), '未发现详情也有返回按钮');
   await evaljs('closeModal();');
   await evaljs("for (var i = 1; i <= 151; i++) STATE.seenDex[i] = true; showPokedexModal();");
   ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .dex-cell'), function(c){ return c.scrollWidth <= c.clientWidth + 1; })"), '全图鉴 151 格横向无溢出（含稀有度词缀行）');
@@ -285,10 +289,11 @@ async function main() {
   ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('4700') !== -1"), '关闭商店后地图顶栏仍显示最新金钱');
 
   // 电脑箱传送后数量同步刷新（回归：地图按钮与箱子弹窗不再显示旧数量）
-  await evaljs("STATE.party = [makeMon(4, 5, { nature: '勤奋' })]; STATE.box = [makeMon(16, 5, { nature: '勤奋' }), makeMon(19, 5, { nature: '勤奋' })]; STATE.box[0].held = '电气球'; render();");
+  await evaljs("STATE.party = [makeMon(4, 5, { nature: '勤奋' })]; STATE.money = 10000; STATE.box = [makeMon(16, 5, { nature: '勤奋' }), makeMon(19, 5, { nature: '勤奋' })]; STATE.box[0].held = '电气球'; render();");
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（2只）') !== -1; })"), '地图显示电脑箱 2 只');
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（2只）') !== -1"), '箱子弹窗显示 2 只');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('传送需 5000 金') !== -1 && Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent === '传送'; })"), '传送按钮简洁 + 弹窗顶部提示 5000 金费用');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent.indexOf('详情') !== -1; })"), '箱子弹窗有详情按钮');
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '箱内宝可梦可查看详情（含个体值）');
