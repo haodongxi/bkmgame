@@ -3,7 +3,7 @@
    Created by haodongsheng
    用法: node test/browser_play.js */
 const PORT = 9222;
-const URL = 'file:///Users/haodongsheng/Documents/github/bkmGame/app.html';
+const URL = 'file://' + require('path').resolve(__dirname, '..', 'app.html').replace(/\\/g, '/');
 
 async function main() {
   const target = await fetch('http://127.0.0.1:' + PORT + '/json/new?' + encodeURIComponent(URL), { method: 'PUT' }).then(function (r) { return r.json(); });
@@ -196,6 +196,25 @@ async function main() {
   const saveCode = await evaljs("document.querySelector('#save-code').value");
   await evaljs('closeModal(); showImportSave(); document.querySelector(\'#import-code\').value = ' + JSON.stringify(saveCode) + '; doImportSave();');
   ok(await evaljs("STATE.screen === 'map' && STATE.party.length === " + beforeLen), '导入存档成功并恢复进度');
+
+  // 商店买卖后地图金钱同步刷新（回归：关闭商店后顶栏不再显示旧钱）
+  await evaljs("STATE.nodeId = 'pallet'; STATE.money = 5000; STATE.bag = {}; STATE.badges = []; render(); doMapAction('mart');");
+  await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('伤药') !== -1;})[0]; var b=Array.prototype.slice.call(r.querySelectorAll('button')).filter(function(x){return x.textContent.indexOf('购买') !== -1;})[0]; b.click();})()");
+  ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('4700') !== -1"), '购买后地图顶栏金钱同步为 4700');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('金钱：4700') !== -1"), '购买后商店弹窗金钱同步为 4700');
+  await evaljs('closeModal();');
+  ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('4700') !== -1"), '关闭商店后地图顶栏仍显示最新金钱');
+
+  // 电脑箱传送后数量同步刷新（回归：地图按钮与箱子弹窗不再显示旧数量）
+  await evaljs("STATE.party = [makeMon(4, 5, { nature: '勤奋' })]; STATE.box = [makeMon(16, 5, { nature: '勤奋' }), makeMon(19, 5, { nature: '勤奋' })]; render();");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（2只）') !== -1; })"), '地图显示电脑箱 2 只');
+  await evaljs('doMapAction(\'box\');');
+  ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（2只）') !== -1"), '箱子弹窗显示 2 只');
+  await evaljs("document.querySelector('#modal-root .btn-danger').click()");
+  ok(await evaljs("STATE.box.length === 1 && STATE.expPool > 0"), '传送后箱子剩 1 只且获得万能经验');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（1只）') !== -1; })"), '传送后地图按钮同步为 1 只');
+  ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（1只）') !== -1"), '传送后箱子弹窗同步为 1 只');
+  await evaljs('closeModal();');
 
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });
