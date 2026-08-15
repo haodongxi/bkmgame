@@ -795,7 +795,7 @@ function showPartyModal(mode, itemName) {
 }
 
 function showBoxModal() {
-  let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 500 金）· 锁定的宝可梦不可传送</div>';
+  let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
   }

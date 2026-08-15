@@ -2135,10 +2135,10 @@ function candyForSpecies(speciesId) {
   return best.name;
 }
 
-// 电脑箱传送费用：等级²，最低 500（卡住糖果售价，避免低等级怪“传送→卖糖”倒刷金币）
+// 电脑箱传送费用：等级²，最低 1000
 function boxTransferFee(mon) {
   const lv = mon ? mon.level : 0;
-  return Math.max(lv * lv, 500);
+  return Math.max(lv * lv, 1000);
 }
 
 // 传送：宝可梦消失 → 万能经验（保底 10）+ 1 颗属性糖果
