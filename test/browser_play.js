@@ -78,6 +78,25 @@ async function main() {
   await evaljs('closeModal();');
   await evaljs('doMapAction(\'pokedex\');');
   ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '图鉴显示 151 只');
+  // 属性二级分类：只显示已解锁；未解锁在“全部”
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .dex-type-tabs .btn')).filter(function(x){return x.textContent.indexOf('火(') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length > 0 && Array.prototype.every.call(document.querySelectorAll('#modal-root .dex-cell'), function(c){ return c.className.indexOf('seen') !== -1 || c.className.indexOf('caught') !== -1; })"), '属性分类只显示已解锁宝可梦');
+  ok(await evaljs("document.querySelector('#modal-root .dex-hint').textContent.indexOf('火系') !== -1"), '属性分类显示数量');
+  await evaljs("setDexTypeTab('all');");
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151 && document.querySelector('#modal-root .modal-body').textContent.indexOf('???') !== -1"), '全部分类含未解锁的 ???');
+  // 详情返回保留滚动位置（滚到底部场景）
+  await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; document.querySelector('#modal-root .dex-cell.caught').click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('种族值') !== -1"), '进入图鉴详情');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-btns .btn')).filter(function(x){return x.textContent.indexOf('返回图鉴') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m.scrollTop > m.scrollHeight - 600;})()"), '返回图鉴后保留底部滚动位置');
+  // 属性二级 Tab 切换后再切回，滚动位置保留（底部场景）
+  const typeTop = await evaljs("document.querySelector('#modal-root .modal').scrollTop");
+  await evaljs("setDexTypeTab('超能力'); setDexTypeTab('all');");
+  ok(await evaljs("Math.abs(document.querySelector('#modal-root .modal').scrollTop - " + typeTop + ") < 100"), '属性 Tab 切走再切回保留滚动位置');
+  // 图鉴合集 Tab 切换后再切回，宝可梦网格滚动位置保留
+  const hubTop = await evaljs("document.querySelector('#modal-root .modal').scrollTop");
+  await evaljs("showDexHub('itemdex'); showDexHub('pokedex');");
+  ok(await evaljs("Math.abs(document.querySelector('#modal-root .modal').scrollTop - " + hubTop + ") < 100"), '合集 Tab 切走再切回保留宝可梦网格滚动位置');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.seen, #modal-root .dex-cell.caught') !== null"), '图鉴宝可梦有已见/已捕获标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught') !== null"), '御三家开局已捕获有标记');
   ok(await evaljs("document.querySelector('#modal-root .dex-cell.caught .dex-rarity.r-rare') !== null"), '图鉴格子显示稀有度词缀');
