@@ -54,12 +54,44 @@ const STATE = {
   medicOffer: false,
   repel: 0,
   weatherBias: null,
-  weatherBoost: 0
+  weatherBoost: 0,
+  teleportCost: 500,
+  teleportDate: ''
 };
 
 // ---------------- 基础工具 ----------------
 
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+// ---------------- 地图传送计费：500 起步、每次 +100、封顶 1w，每天 0 点重置 ----------------
+
+function teleportTodayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+
+function resetTeleportCostIfNewDay() {
+  const today = teleportTodayStr();
+  if (STATE.teleportDate !== today) {
+    STATE.teleportCost = 500;
+    STATE.teleportDate = today;
+  }
+}
+
+// 当前传送费用（跨天自动重置）
+function getTeleportCost() {
+  resetTeleportCostIfNewDay();
+  return STATE.teleportCost;
+}
+
+// 传送收费：扣当前费用并递增（封顶 10000），返回 { ok, cost }
+function chargeTeleport() {
+  const cost = getTeleportCost();
+  if (STATE.money < cost) return { ok: false, cost: cost };
+  STATE.money -= cost;
+  STATE.teleportCost = Math.min(10000, STATE.teleportCost + 100);
+  return { ok: true, cost: cost };
+}
 
 // ---------------- 玩家名：新游戏随机分配，可自行改名 ----------------
 
@@ -2738,6 +2770,8 @@ function newGame(starterId) {
   const mon = makeMon(starterId, 5);
   mon.bond = 20; // 御三家初始羁绊
   STATE.name = randomPlayerName(); // 随机分配玩家名
+  STATE.teleportCost = 500;
+  STATE.teleportDate = teleportTodayStr();
   STATE.screen = 'map';
   STATE.nodeId = 'pallet';
   STATE.weather = '晴';
@@ -2795,6 +2829,8 @@ function save() {
       screen: STATE.screen === 'battle' ? 'map' : STATE.screen,
       nodeId: STATE.nodeId,
       weather: STATE.weather,
+      teleportCost: STATE.teleportCost,
+      teleportDate: STATE.teleportDate,
       money: STATE.money,
       expPool: STATE.expPool,
       bag: STATE.bag,
@@ -2876,6 +2912,9 @@ function load() {
     STATE.screen = 'map';
     STATE.nodeId = data.nodeId || 'pallet';
     STATE.weather = data.weather || '晴';
+    STATE.teleportCost = data.teleportCost || 500;
+    STATE.teleportDate = data.teleportDate || '';
+    resetTeleportCostIfNewDay(); // 跨天读档自动重置传送费用
     STATE.money = data.money || 0;
     STATE.expPool = data.expPool || 0;
     STATE.bag = data.bag || {};
@@ -2962,6 +3001,8 @@ function resetGame() {
   STATE.repel = 0;
   STATE.weatherBias = null;
   STATE.weatherBoost = 0;
+  STATE.teleportCost = 500;
+  STATE.teleportDate = '';
   STATE.name = '';
   STATE.wanderUsed = false;
   STATE.screen = 'title';
@@ -3009,6 +3050,7 @@ if (typeof module !== 'undefined' && module.exports) {
     learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather,
-    randomPlayerName: randomPlayerName, renamePlayer: renamePlayer
+    randomPlayerName: randomPlayerName, renamePlayer: renamePlayer,
+    getTeleportCost: getTeleportCost, chargeTeleport: chargeTeleport
   };
 }

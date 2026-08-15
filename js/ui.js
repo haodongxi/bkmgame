@@ -1488,7 +1488,7 @@ function showNodeInfo(id) {
     }
   }
   const btns = '<div class="modal-btns">' +
-    (pathClear ? '<button class="btn btn-primary" onclick="doMapTravel(\'' + id + '\')">前往 ' + n.name + '</button>' :
+    (pathClear ? '<button class="btn btn-primary" onclick="doMapTravel(\'' + id + '\')">前往 ' + n.name + '（' + getTeleportCost() + '金）</button>' :
       (blocked ? '<button class="btn" disabled>前往 ' + n.name + '（需' + (blockedBadge || '徽章') + '）</button>' : '')) +
     '<button class="btn" onclick="showMapModal()">返回地图</button></div>';
   openModal(n.name, html + btns);
@@ -1496,14 +1496,25 @@ function showNodeInfo(id) {
 
 function doMapTravel(id) {
   const path = pathBetween(STATE.nodeId, id);
+  // 边界：已在目标节点不收费；路径被徽章锁定不收费（先验证再扣费）
+  if (path.length <= 1) { closeModal(); render(); return; }
   for (let i = 1; i < path.length; i++) {
-    const n = MAP_NODES[path[i]];
     if (!nodeUnlocked(path[i])) {
-      addLog('前方需要【' + n.requireBadge + '】才能通过！', 'warn');
+      addLog('前方需要【' + MAP_NODES[path[i]].requireBadge + '】才能通过！', 'warn');
       closeModal();
       render();
       return;
     }
+  }
+  const fee = chargeTeleport(); // 地图传送收费：500 起步、每次 +100、封顶 1w，每天 0 点重置
+  if (!fee.ok) {
+    addLog('传送需要 ' + fee.cost + ' 金币，你的钱不够！', 'warn');
+    closeModal();
+    render();
+    return;
+  }
+  addLog('传送花费了 ' + fee.cost + ' 金币（下次 ' + STATE.teleportCost + ' 金）', 'info');
+  for (let i = 1; i < path.length; i++) {
     gotoNode(path[i]);
     if (STATE.battle) break; // 途中宿敌等触发战斗，先停下来应战
   }
@@ -1843,5 +1854,15 @@ document.addEventListener('DOMContentLoaded', function () {
   if (STATE.screen === 'title' && hasSave()) {
     // 停留在标题页，由玩家决定新开或继续
   }
+  // 传送费用每日 0 点自动重置：每分钟检测一次跨天（最长 1 分钟延迟）
+  setInterval(function () {
+    const before = STATE.teleportCost;
+    resetTeleportCostIfNewDay();
+    if (STATE.teleportCost !== before) {
+      addLog('新的一天！传送费用已重置为 500 金。', 'info');
+      save();
+      if (STATE.screen === 'map') render();
+    }
+  }, 60000);
   render();
 });
