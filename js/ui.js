@@ -418,6 +418,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'movedex\')">📗 招式图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
@@ -448,6 +449,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'pokedex\')">📖 图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'itemdex\')">📘 道具图鉴</button>';
+    html += '<button class="btn" onclick="doMapAction(\'movedex\')">📗 招式图鉴</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
     // 深层区域（洞穴/冠军之路）隐藏“返回城镇”，只能走回或使用穿绳
     if (node.type !== 'cave') html += '<button class="btn" onclick="doMapAction(\'town\')">🏘️ 返回城镇</button>';
@@ -474,6 +476,7 @@ function doMapAction(type) {
     case 'box': showBoxModal(); return;
     case 'pokedex': showPokedexModal(); return;
     case 'itemdex': showItemDexModal(); return;
+    case 'movedex': showMoveDexModal(); return;
     case 'map': showMapModal(); return;
     case 'towerFight': startTowerFloor(); save(); render(); break;
     case 'towerInfo': showTowerInfo(); return;
@@ -1043,6 +1046,85 @@ function showItemDexModal() {
   }
   html += '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
   openModal('道具图鉴', html);
+}
+
+// ---------------- 招式图鉴：全部招式按属性分组，可搜索 / 按类别筛选 ----------------
+
+let _moveDexCat = 'all';
+let _moveDexQuery = '';
+
+function showMoveDexModal(cat) {
+  if (cat) _moveDexCat = cat;
+  const sc = document.querySelector('#modal-root .modal');
+  const top = sc ? sc.scrollTop : 0;
+  const cats = [
+    { id: 'all', label: '全部' },
+    { id: '物理', label: '物理' },
+    { id: '特殊', label: '特殊' },
+    { id: '变化', label: '变化' }
+  ];
+  let html = '<div class="dex-hint">全部招式 · 共 ' + Object.keys(MOVES).length + ' 种 · 可搜索招名/属性</div>';
+  // 搜索框固定不重建，避免输入法（中文拼音）组合过程被打断
+  html += '<input class="move-dex-search" id="move-dex-search" placeholder="搜索，如：火 / 喷 / 光…" value="' + _moveDexQuery + '" oninput="onMoveDexSearch(this.value, event)">';
+  html += '<div class="bag-tabs">' + cats.map(function (c) {
+    return '<button class="btn btn-sm' + (_moveDexCat === c.id ? ' active' : '') + '" onclick="showMoveDexModal(\'' + c.id + '\')">' + c.label + '</button>';
+  }).join('') + '</div>';
+  html += '<div id="move-dex-list"></div>';
+  html += '<div class="modal-btns"><button class="btn" onclick="closeModal()">知道了</button></div>';
+  openModal('招式图鉴', html);
+  $id('move-dex-list').innerHTML = moveDexListHtml();
+  // 输入法上屏（compositionend）后主动刷新一次，覆盖拼音整词上屏后无 input 事件的情况
+  const input = $id('move-dex-search');
+  if (input) {
+    input.addEventListener('compositionend', function () {
+      onMoveDexSearch(this.value);
+    });
+  }
+  const nsc = document.querySelector('#modal-root .modal');
+  if (nsc && top > 0) nsc.scrollTop = top;
+}
+
+// 搜索输入：只刷新结果列表，输入框保持原样（中文输入法不中断）
+function onMoveDexSearch(v, ev) {
+  // 输入法组合中（拼音未上屏）不刷新，等 compositionend 后再过滤，避免列表闪烁
+  if (ev && ev.isComposing) return;
+  _moveDexQuery = v;
+  const list = $id('move-dex-list');
+  if (!list) return;
+  const sc = document.querySelector('#modal-root .modal');
+  const top = sc ? sc.scrollTop : 0;
+  list.innerHTML = moveDexListHtml();
+  const nsc = document.querySelector('#modal-root .modal');
+  if (nsc && top > 0) nsc.scrollTop = top;
+}
+
+function moveDexListHtml() {
+  const q = (_moveDexQuery || '').trim();
+  const all = Object.keys(MOVES).map(function (id) { return MOVES[id]; }).filter(function (mv) {
+    if (_moveDexCat !== 'all' && mv.category !== _moveDexCat) return false;
+    if (q) {
+      const hay = mv.name + mv.type + mv.id;
+      if (hay.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+  let html = '';
+  const groups = {};
+  all.forEach(function (mv) { (groups[mv.type] = groups[mv.type] || []).push(mv); });
+  TYPES.forEach(function (t) {
+    const list = groups[t];
+    if (!list || list.length === 0) return;
+    list.sort(function (a, b) { return (b.power || 0) - (a.power || 0); });
+    html += '<div class="itemdex-cat">' + t + ' 系（' + list.length + '）</div>';
+    list.forEach(function (mv) {
+      html += '<div class="shop-row"><span style="color:' + typeColor(mv.type) + '">' + mv.name + '</span><span>' +
+        mv.category + (mv.power > 0 ? ' · 威力 ' + mv.power : '') + ' · ' +
+        (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + mv.pp + '</span></div>' +
+        '<div class="shop-desc">' + (moveEffectText(mv) || (mv.power > 0 ? '无附加效果' : '变化招式')) + '</div>';
+    });
+  });
+  if (all.length === 0) html += '<div class="shop-hint">没有匹配的招式</div>';
+  return html;
 }
 
 // ---------------- 关都地图 ----------------
