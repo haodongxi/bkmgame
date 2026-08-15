@@ -103,6 +103,21 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '道具图鉴列出月亮石');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
   await evaljs('closeModal();');
+  // 招式图鉴：全量 + 分组 + 搜索 + 类别筛选
+  await evaljs('doMapAction(\'movedex\');');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('全部招式') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf(String(Object.keys(MOVES).length)) !== -1"), '招式图鉴列出全部招式数量');
+  ok(await evaljs("document.querySelectorAll('#modal-root .itemdex-cat').length >= 10"), '招式按属性分组');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('喷射火焰') !== -1"), '招式图鉴列出喷射火焰（含威力/PP）');
+  await evaljs("document.querySelector('#move-dex-search').value = '火'; onMoveDexSearch('火');");
+  ok(await evaljs("document.querySelectorAll('#modal-root .shop-row').length > 0 && document.querySelector('#modal-root .modal-body').textContent.indexOf('火') !== -1"), '搜索“火”过滤生效');
+  ok(await evaljs("(function(){var el=document.querySelector('#move-dex-search'); el.focus(); el.value='喷射'; onMoveDexSearch('喷射'); return document.querySelector('#move-dex-search') === el;})()"), '搜索输入不重建输入框（中文输入法不断开）');
+  ok(await evaljs("document.querySelector('#move-dex-list').textContent.indexOf('喷射火焰') !== -1"), '中文搜索命中喷射火焰');
+  await evaljs("document.querySelector('#move-dex-search').value = '大晴天'; onMoveDexSearch('大晴天');");
+  ok(await evaljs("document.querySelector('#move-dex-list').textContent.indexOf('大晴天') !== -1"), '完整中文词“大晴天”可搜出');
+  ok(await evaljs("(function(){var el=document.querySelector('#move-dex-search'); onMoveDexSearch('zzz'); el.value='大晴天'; onMoveDexSearch('大晴天', {isComposing:true}); var before=document.querySelector('#move-dex-list').textContent.indexOf('大晴天'); el.dispatchEvent(new CompositionEvent('compositionend', {bubbles:true})); return before===-1 && _moveDexQuery==='大晴天' && document.querySelector('#move-dex-list').textContent.indexOf('大晴天')!==-1;})()"), '拼音组合上屏（compositionend）后自动刷新');
+  await evaljs('showMoveDexModal(\'变化\');');
+  ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('变化') !== -1; })"), '变化类筛选生效');
+  await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
   ok(await evaljs("document.querySelector('.map-reset-wrap .btn') !== null && document.querySelector('#action-panel').textContent.indexOf('重开') === -1"), '重开按钮已移到右上角，不在操作面板中');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
