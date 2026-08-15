@@ -1731,7 +1731,7 @@ section('遗忘技能不再重复提示');
   ok(s.pendingLearn.every(function (p) { return p.moveId !== 'tackle'; }), '被替换的旧招后续升级不再提示');
 }
 {
-  // 场景 3：招式更换面板付费换掉旧招 → 旧招记入遗忘清单且不再出现在可学清单
+  // 场景 3：招式更换面板付费换掉旧招 → 旧招记入遗忘清单（升级不再提示），但更换面板仍可手动学回
   T.newGame(4);
   const s = T.getState();
   s.party = [T.makeMon(143, 100, { nature: '勤奋' })];
@@ -1741,7 +1741,9 @@ section('遗忘技能不再重复提示');
   const res = T.replaceMove(0, 0, 'body_slam'); // 遗忘撞击，学泰山压顶
   ok(res.ok && s.party[0].moves[0] === 'body_slam', '付费替换成功');
   ok((s.party[0].forgottenMoves || []).indexOf('tackle') !== -1, '被换掉的旧招记入遗忘清单');
-  ok(T.learnableMoves(s.party[0]).indexOf('tackle') === -1, '可学清单不再显示已遗忘的旧招');
+  ok(T.learnableMoves(s.party[0]).indexOf('tackle') !== -1, '可学清单仍包含已遗忘的旧招（可手动学回）');
+  const back = T.replaceMove(0, 0, 'tackle');
+  ok(back.ok && s.party[0].moves[0] === 'tackle', '曾遗忘的旧招可通过更换面板学回');
 }
 {
   // 场景 4：遗忘清单随存档保存，旧档无该字段默认空数组
