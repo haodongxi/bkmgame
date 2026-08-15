@@ -218,12 +218,13 @@ async function main() {
   ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('4700') !== -1"), '关闭商店后地图顶栏仍显示最新金钱');
 
   // 电脑箱传送后数量同步刷新（回归：地图按钮与箱子弹窗不再显示旧数量）
-  await evaljs("STATE.party = [makeMon(4, 5, { nature: '勤奋' })]; STATE.box = [makeMon(16, 5, { nature: '勤奋' }), makeMon(19, 5, { nature: '勤奋' })]; render();");
+  await evaljs("STATE.party = [makeMon(4, 5, { nature: '勤奋' })]; STATE.box = [makeMon(16, 5, { nature: '勤奋' }), makeMon(19, 5, { nature: '勤奋' })]; STATE.box[0].held = '电气球'; render();");
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（2只）') !== -1; })"), '地图显示电脑箱 2 只');
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（2只）') !== -1"), '箱子弹窗显示 2 只');
   await evaljs("document.querySelector('#modal-root .btn-danger').click()");
   ok(await evaljs("STATE.box.length === 1 && STATE.expPool > 0"), '传送后箱子剩 1 只且获得万能经验');
+  ok(await evaljs("STATE.bag['电气球'] === 1"), '传送后携带物退回背包');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（1只）') !== -1; })"), '传送后地图按钮同步为 1 只');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（1只）') !== -1"), '传送后箱子弹窗同步为 1 只');
   await evaljs('closeModal();');

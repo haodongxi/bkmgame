@@ -341,11 +341,14 @@ section('MVP3：道馆踢馆与城镇事件');
 {
   // NPC 交换 + 1.5 倍经验
   T.newGame(7);
-  T.getState().party.push(T.makeMon(19, 6, { nature: '勤奋' }));
+  const tradedMon = T.makeMon(19, 6, { nature: '勤奋' });
+  tradedMon.held = '电气球'; // 换走的宝可梦带携带物
+  T.getState().party.push(tradedMon);
   T.getState().townTrade = { give: 16, want: 19 };
   T.doTownTrade(true);
   const traded = T.getState().party.find(function (m) { return m.species === 16; });
   ok(!!traded && traded.tradeBonus, '交换获得波波并带 1.5 倍经验标记');
+  ok(T.getState().bag['电气球'] === 1, '交换后旧宝可梦携带物退回背包');
   const exp0 = traded.exp;
   T.grantExp(traded, 100, []);
   ok(traded.exp - exp0 === 150, '交换宝可梦经验 1.5 倍生效（+150）');
@@ -1824,12 +1827,14 @@ section('MVP11.1：喂养系统');
   T.newGame(4);
   const s = T.getState();
   const mon = T.makeMon(68, 30); // 怪力：物攻最高 → 攻击糖果
+  mon.held = '吃剩的东西'; // 传送的宝可梦带携带物
   s.box = [mon];
   const expBefore = s.expPool;
   T.transferMon(0);
   ok(s.box.length === 0, '传送后宝可梦从电脑箱移除');
   ok(s.expPool === expBefore + Math.max(10, Math.floor(mon.exp * 0.3)), '万能经验按 exp×0.3 入池');
   ok(s.bag['攻击糖果'] === 1, '按最高种族值掉落攻击糖果');
+  ok(s.bag['吃剩的东西'] === 1, '传送后携带物退回背包');
 }
 {
   T.newGame(4);
