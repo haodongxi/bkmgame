@@ -1028,11 +1028,17 @@ function doAllocateExp(idx, mode) {
 // ---------------- 图鉴合集：宝可梦 / 道具 / 招式 统一入口（Tab 切换） ----------------
 
 let _dexHubTab = 'pokedex';
+let _dexPrevTab = 'pokedex';
+let _dexScrolls = {};
 
 function showDexHub(tabId) {
   if (tabId) _dexHubTab = tabId;
   const sc = document.querySelector('#modal-root .modal');
-  const top = sc ? sc.scrollTop : 0;
+  const curTop = sc ? sc.scrollTop : 0;
+  // 切换 Tab 前记住旧 Tab 的滚动位置（详情弹窗返回时不覆盖，_dexRestoreScroll 优先）
+  if (sc && _dexPrevTab !== _dexHubTab && _dexRestoreScroll === null) {
+    _dexScrolls[_dexPrevTab] = curTop;
+  }
   const tabs = [
     { id: 'pokedex', label: '📖 宝可梦' },
     { id: 'itemdex', label: '📘 道具' },
@@ -1044,9 +1050,20 @@ function showDexHub(tabId) {
   }).join('') + '</div>';
   html += '<div id="dex-hub-body"></div>';
   openModal('图鉴合集', html);
-  renderDexHubBody();
+  try {
+    renderDexHubBody();
+  } catch (e) {
+    console.error('图鉴渲染异常', e);
+  }
   const nsc = document.querySelector('#modal-root .modal');
-  if (nsc && top > 0) nsc.scrollTop = top;
+  if (nsc) {
+    // 详情返回：优先用记录的网格滚动位置；否则用该 Tab 上次记住的位置；都没有则保持当前滚动
+    const restore = _dexRestoreScroll !== null ? _dexRestoreScroll : (_dexScrolls[_dexHubTab] !== undefined ? _dexScrolls[_dexHubTab] : curTop);
+    if (restore > 0) nsc.scrollTop = restore;
+    _dexScrolls[_dexHubTab] = restore;
+    _dexRestoreScroll = null;
+    _dexPrevTab = _dexHubTab;
+  }
 }
 
 // 兼容旧入口：doMapAction / 测试仍可单独打开对应页
@@ -1178,9 +1195,44 @@ function refreshTitleArea() {
   else if ($id('bag-titles-body')) showBagModal(false, 'titles');
 }
 
+// 宝可梦图鉴二级分类：全部 + 17 属性；未解锁只出现在“全部”
+let _dexTypeTab = 'all';
+let _dexRestoreScroll = null;
+let _dexTypeScrolls = {};
+
+function setDexTypeTab(t) {
+  const sc = document.querySelector('#modal-root .modal');
+  if (sc && _dexTypeTab !== t) _dexTypeScrolls[_dexTypeTab] = sc.scrollTop;
+  _dexTypeTab = t;
+  renderDexHubBody();
+  const nsc = document.querySelector('#modal-root .modal');
+  if (nsc) {
+    const restore = _dexTypeScrolls[t] !== undefined ? _dexTypeScrolls[t] : (sc ? sc.scrollTop : 0);
+    if (restore > 0) nsc.scrollTop = restore;
+    _dexTypeScrolls[t] = restore;
+    // 与合集 Tab 的滚动记忆保持同步，避免切走再切回宝可梦 Tab 时位置丢失
+    _dexScrolls['pokedex'] = restore;
+  }
+}
+
 function pokedexBodyHtml() {
-  const ids = allDexIds();
-  let html = '<div class="dex-hint">已见 ' + Object.keys(STATE.seenDex).length + ' · 已捕获 ' + Object.keys(STATE.caughtDex).length + ' / 151</div>' +
+  const seenCount = Object.keys(STATE.seenDex).length;
+  const typeTabs = ['all'].concat(TYPES);
+  let html = '<div class="bag-tabs dex-type-tabs">' + typeTabs.map(function (t) {
+    if (t === 'all') {
+      return '<button class="btn btn-sm' + (_dexTypeTab === 'all' ? ' active' : '') + '" onclick="setDexTypeTab(\'all\')">全部(' + seenCount + ')</button>';
+    }
+    const seenOfType = allDexIds().filter(function (id) { return STATE.seenDex[id] && POKEDEX[id].types.indexOf(t) !== -1; }).length;
+    return '<button class="btn btn-sm' + (_dexTypeTab === t ? ' active' : '') + '" onclick="setDexTypeTab(\'' + t + '\')">' + t + '(' + seenOfType + ')</button>';
+  }).join('') + '</div>';
+  // 属性分类只显示已解锁；未解锁宝可梦保留在“全部”
+  const ids = allDexIds().filter(function (id) {
+    if (_dexTypeTab === 'all') return true;
+    if (!STATE.seenDex[id]) return false;
+    return POKEDEX[id].types.indexOf(_dexTypeTab) !== -1;
+  });
+  html += '<div class="dex-hint">已见 ' + seenCount + ' · 已捕获 ' + Object.keys(STATE.caughtDex).length + ' / 151' +
+    (_dexTypeTab !== 'all' ? ' · ' + _dexTypeTab + '系 ' + ids.length + ' 只' : '') + '</div>' +
     '<div class="dex-grid">';
   for (let i = 0; i < ids.length; i++) {
     const id = ids[i];
@@ -1213,6 +1265,9 @@ function drawDexIcons() {
 function showDexDetail(id) {
   const d = POKEDEX[id];
   if (!d) return;
+  // 记录图鉴网格滚动位置，返回时恢复
+  const dm = document.querySelector('#modal-root .modal');
+  if (dm) _dexRestoreScroll = dm.scrollTop;
   if (!STATE.seenDex[id]) {
     openModal('No.' + id,
       '<div class="detail-head"><div class="detail-icon dex-unknown">？</div>' +
