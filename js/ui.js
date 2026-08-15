@@ -959,16 +959,17 @@ function showMoveReplaceModal(idx) {
   for (let i = 0; i < learnable.length; i++) {
     const mv = MOVES[learnable[i]];
     if (!mv) continue;
+    const forgotten = (mon.forgottenMoves || []).indexOf(learnable[i]) !== -1;
     learnHtml += '<button class="btn btn-sm move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doReplaceMove(' + idx + ',' + _moveReplaceSlot + ',\'' + learnable[i] + '\')">' +
       '<span class="tag-learn">要学习</span>' + mv.name + '<span class="move-type">' + mv.type + '</span>' +
       (mv.power > 0 ? '<span class="move-eff">威力 ' + mv.power + '</span>' : '<span class="move-eff">变化</span>') +
-      (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') + '</button>';
+      (forgotten ? '<span class="move-effect">曾不学（升级不再自动提示，可手动学回）</span>' : (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '')) + '</button>';
   }
   openModal('更换招式 · ' + mon.name,
     '<div class="shop-hint">选择下方「要学习」的技能，将替换第 ' + (_moveReplaceSlot + 1) + ' 招（已学会的 ' +
     (MOVES[mon.moves[_moveReplaceSlot]] ? MOVES[mon.moves[_moveReplaceSlot]].name : '?') + '），花费 ' + cost + ' 金（当前余额 ' + STATE.money + ' 金）</div>' +
     '<div class="bag-tabs">' + slotHtml + '</div>' +
-    '<div class="shop-hint">—— 可学招式（要学习，Lv.' + mon.level + ' 及以下） ——</div>' +
+    '<div class="shop-hint">—— 可学招式（要学习，Lv.' + mon.level + ' 及以下，含曾不学的） ——</div>' +
     (learnHtml || '<div class="shop-hint">没有可学习的招式</div>') +
     '<div class="modal-btns"><button class="btn" onclick="closeModal()">取消</button></div>');
 }

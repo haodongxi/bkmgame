@@ -461,6 +461,8 @@ function acquisitionPaths(id) {
 }
 
 // 可学招式清单：该宝可梦当前等级及以下的学习面招式（去重、过滤非法招式、排除已学会）
+// 注意：不排除 forgottenMoves —— 遗忘清单只用于“升级自动提示不再重复”，
+// 玩家在详情“更换招式”里仍应能主动学回之前不学的技能。
 function learnableMoves(mon) {
   const ls = mon.speciesData && mon.speciesData.learnset;
   if (!ls) return [];
@@ -473,8 +475,7 @@ function learnableMoves(mon) {
     });
   });
   const known = mon.moves || [];
-  const forgotten = mon.forgottenMoves || [];
-  return all.filter(function (id) { return known.indexOf(id) === -1 && forgotten.indexOf(id) === -1; });
+  return all.filter(function (id) { return known.indexOf(id) === -1; });
 }
 
 // 招式更换费用：500 + 等级×30（等级越高越贵，保留技能位选择成本）
