@@ -40,7 +40,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  resolveRocketSell: resolveRocketSell, visitCenter: visitCenter, getMartStock: getMartStock,\n' +
   '  buyItem: buyItem, sellItem: sellItem, useBagItemOnMon: useBagItemOnMon, startBattle: startBattle, endBattle: endBattle,\n' +
   '  wanderTown: wanderTown,\n' +
-  '  randomPlayerName: randomPlayerName, renamePlayer: renamePlayer\n' +
+  '  randomPlayerName: randomPlayerName, renamePlayer: renamePlayer,\n' +
+  '  getTeleportCost: getTeleportCost, chargeTeleport: chargeTeleport,\n' +
   '};';
 
 // 可控随机：默认使用种子序列，需要时可切换
@@ -2487,6 +2488,41 @@ function fightToEnd() {
   localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
   s.titles = [];
   ok(T.load() && T.getState().titles.filter(function (x) { return x === 'tower100@普通'; }).length === 2, '旧档中文名/id 转普通版');
+}
+{
+  // 地图传送计费：500 起步、每次 +100、封顶 1w、每天重置、存档保存
+  T.newGame(4);
+  const s = T.getState();
+  ok(s.teleportCost === 500 && !!s.teleportDate, '新游戏传送费用 500 且记录日期');
+  const m0 = s.money;
+  const r1 = T.chargeTeleport();
+  ok(r1.ok && r1.cost === 500 && s.money === m0 - 500 && s.teleportCost === 600, '首次传送扣 500、下次 600');
+  s.money = 999999;
+  for (let i = 0; i < 100; i++) T.chargeTeleport();
+  ok(s.teleportCost === 10000, '费用递增封顶 10000');
+  s.money = 100;
+  const poor = T.chargeTeleport();
+  ok(!poor.ok && s.money === 100 && s.teleportCost === 10000, '钱不够时传送被拦截');
+  s.money = 99999;
+  T.chargeTeleport();
+  ok(s.teleportCost === 10000, '封顶后费用保持 10000');
+  s.money = 10000;
+  const exact = T.chargeTeleport();
+  ok(exact.ok && s.money === 0, '钱正好等于费用时扣费成功归零');
+  s.teleportDate = '2000-01-01';
+  ok(T.getTeleportCost() === 500, '跨天后费用重置为 500');
+  s.money = 99999;
+  s.teleportCost = 1200;
+  T.save();
+  s.teleportCost = 0;
+  s.teleportDate = '';
+  ok(T.load() && T.getState().teleportCost === 1200, '传送费用随存档保存');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.teleportCost;
+  delete legacy.teleportDate;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.teleportCost = 0;
+  ok(T.load() && T.getState().teleportCost === 500, '旧档无传送费用字段默认 500');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

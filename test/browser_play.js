@@ -157,6 +157,18 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('.travel-btn').length === 1"), '移动弹窗列出下个地点');
   await evaljs('doTravel(\'route1\');');
   ok(await evaljs("STATE.nodeId === 'route1'"), '移动到 1 号道路');
+  // 地图传送计费：500 起步、每次 +100、钱不够拦截
+  await evaljs("STATE.money=5000; STATE.nodeId='pallet'; STATE.teleportCost=500; STATE.teleportDate=''; render();");
+  await evaljs("doMapTravel('viridian'); render();");
+  ok(await evaljs("STATE.nodeId === 'viridian' && STATE.money === 4500 && STATE.teleportCost === 600"), '地图传送扣 500 并递增到 600');
+  ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('4500') !== -1"), '传送后顶栏金钱实时刷新');
+  await evaljs("STATE.money=5000; STATE.nodeId='pallet'; STATE.teleportCost=500; doMapTravel('pallet'); render();");
+  ok(await evaljs("STATE.money === 5000 && STATE.teleportCost === 500"), '传送到当前节点不收费');
+  await evaljs("STATE.money=5000; STATE.nodeId='pallet'; STATE.badges=[]; STATE.teleportCost=500; doMapTravel('route3'); render();");
+  ok(await evaljs("STATE.money === 5000 && STATE.nodeId === 'pallet'"), '路径被徽章锁定不收费');
+  await evaljs("STATE.money=100; STATE.nodeId='pallet'; STATE.teleportCost=500; doMapTravel('viridian'); render();");
+  ok(await evaljs("STATE.nodeId === 'pallet' && STATE.money === 100"), '钱不够时传送被拦截');
+  await evaljs("STATE.nodeId='route1'; render();");
   ok(await evaljs("document.querySelectorAll('#action-panel .btn')[0].textContent.indexOf('探索') !== -1"), '野外探索按钮');
   await evaljs('doMapAction(\'travel\');');
   ok(await evaljs("document.querySelectorAll('.travel-btn').length >= 1"), '野外节点也有移动弹窗');
