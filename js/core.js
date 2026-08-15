@@ -569,9 +569,13 @@ function calcDamage(attacker, defender, move, weather) {
   if (attacker.m.status === '灼伤' && move.category === '物理') mod *= 0.5;
   let crit = false;
   // 羁绊阶段三：暴击率 1/16 → 1/8
-  const critChance = (attacker.m.bond || 0) >= 60 ? 1 / 8 : 1 / 16;
+  let critChance = (attacker.m.bond || 0) >= 60 ? 1 / 8 : 1 / 16;
+  // 速度碾压（≥ 对方 1.5 倍）：暴击率 ×4/3（1/16→1/12、1/8→1/6）
+  if (effStat(attacker, 'spe') >= effStat(defender, 'spe') * 1.5) critChance *= 4 / 3;
   if (Math.random() < critChance) { crit = true; mod *= 1.5; }
   mod *= 0.85 + Math.random() * 0.15;
+  // 先发制人：首回合先手方伤害 +5%
+  if (attacker.firstStrike) mod *= 1.05;
   const dmg = Math.max(1, Math.floor(base * mod));
   return { dmg: dmg, eff: eff, crit: crit };
 }
@@ -1127,6 +1131,7 @@ function useMove(user, target, move, log, kinds) {
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
   t.hp -= totalDmg;
+  if (user.firstStrike) L(m.name + ' 先发制人，气势如虹！', 'info');
   L(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg, side);
   // 羁绊阶段四：20% 毅力锁血（每场最多一次）
   if (t.hp <= 0 && target.side === 'player' && (t.bond || 0) >= 90 && !target.enduredThisBattle && Math.random() < 0.2) {
@@ -1361,15 +1366,26 @@ function battleMove(idx) {
   const pPriority = pMove.effect && pMove.effect.kind === 'priority';
   const fPriority = fMove.effect && fMove.effect.kind === 'priority';
   const pFirst = pPriority ? true : (fPriority ? false : speedOf(pm) >= speedOf(fm));
+  // 速度对比提示：首回合必显，之后仅先手方变化时再显（避免每回合刷屏）
+  const firstSide = pFirst ? 'player' : 'foe';
+  if (b.turn === 1 || firstSide !== b.lastFirst) {
+    log.push('速度 ' + speedOf(pm) + ' vs ' + speedOf(fm) + '，' + (pFirst ? '你先手！' : '对方先手！'));
+    kinds.push('info');
+  }
+  b.lastFirst = firstSide;
   if (pFirst) {
+    if (b.turn === 1) pm.firstStrike = true; // 仅首回合先发制人（+5%）
     useMove(pm, fm, pMove, log, kinds);
+    pm.firstStrike = false;
     flushLog();
     if (pm.m.hp > 0 && fm.m.hp > 0 && !b.over) {
       useMove(fm, pm, fMove, log, kinds);
       flushLog();
     }
   } else {
+    if (b.turn === 1) fm.firstStrike = true; // 仅首回合先发制人（+5%）
     useMove(fm, pm, fMove, log, kinds);
+    fm.firstStrike = false;
     flushLog();
     if (fm.m.hp > 0 && pm.m.hp > 0 && !b.over) {
       useMove(pm, fm, pMove, log, kinds);
@@ -1537,13 +1553,39 @@ function battleRun() {
   const b = STATE.battle;
   if (!b || b.over) return;
   if (!b.canRun) { addLog('不能逃跑！'); return; }
-  addLog('你成功逃走了！', 'info');
-  b.over = true;
-  b.outcome = 'run';
-  STATE.lastResult = 'run';
-  STATE.lastBattleView = { player: b.player, foe: b.foe, kind: b.kind, logStart: b.logStart };
-  STATE.screen = 'map';
-  STATE.battle = null;
+  const p = b.player;
+  const f = b.foe;
+  const pm = p.mons[p.active];
+  const fm = f.mons[f.active];
+  // 逃跑成功率与速度挂钩：保底 50% + 速度差比例×30，上限 100%（速度越快越容易脱战）
+  const pSpd = speedOf(pm);
+  const fSpd = Math.max(1, speedOf(fm));
+  const chance = Math.max(50, Math.min(100, Math.floor(50 + (pSpd - fSpd) / fSpd * 30)));
+  // 成功率 100% 时短路，不消耗随机（保持既有测试随机序列稳定）
+  if (chance >= 100 || Math.random() * 100 < chance) {
+    addLog('你成功逃走了！', 'info');
+    b.over = true;
+    b.outcome = 'run';
+    STATE.lastResult = 'run';
+    STATE.lastBattleView = { player: p, foe: f, kind: b.kind, logStart: b.logStart };
+    STATE.screen = 'map';
+    STATE.battle = null;
+    return;
+  }
+  // 逃跑失败：敌方先行动一回合
+  addLog('逃跑失败了！', 'bad');
+  const fMove = pickFoeMove(fm, pm);
+  const log = [];
+  const kinds = [];
+  let logPos = 0;
+  function flushLog() {
+    for (let i = logPos; i < log.length; i++) addLog(log[i], kinds[i]);
+    logPos = log.length;
+  }
+  if (fm.m.hp > 0 && pm.m.hp > 0) useMove(fm, pm, fMove, log, kinds);
+  flushLog();
+  if (!b.over) { endOfTurn(log, kinds); flushLog(); handleFaints(log, kinds); flushLog(); }
+  if (!b.over) b.waitingPlayer = true;
 }
 
 function endBattle(outcome) {
