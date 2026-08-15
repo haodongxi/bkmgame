@@ -60,6 +60,30 @@ const STATE = {
 
 function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
 
+// ---------------- 玩家名：新游戏随机分配，可自行改名 ----------------
+
+const PLAYER_NAME_PARTS = {
+  prefix: ['勇敢的', '热血的', '闪光的', '快乐的', '认真的', '神秘的', '潇洒的', '帅气的', '冷静的', '温柔的'],
+  core: ['阿健', '小悠', '星野', '光太', '小葵', '阿豪', '乐天', '乘风', '小燃', '云帆', '阿泽', '小满']
+};
+
+function randomPlayerName() {
+  const p = PLAYER_NAME_PARTS.prefix[randInt(0, PLAYER_NAME_PARTS.prefix.length - 1)];
+  const c = PLAYER_NAME_PARTS.core[randInt(0, PLAYER_NAME_PARTS.core.length - 1)];
+  return p + c; // 如「勇敢的小悠」
+}
+
+// 改名：非空 + 最多 10 个字，成功后随存档保存
+function renamePlayer(name) {
+  const n = String(name || '').trim();
+  if (!n) { addLog('名字不能为空。', 'warn'); return false; }
+  if (n.length > 10) { addLog('名字最多 10 个字。', 'warn'); return false; }
+  STATE.name = n;
+  addLog('你的名字改成了 ' + n + '！', 'good');
+  save();
+  return true;
+}
+
 function pickWeighted(pool) {
   let total = 0;
   for (let i = 0; i < pool.length; i++) total += pool[i].w;
@@ -2440,6 +2464,7 @@ function useBagItemOnMon(itemName, partyIdx) {
 function newGame(starterId) {
   const mon = makeMon(starterId, 5);
   mon.bond = 20; // 御三家初始羁绊
+  STATE.name = randomPlayerName(); // 随机分配玩家名
   STATE.screen = 'map';
   STATE.nodeId = 'pallet';
   STATE.weather = '晴';
@@ -2492,6 +2517,7 @@ function save() {
   try {
     const data = {
       version: GAME_VERSION,
+      name: STATE.name,
       screen: STATE.screen === 'battle' ? 'map' : STATE.screen,
       nodeId: STATE.nodeId,
       weather: STATE.weather,
@@ -2621,7 +2647,8 @@ function load() {
     STATE.gymSession = null;
     STATE.townTrade = null;
     STATE.wanderUsed = false;
-    addLog('欢迎回来，' + (data.name || '训练家') + '！存档读取成功。', 'info');
+    STATE.name = data.name || randomPlayerName(); // 旧档无名字：自动分配
+    addLog('欢迎回来，' + STATE.name + '！存档读取成功。', 'info');
     return true;
   } catch (e) {
     return false;
@@ -2650,6 +2677,7 @@ function resetGame() {
   STATE.repel = 0;
   STATE.weatherBias = null;
   STATE.weatherBoost = 0;
+  STATE.name = '';
   STATE.wanderUsed = false;
   STATE.screen = 'title';
 }
@@ -2687,6 +2715,7 @@ if (typeof module !== 'undefined' && module.exports) {
     acquisitionPaths: acquisitionPaths,
     learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
-    rollWeather: rollWeather, refreshWeather: refreshWeather
+    rollWeather: rollWeather, refreshWeather: refreshWeather,
+    randomPlayerName: randomPlayerName, renamePlayer: renamePlayer
   };
 }

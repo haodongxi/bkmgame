@@ -5,6 +5,11 @@
 
 function $id(id) { return document.getElementById(id); }
 
+// HTML 转义：玩家输入的名字可能包含特殊字符，内联渲染前必须转义
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 let _lastBattle = null, _foeHp = null, _playerHp = null, _foeIdx = null, _playerIdx = null;
 let _bagTab = 'heal';
 let _boxSwapIdx = -1;
@@ -288,6 +293,26 @@ function exportSave() {
   }
 }
 
+// 玩家改名：点击地图顶栏名字弹出，成功后随存档保存
+function showRenameModal() {
+  openModal('修改玩家名',
+    '<div class="shop-hint">给自己起个响亮的名字（最多 10 个字）：</div>' +
+    '<input class="save-code" id="rename-input" maxlength="10" value="' + esc(STATE.name || '') + '">' +
+    '<div class="modal-btns">' +
+    '<button class="btn btn-primary" onclick="doRename()">确认改名</button>' +
+    '<button class="btn" onclick="closeModal()">取消</button></div>');
+  const inp = $id('rename-input');
+  if (inp) inp.focus();
+}
+
+function doRename() {
+  const inp = $id('rename-input');
+  if (renamePlayer(inp ? inp.value : '')) {
+    closeModal();
+    render();
+  }
+}
+
 function copySaveCode() {
   const ta = $id('save-code');
   if (!ta) return;
@@ -384,7 +409,7 @@ function renderMap() {
   const node = MAP_NODES[STATE.nodeId];
   $id('loc-label').textContent = '[当前位置：' + node.name + ']';
   $id('weather-label').textContent = '[当前天气：' + WEATHER[STATE.weather].icon + ' ' + WEATHER[STATE.weather].name + ']';
-  $id('meta-label').textContent = '💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151' +
+  $id('meta-label').innerHTML = '👤 <span class="player-name" title="点击改名" onclick="showRenameModal()">' + esc(STATE.name || '训练家') + '</span> · 💰 ' + STATE.money + '  · 徽章 ' + STATE.badges.length + '/8  · 图鉴 ' + Object.keys(STATE.seenDex).length + '/151' +
     (STATE.titles.length ? ' · 称号：' + STATE.titles.join('、') : '');
   $id('goal-label').textContent = goalHint();
 
