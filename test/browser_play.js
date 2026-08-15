@@ -119,6 +119,16 @@ async function main() {
   ok(await evaljs("Array.prototype.every.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('变化') !== -1; })"), '变化类筛选生效');
   await evaljs('closeModal();');
   ok(await evaljs("document.querySelectorAll('#action-panel .btn').length >= 5"), '城镇操作按钮齐全');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('图鉴合集') !== -1; }) && !Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('道具图鉴') !== -1 || b.textContent.indexOf('招式图鉴') !== -1; })"), '图鉴/道具/招式统一为图鉴合集按钮');
+  await evaljs('doMapAction(\'dex\');');
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn').length === 3"), '图鉴合集含三个 Tab');
+  await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[0].click()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .dex-cell').length === 151"), '合集默认显示宝可梦图鉴');
+  await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[2].click()");
+  ok(await evaljs("document.querySelector('#move-dex-search') !== null"), '切到招式 Tab 显示搜索框');
+  await evaljs("document.querySelectorAll('#modal-root .dex-hub-tabs .btn')[1].click()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '切到道具 Tab 显示道具列表');
+  await evaljs('closeModal();');
   ok(await evaljs("document.querySelector('.map-reset-wrap .btn') !== null && document.querySelector('#action-panel').textContent.indexOf('重开') === -1"), '重开按钮已移到右上角，不在操作面板中');
   ok(await evaljs("document.querySelector('#loc-label').textContent.indexOf('真新镇') !== -1"), '位置标签渲染');
   ok(await evaljs("document.querySelector('#weather-label').textContent.indexOf('天气') !== -1"), '天气标签渲染');
@@ -241,6 +251,11 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（2只）') !== -1; })"), '地图显示电脑箱 2 只');
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（2只）') !== -1"), '箱子弹窗显示 2 只');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .row-btns .btn'), function(b){ return b.textContent.indexOf('详情') !== -1; })"), '箱子弹窗有详情按钮');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .row-btns .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '箱内宝可梦可查看详情（含个体值）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('更换招式') === -1"), '箱内详情不显示队伍专属的更换招式');
+  await evaljs('closeModal();');
   await evaljs("document.querySelector('#modal-root .btn-danger').click()");
   ok(await evaljs("STATE.box.length === 1 && STATE.expPool > 0"), '传送后箱子剩 1 只且获得万能经验');
   ok(await evaljs("STATE.bag['电气球'] === 1"), '传送后携带物退回背包');
