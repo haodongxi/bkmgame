@@ -599,6 +599,8 @@ function shopStep(kind, name, delta) {
 function refreshShop() {
   const sc = document.querySelector('#modal-root .modal');
   const top = sc ? sc.scrollTop : 0;
+  // 先刷新底层地图（顶栏金钱/背包数量等），避免关闭商店后显示旧值
+  renderMap();
   showShopModal();
   const nsc = document.querySelector('#modal-root .modal');
   if (nsc && top > 0) nsc.scrollTop = top;
@@ -774,6 +776,8 @@ function doTransfer(idx) {
   if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
     transferMon(idx);
     save();
+    // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
+    renderMap();
     showBoxModal();
   }
 }
