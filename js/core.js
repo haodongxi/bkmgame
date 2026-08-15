@@ -1737,6 +1737,11 @@ function transferMon(boxIdx) {
   const candy = candyForSpecies(mon.species);
   STATE.expPool += exp;
   addItem(candy, 1);
+  // 携带物退回背包，不随宝可梦一起消失
+  if (mon.held) {
+    addItem(mon.held, 1);
+    addLog('你把 ' + mon.name + ' 身上携带的【' + mon.held + '】放回了背包。', 'good');
+  }
   STATE.box.splice(boxIdx, 1);
   addLog('你把 ' + mon.name + ' 传送给了大木博士。', 'info');
   addLog('万能经验 +' + exp + '，获得了【' + candy + '】×1！', 'good');
@@ -2272,7 +2277,13 @@ function doTownTrade(accept) {
   if (!accept) { addLog('你婉拒了这次交换。', 'info'); return; }
   const idx = STATE.party.findIndex(function (m) { return m.species === t.want; });
   if (idx === -1) { addLog('你手里没有 ' + POKEDEX[t.want].name + '。', 'info'); return; }
-  const level = STATE.party[idx].level;
+  const oldMon = STATE.party[idx];
+  // 换走的宝可梦携带物退回背包，不随交换消失
+  if (oldMon.held) {
+    addItem(oldMon.held, 1);
+    addLog('你把 ' + oldMon.name + ' 身上携带的【' + oldMon.held + '】放回了背包。', 'good');
+  }
+  const level = oldMon.level;
   const mon = makeMon(t.give, level);
   mon.tradeBonus = true;
   STATE.party[idx] = mon;
