@@ -263,7 +263,7 @@ function makeMon(speciesId, level, opts) {
     bond: 0,
     exploreSteps: 0,
     forgottenMoves: [], // 玩家明确不学/遗忘的招式：升级不再重复提示
-    locked: false, // 电脑箱锁定：上锁后不可取出/传送（默认不上锁）
+    locked: false, // 电脑箱锁定：上锁后不可传送（默认不上锁）
     shiny: false // 闪光形态：超越之塔闪光石解锁，金色/虹色闪耀
   };
   return mon;
@@ -2109,7 +2109,6 @@ function boxSwap(boxIdx, partyIdx) {
   const boxMon = STATE.box[boxIdx];
   const partyMon = STATE.party[partyIdx];
   if (!boxMon || !partyMon) { addLog('宝可梦不存在。'); return; }
-  if (boxMon.locked) { addLog(boxMon.name + ' 已上锁，无法取出。', 'warn'); return; }
   STATE.party[partyIdx] = boxMon;
   STATE.box[boxIdx] = partyMon;
   addLog('你把 ' + partyMon.name + ' 存入了电脑箱，取回了 ' + boxMon.name + '！', 'good');

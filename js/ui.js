@@ -795,7 +795,7 @@ function showPartyModal(mode, itemName) {
 }
 
 function showBoxModal() {
-  let html = '<div class="shop-hint">💡 传送需 2500 金 · 锁定的宝可梦不可取出/传送</div>';
+  let html = '<div class="shop-hint">💡 传送需 2500 金 · 锁定的宝可梦不可传送</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
   }
@@ -810,7 +810,7 @@ function showBoxModal() {
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       '<div class="box-actions">' +
       '<button class="btn btn-xs" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
-      '<button class="btn btn-xs" onclick="doBoxSwap(' + i + ')"' + (m.locked ? ' disabled' : '') + '>取回</button>' +
+      '<button class="btn btn-xs" onclick="doBoxSwap(' + i + ')">取回</button>' +
       '<button class="btn btn-xs btn-danger" onclick="doTransfer(' + i + ')"' + (m.locked ? ' disabled' : '') + '>传送</button></div></div>';
   }
   openModal('电脑箱（' + STATE.box.length + '只）', html);

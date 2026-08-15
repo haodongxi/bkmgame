@@ -2343,7 +2343,7 @@ function fightToEnd() {
   ok(fs1 === 1 && fs2 === 1, '塔内先发制人只在首回合（后续回合无加成）');
 }
 {
-  // 电脑箱锁定：上锁后不可取出/传送，解锁恢复；默认不上锁；随存档保存
+  // 电脑箱锁定：上锁后仅不可传送（仍可取回），解锁恢复；默认不上锁；随存档保存
   T.newGame(4);
   const s = T.getState();
   s.box = [T.makeMon(16, 10, { nature: '勤奋' })];
@@ -2354,7 +2354,8 @@ function fightToEnd() {
   T.transferMon(0);
   ok(s.box.length === 1 && s.expPool === expBefore, '上锁宝可梦无法传送');
   T.boxSwap(0, 0);
-  ok(s.box[0].species === 16 && s.party[0].species === 4, '上锁宝可梦无法取出');
+  ok(s.box[0].species === 4 && s.party[0].species === 16, '上锁宝可梦仍可取回（锁只限制传送）');
+  T.boxSwap(0, 0); // 换回来继续验证传送
   s.box[0].locked = false;
   T.transferMon(0);
   ok(s.box.length === 0, '解锁后可正常传送');

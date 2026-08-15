@@ -327,7 +327,10 @@ async function main() {
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .box-lock-corner') !== null"), '箱子弹窗有锁角标');
   await evaljs("document.querySelector('#modal-root .box-lock-corner').click()");
-  ok(await evaljs("STATE.box[0].locked === true && document.querySelectorAll('#modal-root .box-actions .btn[disabled]').length === 2"), '上锁后取回/传送禁用');
+  ok(await evaljs("STATE.box[0].locked === true && document.querySelectorAll('#modal-root .box-actions .btn[disabled]').length === 1"), '上锁后仅传送禁用（取回可点）');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent === '取回';})[0]; if(b) b.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('选择要存入箱子的宝可梦') !== -1"), '上锁宝可梦仍可取回（打开选择弹窗）');
+  await evaljs('closeModal(); doMapAction(\'box\');');
   await evaljs("document.querySelector('#modal-root .box-lock-corner').click()");
   ok(await evaljs("STATE.box[0].locked === false && document.querySelectorAll('#modal-root .box-actions .btn[disabled]').length === 0"), '解锁后按钮恢复可点');
   await evaljs("document.querySelector('#modal-root .btn-danger').click()");
