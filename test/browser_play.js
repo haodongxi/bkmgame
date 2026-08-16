@@ -359,6 +359,14 @@ async function main() {
   await evaljs("(function(){while(STATE.battle&&!STATE.battle.over){var b=STATE.battle;var a=b.player.mons[b.player.active];var idx=-1;for(var i=0;i<a.m.moves.length;i++){var mv=MOVES[a.m.moves[i]];if(mv&&mv.power>0&&(!a.m.pp||a.m.pp[i]>0)&&typeEffectiveness(mv.type,b.foe.mons[b.foe.active].m.speciesData.types)>0){idx=i;break;}}battleMove(idx);}})()");
   ok(await evaljs("STATE.bag['走私的精灵蛋']===1 && STATE.rocketWarehouseDone===true"), '仓库打赢得蛋并标记');
 
+  // 联机对战入口（bkmserver 客户端）：打开大厅，关闭后返回单机界面
+  await evaljs('remoteOpenLobby();');
+  ok(await evaljs("document.querySelector('#screen-remote').classList.contains('active') && document.querySelector('#remote-lobby').textContent.indexOf('联机对战 · bkmserver') !== -1"), '联机大厅打开');
+  ok(await evaljs("document.querySelector('#rb-server') !== null && document.querySelector('#rb-server').value.indexOf('127.0.0.1:8787') !== -1"), '服务器地址默认值');
+  ok(await evaljs("typeof REMOTE !== 'undefined' && REMOTE.server.indexOf('http') === 0"), 'REMOTE 状态已初始化');
+  await evaljs('remoteClose();');
+  ok(await evaljs("document.querySelector('#screen-map').classList.contains('active') && !document.querySelector('#screen-remote').classList.contains('active')"), '关闭联机返回地图页');
+
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });
   consoleErrors.forEach(function (e) { console.error('  ERR: ' + e); });

@@ -246,7 +246,7 @@ function scrollLogToBottom() {
 }
 
 function render() {
-  const screens = ['title', 'starter', 'map', 'battle'];
+  const screens = ['title', 'starter', 'map', 'battle', 'remote'];
   for (let i = 0; i < screens.length; i++) {
     const el = $id('screen-' + screens[i]);
     if (el) el.classList.toggle('active', STATE.screen === screens[i]);
@@ -257,6 +257,7 @@ function render() {
   if (STATE.screen === 'starter') renderStarter();
   if (STATE.screen === 'map') renderMap();
   if (STATE.screen === 'battle') renderBattle();
+  if (STATE.screen === 'remote') renderRemote();
   if (STATE.screen === 'map' || STATE.screen === 'battle') {
     if (STATE.pendingLearn.length > 0) showLearnModal();
     else if (STATE.rocketSell) showRocketSellModal();
