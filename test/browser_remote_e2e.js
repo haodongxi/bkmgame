@@ -104,6 +104,7 @@ async function main() {
 
   // 双方进入对战
   ok(await waitUntil("REMOTE.battleOpen && REMOTE.lastView && REMOTE.lastView.battle && !REMOTE.lastView.battle.over", 12000), '浏览器端对战开始');
+  ok(await waitUntil("document.getElementById('rb-countdown') !== null", 5000), '战斗界面含回合倒计时元素');
 
   // 浏览器方出招，HTTP 方出招
   ok(await waitUntil("document.querySelector('#rb-actions .move-btn:not([disabled])') !== null", 10000), '出招按钮可用');
