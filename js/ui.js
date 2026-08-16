@@ -453,6 +453,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'dex\')">📚 图鉴合集</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
+    html += '<button class="btn" onclick="remoteOpenLobby()">🛰️ 联机对战</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
         html += '<button class="btn" disabled>🏟️ 常磐道馆（需要 ' + node.gym.requireBadges + ' 枚徽章）</button>';
@@ -491,7 +492,6 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
   }
-  html += '<button class="btn" onclick="remoteOpenLobby()">🛰️ 联机对战</button>';
   html += '<button class="btn" onclick="exportSave()">📤 导出存档</button>';
   $id('action-panel').innerHTML = html;
 }

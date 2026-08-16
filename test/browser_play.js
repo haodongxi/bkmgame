@@ -361,7 +361,10 @@ async function main() {
 
   // 联机对战入口（bkmserver 客户端）：打开大厅，关闭后返回单机界面
   ok(await evaljs("document.querySelector('#screen-title').textContent.indexOf('联机对战') === -1"), '标题页不再显示联机对战入口');
-  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('联机对战') !== -1; })"), '联机对战入口在地图操作面板');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('联机对战') !== -1; })"), '城镇内显示联机对战入口');
+  await evaljs("STATE.nodeId='route1'; render();");
+  ok(await evaljs("!Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('联机对战') !== -1; })"), '非城镇不显示联机对战入口');
+  await evaljs("STATE.nodeId='celadon'; render();");
   await evaljs('remoteOpenLobby();');
   ok(await evaljs("document.querySelector('#screen-remote').classList.contains('active') && document.querySelector('#remote-lobby').textContent.indexOf('联机对战 · bkmserver') !== -1"), '联机大厅打开');
   ok(await evaljs("document.querySelector('#rb-server') !== null && document.querySelector('#rb-server').value.indexOf('127.0.0.1:8787') !== -1"), '服务器地址默认值');
