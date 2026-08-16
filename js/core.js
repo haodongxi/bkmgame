@@ -2051,7 +2051,8 @@ function endBattle(outcome) {
       STATE.money -= lost;
       addLog('火箭队抢走了你 ' + lost + ' 金币！', 'bad');
       const keys = Object.keys(STATE.bag).filter(function (k) {
-        return ['精灵球', '伤药', '解毒药', '解麻药', '穿绳'].indexOf(k) === -1;
+        return ['精灵球', '伤药', '解毒药', '解麻药', '穿绳'].indexOf(k) === -1 &&
+          !(ITEMS[k] && ITEMS[k].type === 'held' && ITEMS[k].onlySpecies); // 专属道具不可被抢（一旦失去无法再获取）
       });
       if (keys.length > 0) {
         const stolen = keys[randInt(0, keys.length - 1)];

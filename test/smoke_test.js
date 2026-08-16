@@ -2652,6 +2652,14 @@ function fightToEnd() {
   s.bag = {};
   seq.length = 0; seq.push(0.05);
   ok(T.tryHiddenHeld() === false, '翻出后永久记录，不再重复获得');
+  // 火箭队抢劫败北：专属道具不可被没收（否则翻出后永久丢失）
+  s.battle = { kind: 'rocket_robbery', player: {}, foe: {}, logStart: s.log.length };
+  s.money = 1000;
+  s.bag = { '电光石': 1, '精灵球': 2, '伤药': 3 };
+  seq.length = 0; seq.push(0.5);
+  T.endBattle('lose');
+  ok(s.bag['电光石'] === 1, '火箭队败北不没收专属道具（电光石保留）');
+  ok(s.bag['伤药'] === 3 || s.bag['伤药'] === 2, '普通道具仍按原逻辑可能被没收');
   // 装备绑定：非绑定拒绝、绑定成功、家族多只可用
   s.bag = {}; s.collectedHeld = [];
   s.party = [T.makeMon(25, 30, { nature: '勤奋' }), T.makeMon(135, 30, { nature: '勤奋' }), T.makeMon(94, 30, { nature: '勤奋' }), T.makeMon(16, 30, { nature: '勤奋' })];
