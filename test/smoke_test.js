@@ -2794,6 +2794,37 @@ function fightToEnd() {
   T.load();
   ok(T.getState().tower.cleared === false && T.getState().tower.replaying === false, '未通关旧档不受追溯影响');
 }
+{
+  // 双塔交错：无尽塔重刷中切超越塔再切回、超越塔重刷不影响无尽塔、重刷中通关复位
+  const s = superTeam();
+  s.nodeId = 'tower';
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.startTowerFloor(); // 无尽塔重刷
+  ok(s.tower.replaying === true && s.tower.cleared === true && s.tower.floor === 1, '无尽塔重刷开始（保留通关标记）');
+  s.tower.floor = 3; // 模拟重刷已打到第 3 层
+  // 切超越塔（重刷中可进）
+  T.startSuperTowerFloor();
+  ok(s.battle && s.battle.kind === 'super_tower', '无尽塔重刷中可进入超越之塔');
+  ok(s.tower.floor === 3 && s.tower.replaying === true, '超越塔战斗不干扰无尽塔重刷进度');
+  // 切回无尽塔：replaying=true 不重置，继续第 3 层
+  T.startTowerFloor();
+  ok(s.battle && s.battle.kind === 'tower' && s.tower.floor === 3, '切回无尽塔继续重刷进度（不重置）');
+  // 超越塔通关后重刷：不影响无尽塔状态
+  s.tower.superFloor = 100;
+  s.tower.superCleared = true;
+  T.startSuperTowerFloor();
+  ok(s.tower.superFloor === 1 && s.tower.superCleared === false, '超越塔重刷从第 1 层开始');
+  ok(s.tower.floor === 3 && s.tower.replaying === true && s.tower.cleared === true, '超越塔重刷不影响无尽塔状态');
+  // 无尽塔重刷中再次通关：replaying 复位
+  s.tower.floor = 100;
+  s.tower.checkpoint = 95;
+  s.battle = { kind: 'tower', player: {}, foe: {}, logStart: s.log.length };
+  T.endBattle('win');
+  ok(s.tower.cleared === true && s.tower.replaying === false && s.tower.floor === 100, '无尽塔重刷中再次通关后状态复位');
+  // 复位后再挑战：开启新一轮重刷
+  T.startTowerFloor();
+  ok(s.tower.replaying === true && s.tower.floor === 1, '再次通关后点挑战开启新一轮重刷');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);
