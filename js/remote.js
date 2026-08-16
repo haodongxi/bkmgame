@@ -20,13 +20,8 @@ const REMOTE = {
   timer: null,
   busy: false,
   battleOpen: false,
-  prevScreen: 'title',
-  turnTimer: null,
-  turnDeadline: 0,
-  wasMyTurn: false
+  prevScreen: 'title'
 };
-
-const REMOTE_TURN_MS = 10000; // 回合操作时限：10 秒不出招视为放弃本回合
 
 // 对战可用道具（与 bkmserver engine/items.py 对齐）
 const REMOTE_BATTLE_ITEMS = ['伤药', '好伤药', '全复药', '万灵药', '解毒药', '解麻药', 'PP回复药', 'PP满回复药'];
@@ -338,38 +333,6 @@ function remoteStartPoll() {
 
 function remoteStopPoll() {
   if (REMOTE.timer) { clearInterval(REMOTE.timer); REMOTE.timer = null; }
-  remoteStopTurnTimer();
-}
-
-// ---------------- 回合倒计时（仅联机版，单机不受影响） ----------------
-
-function remoteStopTurnTimer() {
-  if (REMOTE.turnTimer) { clearInterval(REMOTE.turnTimer); REMOTE.turnTimer = null; }
-  const el = $id('rb-countdown');
-  if (el) el.textContent = '';
-}
-
-function remoteStartTurnTimer() {
-  remoteStopTurnTimer();
-  REMOTE.turnDeadline = Date.now() + REMOTE_TURN_MS;
-  REMOTE.turnTimer = setInterval(remoteTurnTick, 250);
-}
-
-function remoteTurnTick() {
-  const view = REMOTE.lastView;
-  if (!view || !view.battle || view.battle.over) { remoteStopTurnTimer(); return; }
-  const b = view.battle;
-  const my = REMOTE.side;
-  const myTurn = b.phase === 'action' && !b.actions_submitted[my] &&
-    !((b.pending_switch || []).indexOf(my) !== -1);
-  if (!myTurn) { remoteStopTurnTimer(); return; }
-  const left = Math.max(0, Math.ceil((REMOTE.turnDeadline - Date.now()) / 1000));
-  const el = $id('rb-countdown');
-  if (el) el.textContent = '⏳ 剩余 ' + left + ' 秒，超时将视为放弃本回合';
-  if (left <= 0) {
-    remoteStopTurnTimer();
-    remoteSubmit({ type: 'pass' });
-  }
 }
 
 async function remoteTick() {
@@ -434,7 +397,6 @@ function remoteBattleShell() {
     '<div class="remote-panel pixel-frame" style="width:100%">' +
     '<div class="sec-title" id="rb-title">—— 联机对战 ——</div>' +
     '<div id="rb-status" class="meta-line"></div>' +
-    '<div id="rb-countdown" class="remote-msg"></div>' +
     '<div id="rb-foe"></div>' +
     '<div class="vs-divider">▼ 对战 ▼</div>' +
     '<div id="rb-player"></div>' +
@@ -502,16 +464,6 @@ function remoteRenderBattle(view) {
   });
 
   $id('rb-actions').innerHTML = remoteActions(view, my, foe);
-  // 我的回合开始时启动 10 秒倒计时（超时自动放弃本回合）
-  const myTurn = b.phase === 'action' && !b.actions_submitted[my] &&
-    !((b.pending_switch || []).indexOf(my) !== -1);
-  if (myTurn && !REMOTE.wasMyTurn) {
-    REMOTE.turnDeadline = Date.now() + REMOTE_TURN_MS;
-    if (!REMOTE.turnTimer) remoteStartTurnTimer();
-  } else if (!myTurn && REMOTE.wasMyTurn) {
-    remoteStopTurnTimer();
-  }
-  REMOTE.wasMyTurn = myTurn;
   if (b.over) {
     $id('rb-status').textContent = (view.winner ? (names[view.winner] ? names[view.winner].name : view.winner) + ' 获胜' : '平局') + '（' + view.result + '）';
     $id('rb-actions').innerHTML =
@@ -539,7 +491,7 @@ function remoteActions(view, my, foe) {
     html += '<div class="turn-hint">' + (b.actions_submitted[my] ? '已提交指令，等待对方……' : '……对方行动中……') + '</div>';
     return html;
   }
-  html += '<div class="turn-hint">✦ 轮到你了！选择指令（10 秒内不出招将视为放弃）</div>';
+  html += '<div class="turn-hint">✦ 轮到你了！选择指令</div>';
   const allEmpty = (myMon.moves || []).every(function (mv) { return mv.pp <= 0; });
   (myMon.moves || []).forEach(function (mv, i) {
     const data = MOVES[mv.id];
