@@ -75,7 +75,9 @@ async function main() {
     if (await evaljs("typeof remoteOpenLobby === 'function'")) break;
     await sleep(100);
   }
-  await evaljs("resetGame(); STATE.party=[makeMon(25,50,{nature:'胆小',moves:['thunderbolt','quick_attack','thunder_wave','slam']})]; STATE.bag={'伤药':2}; render();");
+  // 清掉上次运行的登录态，保证大厅显示登录表单
+  await evaljs("localStorage.removeItem('bkm_remote_token'); localStorage.removeItem('bkm_remote_name'); REMOTE.token=null; REMOTE.name='';");
+  await evaljs("resetGame(); render();");
 
   const suffix = String(Date.now() % 100000);
   const nameA = 'brA' + suffix;
@@ -86,7 +88,7 @@ async function main() {
   await evaljs("REMOTE.server='" + BASE + "'; (function(){var el=document.getElementById('rb-server'); if(el) el.value=REMOTE.server;})(); remoteSaveCfg();");
   await evaljs("(function(){document.getElementById('rb-name').value='" + nameA + "'; document.getElementById('rb-pass').value='test1234';})()");
   ok(await evaljs("remoteRegister().then(function(){ return REMOTE.token && REMOTE.name==='" + nameA + "'; })"), '浏览器注册并登录');
-  await evaljs("remoteUploadTeam()");
+  ok(await evaljs("(function(){ var n=(STATE.party||[]).length; remoteMakeTestTeam(); return (STATE.party||[]).length > n; })()"), '一键生成测试队伍');
   ok(await waitUntil("document.getElementById('remote-msg').textContent.indexOf('队伍已上传') !== -1", 10000), '浏览器上传队伍成功');
   await evaljs("remoteCreate();");
   ok(await waitUntil("REMOTE.roomId && REMOTE.lastView && REMOTE.lastView.code", 10000), '浏览器创建房间并拿到房间码');
@@ -95,7 +97,7 @@ async function main() {
   // 第二个玩家：HTTP 注册、上传队伍、凭码加入
   const tokenB = (await serverApi('POST', '/api/register', { name: nameB, password: 'test1234' })).token;
   await serverApi('PUT', '/api/me/team', {
-    team: [{ species: 7, level: 50, nature: '温和', moves: ['water_gun', 'bite', 'bubble_beam'] }],
+    team: [{ species: 9, level: 60, nature: '温和', moves: ['surf', 'hydro_pump', 'bite'] }],
     items: { '好伤药': 1 }
   }, tokenB);
   await serverApi('POST', '/api/rooms/join', { code: code }, tokenB);
