@@ -120,6 +120,8 @@ function remoteRenderLobby() {
   const el = $id('remote-lobby');
   const partyCount = (STATE.party || []).length;
   const logged = !!REMOTE.token;
+  const pageOrigin = (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0)
+    ? location.origin : REMOTE.server;
   el.innerHTML =
     '<div class="remote-panel pixel-frame">' +
     '<div class="sec-title">—— 联机对战 · bkmserver ——</div>' +
@@ -146,7 +148,7 @@ function remoteRenderLobby() {
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
-    '本页直接访问 <b>http://&lt;电脑IP&gt;:8787/app.html</b>，服务器地址已自动填为页面同源（可手动修改）。</div>' +
+    '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址已自动填为页面同源，可手动修改）。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
 }
