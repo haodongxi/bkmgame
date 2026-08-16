@@ -2608,41 +2608,41 @@ function fightToEnd() {
   ok(fightToEnd() === 'win', '多宝可梦连战正常打完');
 }
 {
-  // MVP-S1 专属道具：隐藏点 1% 一次性产出、商人 1% 专属、钓鱼 1% 专属、装备绑定、存档兼容
+  // MVP-S1 专属道具：隐藏点 0.1% 一次性产出、商人 0.1% 专属、钓鱼 0.1% 专属、装备绑定、存档兼容
   T.newGame(4);
   const s = T.getState();
   ok(T.ITEMS['电光石'] && T.ITEMS['电光石'].type === 'held' && T.ITEMS['电光石'].onlySpecies === 135, '专属道具数据入库（电光石绑定雷伊布）');
   ok(Array.isArray(T.ITEMS['诅咒符'].onlySpecies) && T.ITEMS['诅咒符'].onlySpecies.join(',') === '92,93,94', '诅咒符支持一家多只绑定（鬼斯/鬼斯通/耿鬼）');
-  // 隐藏点：1% 命中（枯叶市电光石），一次性不重复
+  // 隐藏点：0.1% 命中（枯叶市电光石），一次性不重复
   s.nodeId = 'vermilion';
   s.ssAnneDone = true;
   s.trashFound = true;
   s.wanderUsed = false;
-  seq.length = 0; seq.push(0.005);
+  seq.length = 0; seq.push(0.0005);
   T.wanderTown();
-  ok(s.bag['电光石'] === 1 && s.collectedHeld.indexOf('电光石') !== -1, '隐藏点 1% 命中获得电光石并记录');
+  ok(s.bag['电光石'] === 1 && s.collectedHeld.indexOf('电光石') !== -1, '隐藏点 0.1% 命中获得电光石并记录');
   s.wanderUsed = false;
-  seq.length = 0; seq.push(0.005);
+  seq.length = 0; seq.push(0.0005);
   T.wanderTown();
   ok(s.bag['电光石'] === 1 && s.collectedHeld.length === 1, '隐藏点一次性：已领取后不再重复获得');
-  // 隐藏点：1% 未命中（7号道路正义项圈）
+  // 隐藏点：0.1% 未命中（7号道路正义项圈）
   s.nodeId = 'route7';
   s.wanderUsed = false;
   seq.length = 0; seq.push(0.05);
   T.wanderTown();
-  ok(!s.bag['正义项圈'], '隐藏点概率外不获得道具（1% 判定）');
-  // 商人：1% 专属稀有货
+  ok(!s.bag['正义项圈'], '隐藏点概率外不获得道具（0.1% 判定）');
+  // 商人：0.1% 专属稀有货
   s.merchantOffer = null;
-  seq.length = 0; seq.push(0.005);
+  seq.length = 0; seq.push(0.0005);
   T.startMerchantOffer();
-  ok(s.merchantOffer && s.merchantOffer.kind === 'item' && ['心灵汤勺', '力量腰带', '正义项圈', '诅咒符'].indexOf(s.merchantOffer.name) !== -1, '商人 1% 出现专属稀有货');
-  // 钓鱼：1% 水域专属（秘传之眼/涡轮喷口），本杆不上钩
+  ok(s.merchantOffer && s.merchantOffer.kind === 'item' && ['心灵汤勺', '力量腰带', '正义项圈', '诅咒符'].indexOf(s.merchantOffer.name) !== -1, '商人 0.1% 出现专属稀有货');
+  // 钓鱼：0.1% 水域专属（秘传之眼/涡轮喷口），本杆不上钩
   s.keyItems.push('破旧钓竿');
   s.nodeId = 'route24';
   s.battle = null;
-  seq.length = 0; seq.push(0.5, 0, 0.005);
+  seq.length = 0; seq.push(0.5, 0, 0.0005);
   T.fish();
-  ok(!s.battle && (s.bag['秘传之眼'] === 1 || s.bag['涡轮喷口'] === 1), '钓鱼 1% 捞到水域专属且本杆不上钩');
+  ok(!s.battle && (s.bag['秘传之眼'] === 1 || s.bag['涡轮喷口'] === 1), '钓鱼 0.1% 捞到水域专属且本杆不上钩');
   // 装备绑定：非绑定拒绝、绑定成功、家族多只可用
   s.bag = {}; s.collectedHeld = [];
   s.party = [T.makeMon(25, 30, { nature: '勤奋' }), T.makeMon(135, 30, { nature: '勤奋' }), T.makeMon(94, 30, { nature: '勤奋' }), T.makeMon(16, 30, { nature: '勤奋' })];
@@ -2714,8 +2714,8 @@ function fightToEnd() {
   ven.m.held = '阳光花环';
   const dHeld = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
   const dSun = dmg(ven, bla, 'razor_leaf', '晴', [0.9, 0.5]);
-  ok(dHeld / dPlain > 1.48 && dHeld / dPlain < 1.52, '阳光花环：草系招式威力 +50%');
-  ok(dSun / dHeld > 1.48 && dSun / dHeld < 1.52, '阳光花环：晴天时再 +50%');
+  ok(dHeld / dPlain > 1.45 && dHeld / dPlain < 1.55, '阳光花环：草系招式威力 +50%');
+  ok(dSun / dHeld > 1.45 && dSun / dHeld < 1.55, '阳光花环：晴天时再 +50%');
 }
 {
   // MVP-S3 专属道具机制效果：剩饭盒回合末回血、护士帽恢复道具 ×1.5

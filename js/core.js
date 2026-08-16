@@ -2028,9 +2028,9 @@ function endBattle(outcome) {
       STATE.rocketWarehouseDone = true;
       addLog('你掀翻了火箭队的秘密仓库！在保温箱里缴获了一颗【走私的精灵蛋】！', 'good');
     }
-    // 专属道具：火箭队胜利后 1% 掉落诅咒符（仅限抢劫/解救，仓库固定给蛋）
+    // 专属道具：火箭队胜利后 0.1% 掉落诅咒符（仅限抢劫/解救，仓库固定给蛋）
     if ((b.kind === 'rocket_robbery' || b.kind === 'rocket_rescue') &&
-        Math.random() < 0.01 && STATE.collectedHeld.indexOf('诅咒符') === -1) {
+        Math.random() < 0.001 && STATE.collectedHeld.indexOf('诅咒符') === -1) {
       addItem('诅咒符', 1);
       STATE.collectedHeld.push('诅咒符');
       addLog('你从火箭队身上搜出了一枚【诅咒符】！只有鬼斯一家能携带它。', 'good');
@@ -2083,8 +2083,8 @@ function endBattle(outcome) {
         lvl >= 60 ? ['高级球', '全复药', 'PP满回复药', '吃剩的东西'] :
         lvl >= 30 ? ['超级球', '万灵药', 'PP满回复药', '雷之石', '火之石', '水之石', '叶之石', '月亮石'] :
         ['精灵球', '好伤药', '万灵药', 'PP回复药'];
-      // 专属道具：每 5 层奖励 1% 概率给一件专属道具（稀有收藏）
-      if (Math.random() < 0.01) {
+      // 专属道具：每 5 层奖励 0.1% 概率给一件专属道具（稀有收藏）
+      if (Math.random() < 0.001) {
         const heldPool = ['电光石', '诅咒符', '力量腰带', '快龙之鳞', '秘传之眼', '锐利镰刀', '远古之翼', '珍珠泪'];
         const item = heldPool[randInt(0, heldPool.length - 1)];
         addItem(item, 1);
@@ -2393,8 +2393,8 @@ function fish() {
     if (roll <= 0) { id = pool[i].id; break; }
   }
   const level = node.levels[0] + randInt(0, 2);
-  // 专属道具：钓鱼 1% 概率捞到水域专属（本杆不再上钩宝可梦）
-  if (Math.random() < 0.01) {
+  // 专属道具：钓鱼 0.1% 概率捞到水域专属（本杆不再上钩宝可梦）
+  if (Math.random() < 0.001) {
     const drop = ['秘传之眼', '涡轮喷口'][randInt(0, 1)];
     if (STATE.collectedHeld.indexOf(drop) === -1) {
       addItem(drop, 1);
@@ -2503,14 +2503,14 @@ function useWeatherItem(itemName) {
 }
 
 function startMerchantOffer() {
-  // 专属道具：1% 概率出现稀有专属货（贵价收藏品）
+  // 专属道具：0.1% 概率出现稀有专属货（贵价收藏品）
   const HELD_MERCHANT = [
     { name: '心灵汤勺', price: 20000 },
     { name: '力量腰带', price: 15000 },
     { name: '正义项圈', price: 12000 },
     { name: '诅咒符', price: 18000 }
   ];
-  if (Math.random() < 0.01) {
+  if (Math.random() < 0.001) {
     const d = HELD_MERCHANT[randInt(0, HELD_MERCHANT.length - 1)];
     STATE.merchantOffer = { kind: 'item', name: d.name, price: d.price };
     addLog('神秘商人神秘兮兮地压低了声音：「小兄弟，我这可是压箱底的宝贝……（' + d.name + '）」', 'info');
@@ -2689,7 +2689,7 @@ function sellItem(name, qty) {
   addLog('卖掉了【' + name + '】×' + qty + '，获得 ' + (price * qty) + ' 金币。', 'good');
 }
 
-// 专属道具隐藏点：每处一次性、1% 概率翻出（翻不到的永久错过，鼓励多逛）
+// 专属道具隐藏点：每处一次性、0.1% 概率翻出（翻不到的永久错过，鼓励多逛）
 const HIDDEN_HELD_SPOTS = [
   { item: '电光石', nodeId: 'vermilion' },
   { item: '剩饭盒', nodeId: 'celadon' },
@@ -2759,12 +2759,12 @@ function wanderTown() {
     addLog('你在垃圾桶后面翻出了【吃剩的东西】！听说携带它每回合能恢复HP。', 'good');
     return;
   }
-  // 专属道具隐藏点：当前节点未领取的每处独立 1% 概率（每次闲逛最多拿一件）
+  // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（每次闲逛最多拿一件）
   const spotsHere = HIDDEN_HELD_SPOTS.filter(function (s) {
     return s.nodeId === STATE.nodeId && STATE.collectedHeld.indexOf(s.item) === -1;
   });
   for (let i = 0; i < spotsHere.length; i++) {
-    if (Math.random() < 0.01) {
+    if (Math.random() < 0.001) {
       addItem(spotsHere[i].item, 1);
       STATE.collectedHeld.push(spotsHere[i].item);
       addLog('你在一个不起眼的角落里翻出了【' + spotsHere[i].item + '】！', 'good');
