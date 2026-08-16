@@ -25,7 +25,7 @@ const STATE = {
   party: [],
   box: [],
   visitedNodes: [],
-  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false },
+  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false },
   titles: [],
   equippedTitle: null,
   log: [],
@@ -1246,11 +1246,11 @@ function towerThemeFor(floor) {
 
 function startTowerFloor() {
   const t = STATE.tower;
-  if (t.cleared) {
-    // 通关后重刷：从第 1 层重新开始，保留称号与历史最佳
+  if (t.cleared && !t.replaying) {
+    // 通关后首次重刷：从第 1 层重新开始，保留称号与历史最佳；cleared 保持 true（超越之塔入口依赖它）
+    t.replaying = true;
     t.floor = 1;
     t.checkpoint = 0;
-    t.cleared = false;
     addLog('你再次踏入无尽之塔，从第 1 层重新挑战！（称号与历史最佳保留）', 'info');
   }
   const team = towerFoeTeam(t.floor);
@@ -2098,6 +2098,7 @@ function endBattle(outcome) {
     }
     if (t.floor > 100) {
       t.cleared = true;
+      t.replaying = false; // 再次通关后，下次点击重新挑战新一轮
       t.floor = 100;
       addLog('你征服了无尽之塔！', 'good');
       addTitle('tower100', '稀有'); // 保底稀有
@@ -3117,7 +3118,7 @@ function load() {
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
     STATE.visitedNodes = data.visitedNodes || [];
-    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false }, data.tower || {});
+    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false }, data.tower || {});
     // 旧档称号兼容：数组项可能是 id 或中文名（无稀有度）→ 统一转 '称号id@普通'
     STATE.titles = (data.titles || []).map(function (item) {
       if (typeof item !== 'string' || !item) return null;

@@ -1485,7 +1485,7 @@ section('无尽之塔');
   s.titles = ['无尽之塔征服者'];
   T.startTowerFloor();
   ok(s.battle && s.battle.kind === 'tower', '通关后点击挑战可再次进入塔内战斗（重刷）');
-  ok(s.tower.cleared === false && s.tower.floor === 1 && s.tower.checkpoint === 0, '重刷从第 1 层重新开始');
+  ok(s.tower.cleared === true && s.tower.replaying === true && s.tower.floor === 1 && s.tower.checkpoint === 0, '重刷从第 1 层重新开始且保留通关标记');
   ok(s.titles.indexOf('无尽之塔征服者') !== -1 && s.tower.bestFloor === 100, '重刷保留称号与历史最佳');
   let g = 0;
   while (s.battle && !s.battle.over && g++ < 80) {
@@ -2760,6 +2760,16 @@ function fightToEnd() {
   const hWithHat = s.party[0].hp;
   const healWithHat = 50 - (s.party[0].stats.hp - hWithHat);
   ok(healNoHat === 20 && healWithHat === 30, '护士帽：吉利蛋恢复道具效果 ×1.5（伤药 20→30）');
+}
+{
+  // 重刷无尽之塔不丢失超越之塔入口：cleared 保持 true，replaying 标记重刷中
+  const s = superTeam();
+  s.nodeId = 'tower';
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.startTowerFloor(); // 通关后点挑战：重刷从第 1 层开始
+  ok(s.tower.cleared === true && s.tower.replaying === true && s.tower.floor === 1, '重刷无尽塔保留通关标记（cleared=true、replaying=true）');
+  T.startSuperTowerFloor();
+  ok(s.battle && s.battle.kind === 'super_tower', '重刷无尽塔后仍可进入超越之塔');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

@@ -167,6 +167,10 @@ async function main() {
   // 超越之塔入口（通关无尽塔后）+ 称号装备显示 + 闪光石使用
   await evaljs("STATE.nodeId='tower'; STATE.tower={floor:100,checkpoint:95,bestFloor:100,cleared:true,superFloor:1,superCheckpoint:0,superBest:0,superCleared:false}; STATE.titles=['tower100']; render();");
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('超越之塔') !== -1; })"), '通关后塔内出现超越之塔入口');
+  // 重刷无尽之塔（replaying）后超越之塔入口仍在
+  await evaljs("STATE.tower={floor:3,checkpoint:0,bestFloor:100,cleared:true,replaying:true,superFloor:1,superCheckpoint:0,superBest:0,superCleared:false}; render();");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('超越之塔') !== -1; })"), '重刷无尽之塔时超越之塔入口仍在');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('挑战第 3 层') !== -1; })"), '重刷中无尽之塔按钮显示当前层');
   await evaljs("equipTitle('tower100'); render();");
   ok(await evaljs("document.querySelector('#meta-label').textContent.indexOf('[无尽之塔征服者·普通]') !== -1"), '装备称号显示在玩家名前（带稀有度）');
   await evaljs("STATE.bag['闪光石']=1; STATE.party[0].shiny=false; render(); useBagItemOnMon('闪光石', 0); render();");
