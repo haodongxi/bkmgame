@@ -6,7 +6,10 @@
    ============================================================ */
 
 const REMOTE = {
-  server: localStorage.getItem('bkm_remote_server') || 'http://127.0.0.1:8787',
+  // 默认取页面同源（单服务联机：页面由 bkmserver --static 托管时自动指向同一端口）
+  server: localStorage.getItem('bkm_remote_server') ||
+    (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0
+      ? location.origin : 'http://127.0.0.1:8787'),
   token: localStorage.getItem('bkm_remote_token') || null,
   name: localStorage.getItem('bkm_remote_name') || '',
   roomId: null,
@@ -142,9 +145,8 @@ function remoteRenderLobby() {
     '<button class="btn" onclick="remoteQuick()">⚡ 快速匹配</button>' +
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
-    '<div class="remote-hint">提示：对战前先上传队伍。局域网测试：服务端用 <b>python3 main.py --host 0.0.0.0</b> 启动，' +
-    '本页用 <b>python3 -m http.server 8000</b> 打开，服务器地址填 <b>http://&lt;电脑IP&gt;:8787</b>，' +
-    '手机访问 <b>http://&lt;电脑IP&gt;:8000/app.html</b>。</div>' +
+    '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
+    '本页直接访问 <b>http://&lt;电脑IP&gt;:8787/app.html</b>，服务器地址已自动填为页面同源（可手动修改）。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
 }
