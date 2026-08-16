@@ -1292,11 +1292,14 @@ section('无尽之塔');
   ok(t1.counters.indexOf('格斗') !== -1, '普通系克制建议包含格斗');
   const t11 = T.towerThemeFor(11);
   ok(t11.types.join('/') === '水/冰', '11 层主题为水/冰');
-  ['火', '电', '草', '格斗', '岩石', '钢'].forEach(function (c) {
+  ['电', '草', '格斗', '岩石'].forEach(function (c) {
     ok(t11.counters.indexOf(c) !== -1, '水/冰层克制建议包含 ' + c);
   });
+  ok(t11.counters.indexOf('火') === -1 && t11.counters.indexOf('钢') === -1, '水/冰层不推荐火/钢（对水减半，避免误导）');
   ok(T.towerThemeFor(41).counters.indexOf('地面') !== -1, '电系层（41-50）克制建议包含地面');
   ok(T.towerThemeFor(81).types.join('/') === '毒/格斗', '81-90 层主题为毒/格斗');
+  const psychic = T.towerThemeFor(72);
+  ok(psychic.types.join('/') === '超能力/幽灵/恶' && psychic.counters.indexOf('格斗') === -1 && psychic.counters.length === 0, '超能/幽灵/恶层不推荐格斗（对幽灵无效/对超能力减半），无固定弱点提示');
   const mix = T.towerThemeFor(100);
   ok(mix.types[0] === '混合' && mix.counters.length === 0, '100 层混合传说层无固定克制建议');
 }

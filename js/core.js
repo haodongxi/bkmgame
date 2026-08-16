@@ -1204,8 +1204,10 @@ const ALL_TYPES = ['普通', '火', '水', '电', '草', '冰', '格斗', '毒',
 function towerThemeFor(floor) {
   const theme = TOWER_THEMES[Math.floor((floor - 1) / 10) % TOWER_THEMES.length];
   if (!theme) return { types: ['混合'], counters: [] };
+  // 推荐必须对主题内每个属性都 ≥1 倍且有克制点，避免“克 A 但被 B 无效/减半”的误导（如格斗对超能/幽灵/恶）
   const counters = ALL_TYPES.filter(function (t) {
-    return theme.some(function (dt) { return typeEffectiveness(t, [dt]) > 1; });
+    const effs = theme.map(function (dt) { return typeEffectiveness(t, [dt]); });
+    return effs.some(function (e) { return e > 1; }) && effs.every(function (e) { return e >= 1; });
   });
   return { types: theme, counters: counters };
 }
