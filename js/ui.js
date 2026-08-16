@@ -794,6 +794,8 @@ function showPartyModal(mode, itemName) {
   }
 }
 
+let _boxRestoreScroll = null; // 电脑箱列表滚动位置（详情返回时恢复）
+
 function showBoxModal() {
   let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送</div>';
   if (STATE.box.length === 0) {
@@ -816,6 +818,12 @@ function showBoxModal() {
   openModal('电脑箱（' + STATE.box.length + '只）', html);
   for (let i = 0; i < STATE.box.length; i++) {
     $id('box-icon-' + i).appendChild(monIcon(STATE.box[i].species, 36, STATE.box[i].shiny));
+  }
+  // 从详情返回：恢复列表滚动位置（避免回到最顶部）
+  const sc = document.querySelector('#modal-root .modal');
+  if (sc && _boxRestoreScroll !== null) {
+    if (_boxRestoreScroll > 0) sc.scrollTop = _boxRestoreScroll;
+    _boxRestoreScroll = null;
   }
 }
 
@@ -889,6 +897,9 @@ function showMonDetail(idx) {
 function showBoxMonDetail(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) return;
+  // 记录电脑箱列表滚动位置，返回时恢复（避免回到最顶部）
+  const sc = document.querySelector('#modal-root .modal');
+  if (sc) _boxRestoreScroll = sc.scrollTop;
   openMonDetailModal(mon, false);
 }
 
@@ -924,6 +935,8 @@ function openMonDetailModal(mon, inParty) {
   const learnable = inParty ? learnableMoves(mon) : [];
   const moveReplaceBtn = inParty && learnable.length > 0 ?
     '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + STATE.party.indexOf(mon) + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
+  const backBtn = inParty ? '' :
+    '<div class="modal-btns"><button class="btn" onclick="showBoxModal()">← 返回电脑箱</button></div>';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
     '<div><div class="detail-name">' + rarityTag(mon) + mon.name + (mon.shiny ? ' ✨' : '') + ' <span class="detail-no">No.' + mon.species + '</span></div>' +
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
@@ -936,7 +949,7 @@ function openMonDetailModal(mon, inParty) {
     expPoolBtn +
     moveReplaceBtn +
     '<div class="shop-hint">—— 能力值（括号内为个体值） ——</div>' + statsHtml +
-    '<div class="shop-hint">—— 招式 ——</div>' + movesHtml;
+    '<div class="shop-hint">—— 招式 ——</div>' + movesHtml + backBtn;
   openModal(mon.name, html);
   const iconBox = $id('detail-icon');
   if (iconBox) iconBox.appendChild(monIcon(mon.species, 48, mon.shiny));

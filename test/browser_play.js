@@ -325,6 +325,7 @@ async function main() {
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '箱内宝可梦可查看详情（含个体值）');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('更换招式') === -1"), '箱内详情不显示队伍专属的更换招式');
+  ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '箱内详情有返回电脑箱按钮');
   await evaljs('closeModal();');
   await evaljs('doMapAction(\'box\');');
   ok(await evaljs("document.querySelector('#modal-root .box-lock-corner') !== null"), '箱子弹窗有锁角标');
@@ -340,6 +341,13 @@ async function main() {
   ok(await evaljs("STATE.bag['电气球'] === 1"), '传送后携带物退回背包');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（1只）') !== -1; })"), '传送后地图按钮同步为 1 只');
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（1只）') !== -1"), '传送后箱子弹窗同步为 1 只');
+  await evaljs('closeModal();');
+  // 详情返回滚动位置保留（独立场景：箱子塞满 25 只保证可滚动）
+  await evaljs("STATE.box = []; for (var i = 0; i < 25; i++) STATE.box.push(makeMon(16, 5, { nature: '勤奋' })); doMapAction('box');");
+  await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; document.querySelector('#modal-root .box-actions .btn').click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '详情返回按钮（滚动场景）');
+  await evaljs("document.querySelector('#modal-root .modal-btns .btn').click()");
+  ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m.scrollTop > m.scrollHeight - 600;})()"), '详情返回后保留电脑箱列表滚动位置');
   await evaljs('closeModal();');
   // 火箭队秘密仓库与精灵蛋
   await evaljs("STATE.caughtDex={4:true}; STATE.party=[makeMon(6,50,{nature:'固执'})]; STATE.bag={'走私的精灵蛋':1}; render(); doMapAction('bag');");
