@@ -10,8 +10,9 @@ const REMOTE = {
   server: localStorage.getItem('bkm_remote_server') ||
     (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0
       ? location.origin : 'http://127.0.0.1:8787'),
-  token: localStorage.getItem('bkm_remote_token') || null,
-  name: localStorage.getItem('bkm_remote_name') || '',
+  // 登录态按窗口隔离（sessionStorage）：本机双开两个窗口可以各登各的账号
+  token: sessionStorage.getItem('bkm_remote_token') || null,
+  name: sessionStorage.getItem('bkm_remote_name') || '',
   roomId: null,
   side: null,
   seen: 0,
@@ -43,10 +44,10 @@ const REMOTE_TEST_TEAM = [
 
 function remoteSaveCfg() {
   localStorage.setItem('bkm_remote_server', REMOTE.server);
-  if (REMOTE.token) localStorage.setItem('bkm_remote_token', REMOTE.token);
-  else localStorage.removeItem('bkm_remote_token');
-  if (REMOTE.name) localStorage.setItem('bkm_remote_name', REMOTE.name);
-  else localStorage.removeItem('bkm_remote_name');
+  if (REMOTE.token) sessionStorage.setItem('bkm_remote_token', REMOTE.token);
+  else sessionStorage.removeItem('bkm_remote_token');
+  if (REMOTE.name) sessionStorage.setItem('bkm_remote_name', REMOTE.name);
+  else sessionStorage.removeItem('bkm_remote_name');
 }
 
 async function remoteApi(method, path, body) {
@@ -158,7 +159,7 @@ function remoteRenderLobby() {
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
     '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址已自动填为页面同源，可手动修改）。' +
-    '本机双开测试：第二个窗口请用「无痕模式」，避免两个窗口共用存档/账号。</div>' +
+    '本机双开测试：登录态按窗口隔离，两个窗口请<b>分别注册/登录不同账号</b>（新标签页打开，勿用“复制标签页”）。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
 }
@@ -321,7 +322,12 @@ async function remoteQuick() {
       remoteStartPoll();
     }
   } catch (e) {
-    remoteMsg('匹配失败：' + e.message, true);
+    const m = e.message || '';
+    if (m.indexOf('已在匹配队列') !== -1) {
+      remoteMsg('同一账号不能和自己匹配：请用另一个账号（新开一个标签页/窗口注册）作为对手', true);
+    } else {
+      remoteMsg('匹配失败：' + m, true);
+    }
   }
 }
 

@@ -76,7 +76,7 @@ async function main() {
     await sleep(100);
   }
   // 清掉上次运行的登录态，保证大厅显示登录表单
-  await evaljs("localStorage.removeItem('bkm_remote_token'); localStorage.removeItem('bkm_remote_name'); REMOTE.token=null; REMOTE.name='';");
+  await evaljs("sessionStorage.removeItem('bkm_remote_token'); sessionStorage.removeItem('bkm_remote_name'); REMOTE.token=null; REMOTE.name='';");
   await evaljs("resetGame(); render();");
 
   const suffix = String(Date.now() % 100000);
