@@ -2306,6 +2306,8 @@ function exploreOnce() {
     addLog('喷雾剂散发出令野生宝可梦讨厌的气味，你安全地走了一段路。（剩余 ' + STATE.repel + ' 次）', 'info');
     return;
   }
+  // 专属道具隐藏点：野外探索也可触发（洞穴/道路节点的隐藏点不会错过）
+  if (tryHiddenHeld()) return;
   const r = randInt(1, 100);
   if (r <= 50) {
     const pool = node.pools[STATE.weather] || node.pools['晴'];
@@ -2709,6 +2711,22 @@ const HIDDEN_HELD_SPOTS = [
   { item: '远古之翼', nodeId: 'champion' }
 ];
 
+// 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（城镇闲逛/野外探索均可触发，翻出的永久记录）
+function tryHiddenHeld() {
+  const spotsHere = HIDDEN_HELD_SPOTS.filter(function (s) {
+    return s.nodeId === STATE.nodeId && STATE.collectedHeld.indexOf(s.item) === -1;
+  });
+  for (let i = 0; i < spotsHere.length; i++) {
+    if (Math.random() < 0.001) {
+      addItem(spotsHere[i].item, 1);
+      STATE.collectedHeld.push(spotsHere[i].item);
+      addLog('你在一个不起眼的角落里翻出了【' + spotsHere[i].item + '】！', 'good');
+      return true;
+    }
+  }
+  return false;
+}
+
 function wanderTown() {
   if (MAP_NODES[STATE.nodeId].type !== 'town') { addLog('这里不是城镇。', 'info'); return; }
   if (STATE.wanderUsed) {
@@ -2759,18 +2777,8 @@ function wanderTown() {
     addLog('你在垃圾桶后面翻出了【吃剩的东西】！听说携带它每回合能恢复HP。', 'good');
     return;
   }
-  // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（每次闲逛最多拿一件）
-  const spotsHere = HIDDEN_HELD_SPOTS.filter(function (s) {
-    return s.nodeId === STATE.nodeId && STATE.collectedHeld.indexOf(s.item) === -1;
-  });
-  for (let i = 0; i < spotsHere.length; i++) {
-    if (Math.random() < 0.001) {
-      addItem(spotsHere[i].item, 1);
-      STATE.collectedHeld.push(spotsHere[i].item);
-      addLog('你在一个不起眼的角落里翻出了【' + spotsHere[i].item + '】！', 'good');
-      return;
-    }
-  }
+  // 专属道具隐藏点（城镇闲逛触发）
+  if (tryHiddenHeld()) return;
   // NPC 交换（30%）
   if (Math.random() < 0.3) {
     startTradeEvent();
@@ -3223,7 +3231,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, boxTransferFee: boxTransferFee, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
     addBond: addBond,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,

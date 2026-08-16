@@ -30,7 +30,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, boxTransferFee: boxTransferFee, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
+  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -2643,6 +2643,15 @@ function fightToEnd() {
   seq.length = 0; seq.push(0.5, 0, 0.0005);
   T.fish();
   ok(!s.battle && (s.bag['秘传之眼'] === 1 || s.bag['涡轮喷口'] === 1), '钓鱼 0.1% 捞到水域专属且本杆不上钩');
+  // 非城镇隐藏点（冠军之路·快龙之鳞）也可触发（修复：原实现只在城镇闲逛判定，洞穴/道路节点永远拿不到）
+  s.nodeId = 'champion';
+  s.collectedHeld = [];
+  s.bag = {};
+  seq.length = 0; seq.push(0.0005);
+  ok(T.tryHiddenHeld() === true && s.bag['快龙之鳞'] === 1 && s.collectedHeld.indexOf('快龙之鳞') !== -1, '非城镇隐藏点可触发（冠军之路·快龙之鳞）');
+  s.bag = {};
+  seq.length = 0; seq.push(0.05);
+  ok(T.tryHiddenHeld() === false, '翻出后永久记录，不再重复获得');
   // 装备绑定：非绑定拒绝、绑定成功、家族多只可用
   s.bag = {}; s.collectedHeld = [];
   s.party = [T.makeMon(25, 30, { nature: '勤奋' }), T.makeMon(135, 30, { nature: '勤奋' }), T.makeMon(94, 30, { nature: '勤奋' }), T.makeMon(16, 30, { nature: '勤奋' })];
