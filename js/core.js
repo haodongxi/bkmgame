@@ -2086,8 +2086,7 @@ function endBattle(outcome) {
         ['精灵球', '好伤药', '万灵药', 'PP回复药'];
       // 专属道具：每 5 层奖励 0.1% 概率给一件专属道具（稀有收藏）
       if (Math.random() < 0.001) {
-        const heldPool = ['电光石', '诅咒符', '力量腰带', '快龙之鳞', '秘传之眼', '锐利镰刀', '远古之翼', '珍珠泪'];
-        const item = heldPool[randInt(0, heldPool.length - 1)];
+        const item = TOWER_HELD_POOL[randInt(0, TOWER_HELD_POOL.length - 1)];
         addItem(item, 1);
         addLog('第 ' + lvl + ' 层奖励：【' + item + '】！', 'good');
       } else {
@@ -2399,7 +2398,7 @@ function fish() {
   const level = node.levels[0] + randInt(0, 2);
   // 专属道具：钓鱼 0.1% 概率捞到水域专属（本杆不再上钩宝可梦）
   if (Math.random() < 0.001) {
-    const drop = ['秘传之眼', '涡轮喷口'][randInt(0, 1)];
+    const drop = FISH_HELD_DROPS[randInt(0, FISH_HELD_DROPS.length - 1)];
     if (STATE.collectedHeld.indexOf(drop) === -1) {
       addItem(drop, 1);
       STATE.collectedHeld.push(drop);
@@ -2508,12 +2507,6 @@ function useWeatherItem(itemName) {
 
 function startMerchantOffer() {
   // 专属道具：0.1% 概率出现稀有专属货（贵价收藏品）
-  const HELD_MERCHANT = [
-    { name: '心灵汤勺', price: 20000 },
-    { name: '力量腰带', price: 15000 },
-    { name: '正义项圈', price: 12000 },
-    { name: '诅咒符', price: 18000 }
-  ];
   if (Math.random() < 0.001) {
     const d = HELD_MERCHANT[randInt(0, HELD_MERCHANT.length - 1)];
     STATE.merchantOffer = { kind: 'item', name: d.name, price: d.price };
@@ -2713,6 +2706,17 @@ const HIDDEN_HELD_SPOTS = [
   { item: '远古之翼', nodeId: 'champion' },
   { item: '护士帽', nodeId: 'route22' }
 ];
+
+// 专属道具其他产出渠道（集中管理，回归测试保证每件专属道具至少有一条产出）
+const HELD_MERCHANT = [
+  { name: '心灵汤勺', price: 20000 },
+  { name: '力量腰带', price: 15000 },
+  { name: '正义项圈', price: 12000 },
+  { name: '诅咒符', price: 18000 }
+];
+const TOWER_HELD_POOL = ['电光石', '诅咒符', '力量腰带', '快龙之鳞', '秘传之眼', '锐利镰刀', '远古之翼', '珍珠泪'];
+const FISH_HELD_DROPS = ['秘传之眼', '涡轮喷口'];
+const ROCKET_HELD_DROP = '诅咒符'; // 火箭队胜利后 0.1% 掉落
 
 // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（城镇闲逛/野外探索均可触发，翻出的永久记录）
 function tryHiddenHeld() {
@@ -3240,6 +3244,8 @@ if (typeof module !== 'undefined' && module.exports) {
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
     transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,
+    FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,
     addBond: addBond,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,

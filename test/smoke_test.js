@@ -13,6 +13,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
   '  FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK,\n' +
+  '  HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,\n' +
+  '  FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
   '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove, acquisitionPaths: acquisitionPaths,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
@@ -2829,6 +2831,23 @@ function fightToEnd() {
   // 复位后再挑战：开启新一轮重刷
   T.startTowerFloor();
   ok(s.tower.replaying === true && s.tower.floor === 1, '再次通关后点挑战开启新一轮重刷');
+}
+{
+  // 专属道具全量产出覆盖：每一件专属道具至少有一条获取渠道（防止新增道具忘记挂产出）
+  T.newGame(4);
+  const heldItems = Object.keys(T.ITEMS).filter(function (k) {
+    return T.ITEMS[k].type === 'held' && T.ITEMS[k].onlySpecies;
+  });
+  const sources = {};
+  T.HIDDEN_HELD_SPOTS.forEach(function (sp) { sources[sp.item] = true; });
+  T.HELD_MERCHANT.forEach(function (m) { sources[m.name] = true; });
+  T.TOWER_HELD_POOL.forEach(function (n) { sources[n] = true; });
+  T.FISH_HELD_DROPS.forEach(function (n) { sources[n] = true; });
+  sources[T.ROCKET_HELD_DROP] = true;
+  sources['电气球'] = true; // 华蓝市垃圾桶（旧渠道）
+  const missing = heldItems.filter(function (k) { return !sources[k]; });
+  ok(missing.length === 0, '所有专属道具都有产出渠道' + (missing.length ? '（缺：' + missing.join(',') + '）' : ''));
+  ok(T.HIDDEN_HELD_SPOTS.length >= 17, '隐藏点数量完整（17 处）');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
