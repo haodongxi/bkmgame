@@ -229,20 +229,6 @@ function hpBar(mon) {
     '<div class="hp-text">HP ' + Math.max(0, mon.hp) + '/' + mon.stats.hp + '</div>';
 }
 
-// 经验条：显示当前等级内经验进度，同时保留 HP 数值文本（HP 条不再重复显示）
-function expBar(mon) {
-  const hpText = 'HP ' + Math.max(0, mon.hp) + '/' + mon.stats.hp;
-  if (mon.level >= 100) {
-    return '<div class="hpbar"><div class="hpbar-fill" style="width:100%;background:#5fd8c8"></div></div>' +
-      '<div class="hp-text">' + hpText + ' · EXP 已满级</div>';
-  }
-  const cur = mon.exp - expForLevel(mon.speciesData.growth, mon.level);
-  const need = expForLevel(mon.speciesData.growth, mon.level + 1) - expForLevel(mon.speciesData.growth, mon.level);
-  const pct = Math.max(0, Math.min(100, Math.round(cur / Math.max(1, need) * 100)));
-  return '<div class="hpbar"><div class="hpbar-fill" style="width:' + pct + '%;background:#5fd8c8"></div></div>' +
-    '<div class="hp-text">' + hpText + ' · EXP ' + Math.max(0, cur) + '/' + need + '</div>';
-}
-
 function ppSummary(mon) {
   let left = 0, max = 0;
   for (let i = 0; i < mon.moves.length; i++) {
@@ -820,7 +806,7 @@ function showBoxModal() {
       '<button class="box-lock-corner' + (m.locked ? ' on' : '') + '" onclick="toggleBoxLock(' + i + ')" title="' + (m.locked ? '解锁' : '上锁') + '">' + (m.locked ? '🔒' : '🔓') + '</button></div>' +
       '<div class="party-info"><div class="party-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
       '<div class="party-lv">Lv.' + m.level + ' · ' + m.speciesData.types.join('/') +
-      (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + expBar(m) +
+      (m.nature ? ' · 性格' + m.nature : '') + (m.held ? ' · [' + m.held + ']' : '') + '</div>' + hpBar(m) +
       '<div class="party-pp">PP ' + ppSummary(m).left + '/' + ppSummary(m).max + '</div></div>' +
       '<div class="box-actions">' +
       '<button class="btn btn-xs" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
