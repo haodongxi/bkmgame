@@ -125,6 +125,7 @@ async function main() {
   await evaljs('doMapAction(\'itemdex\');');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '道具图鉴列出月亮石');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('电光石') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('雷伊布') !== -1"), '道具图鉴收录专属道具（电光石·绑定雷伊布）');
   await evaljs('closeModal();');
   // 招式图鉴：全量 + 分组 + 搜索 + 类别筛选
   await evaljs('doMapAction(\'movedex\');');

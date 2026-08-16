@@ -943,7 +943,9 @@ function openMonDetailModal(mon, inParty) {
     '<div class="detail-lv">Lv.' + mon.level + ' · ' + d.types.join('/') + '</div>' +
     '<div class="detail-lv">性格：' + natureText(mon.nature) + '</div></div></div>' +
     '<div class="shop-hint">羁绊：' + bondTier(mon.bond || 0) + '</div>' +
-    '<div class="shop-hint">携带：' + (mon.held || '无') + (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
+    '<div class="shop-hint">携带：' + (mon.held || '无') +
+      (mon.held && ITEMS[mon.held] && ITEMS[mon.held].onlySpecies ? '（专属）' : '') +
+      (mon.tradeBonus ? ' · 交换（1.5倍经验）' : '') + '</div>' +
     '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
     expPoolBtn +
     moveReplaceBtn +
