@@ -610,6 +610,28 @@ function effStat(bm, key) {
   return v;
 }
 
+// 专属道具：属性系招式威力 +50%（仅绑定宝可梦生效，其他宝可梦携带无效果）
+function heldTypeBonus(bm, move) {
+  const HELD_TYPE_BONUS = {
+    '电光石': { type: '电', species: [135] },
+    '诅咒符': { type: '幽灵', species: [92, 93, 94] },
+    '不灭之种': { type: '火', species: [6] },
+    '涡轮喷口': { type: '水', species: [9] },
+    '快龙之鳞': { type: '龙', species: [149] },
+    '正义项圈': { type: '火', species: [59] },
+    '力量腰带': { type: '格斗', species: [68] },
+    '岩石之心': { type: '岩石', species: [95] },
+    '珍珠泪': { type: '冰', species: [91] },
+    '锐利镰刀': { type: '虫', species: [123] },
+    '剧毒针': { type: '毒', species: [15] },
+    '愤怒之角': { type: '普通', species: [128] },
+    '远古之翼': { type: '飞行', species: [142] }
+  };
+  const cfg = HELD_TYPE_BONUS[bm.m.held];
+  if (!cfg || cfg.species.indexOf(bm.m.species) === -1) return 1;
+  return move.type === cfg.type ? 1.5 : 1;
+}
+
 function calcDamage(attacker, defender, move, weather) {
   const L = attacker.m.level;
   const P = move.power;
@@ -618,10 +640,14 @@ function calcDamage(attacker, defender, move, weather) {
   if (attacker.m.held === '电气球' && attacker.m.species === 25) {
     A *= 2; // 电气球：双攻翻倍
   }
+  if (attacker.m.held === '心灵汤勺' && attacker.m.species === 65 && move.category === '特殊') {
+    A *= 1.3; // 心灵汤勺：胡地特攻 +30%
+  }
   const base = Math.floor((Math.floor((2 * L / 5 + 2) * P * A / D) / 50)) + 2;
   let mod = 1;
   let eff = 1;
   if (!move.struggle && attacker.m.speciesData.types.indexOf(move.type) !== -1) mod *= 1.5; // STAB
+  mod *= heldTypeBonus(attacker, move); // 专属道具：属性系招式威力 +50%
   eff = move.struggle ? 1 : typeEffectiveness(move.type, defender.m.speciesData.types);
   if (eff === 0) return { dmg: 0, eff: 0, crit: false };
   mod *= eff;
@@ -632,6 +658,7 @@ function calcDamage(attacker, defender, move, weather) {
   if (weather === '晴') {
     if (move.type === '火') mod *= 1.5;
     if (move.type === '水') mod *= 0.5;
+    if (attacker.m.held === '阳光花环' && attacker.m.species === 3 && move.type === '草') mod *= 1.5; // 阳光花环：晴天草系再 +50%
   }
   if (attacker.m.status === '灼伤' && move.category === '物理') mod *= 0.5;
   let crit = false;
@@ -639,6 +666,9 @@ function calcDamage(attacker, defender, move, weather) {
   let critChance = (attacker.m.bond || 0) >= 60 ? 1 / 8 : 1 / 16;
   // 速度碾压（≥ 对方 1.5 倍）：暴击率 ×4/3（1/16→1/12、1/8→1/6）
   if (effStat(attacker, 'spe') >= effStat(defender, 'spe') * 1.5) critChance *= 4 / 3;
+  // 专属道具：秘传之眼（宝石海星）/幸运葱（大葱鸭）暴击率翻倍
+  if ((attacker.m.held === '秘传之眼' && attacker.m.species === 121) ||
+      (attacker.m.held === '幸运葱' && attacker.m.species === 83)) critChance *= 2;
   if (Math.random() < critChance) { crit = true; mod *= 1.5; }
   mod *= 0.85 + Math.random() * 0.15;
   // 先发制人：首回合先手方伤害 +5%
@@ -1360,7 +1390,11 @@ function useMove(user, target, move, log, kinds) {
   // 命中判定
   let hit = true;
   if (move.acc > 0) {
-    if (move.id === 'thunder' && getBattleWeather() === '雨') hit = true;
+    // 专属道具必中：秘传之眼（宝石海星超能力系）、幸运葱（大葱鸭攻击招式）
+    const heldSure = (user.m.held === '秘传之眼' && user.m.species === 121 && move.type === '超能力') ||
+                     (user.m.held === '幸运葱' && user.m.species === 83 && move.power > 0);
+    if (heldSure) hit = true;
+    else if (move.id === 'thunder' && getBattleWeather() === '雨') hit = true;
     else if (Math.random() * 100 >= move.acc) hit = false;
   }
   if (!hit) {

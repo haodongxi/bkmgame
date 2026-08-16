@@ -2667,6 +2667,54 @@ function fightToEnd() {
   s.collectedHeld = [];
   ok(T.load() && Array.isArray(T.getState().collectedHeld) && T.getState().collectedHeld.length === 0, '旧档无 collectedHeld 字段默认空数组');
 }
+{
+  // MVP-S2 专属道具伤害效果：属性 +50%、心灵汤勺特攻 +30%、阳光花环晴天草系 +50%、非绑定无效
+  T.newGame(4);
+  const s = T.getState();
+  function bmOf(mon) { return { m: mon, stages: {}, side: 'player' }; }
+  function dmg(att, def, moveId, weather, seqArr) {
+    seq.length = 0; seq.push.apply(seq, seqArr); // 固定暴击判定 + 随机浮动，保证两次比较仅差专属加成
+    return T.calcDamage(att, def, T.MOVES[moveId], weather).dmg;
+  }
+  // 电光石：雷伊布十万伏特打大舌贝（电 2 倍），+50%
+  const rai = bmOf(T.makeMon(135, 30, { nature: '勤奋' }));
+  rai.m.moves = ['thunderbolt']; rai.m.pp = [15];
+  const shel = bmOf(T.makeMon(91, 30, { nature: '勤奋' }));
+  const d1 = dmg(rai, shel, 'thunderbolt', null, [0.9, 0.5]);
+  rai.m.held = '电光石';
+  const d2 = dmg(rai, shel, 'thunderbolt', null, [0.9, 0.5]);
+  ok(d2 / d1 > 1.48 && d2 / d1 < 1.52, '电光石：雷伊布电系招式伤害 +50%');
+  // 非绑定无效：耿鬼带电光石用电系招无加成
+  const gag = bmOf(T.makeMon(94, 30, { nature: '勤奋' }));
+  gag.m.moves = ['thunderbolt']; gag.m.pp = [15];
+  const d3 = dmg(gag, shel, 'thunderbolt', null, [0.9, 0.5]);
+  gag.m.held = '电光石';
+  const d4 = dmg(gag, shel, 'thunderbolt', null, [0.9, 0.5]);
+  ok(d3 === d4, '非绑定宝可梦携带专属道具无加成');
+  // 诅咒符：耿鬼暗影球打胡地（幽灵 2 倍），+50%
+  const hu = bmOf(T.makeMon(65, 30, { nature: '勤奋' }));
+  gag.m.moves = ['shadow_ball']; gag.m.pp = [15];
+  const d5 = dmg(gag, hu, 'shadow_ball', null, [0.9, 0.5]);
+  gag.m.held = '诅咒符';
+  const d6 = dmg(gag, hu, 'shadow_ball', null, [0.9, 0.5]);
+  ok(d6 / d5 > 1.48 && d6 / d5 < 1.52, '诅咒符：耿鬼幽灵系招式伤害 +50%');
+  // 心灵汤勺：胡地精神强念（特殊），+30%
+  const hu2 = bmOf(T.makeMon(65, 30, { nature: '勤奋' }));
+  hu2.m.moves = ['psychic']; hu2.m.pp = [10];
+  const mach = bmOf(T.makeMon(68, 30, { nature: '勤奋' })); // 怪力：超能力 2 倍
+  const d7 = dmg(hu2, mach, 'psychic', null, [0.9, 0.5]);
+  hu2.m.held = '心灵汤勺';
+  const d8 = dmg(hu2, mach, 'psychic', null, [0.9, 0.5]);
+  ok(d8 / d7 > 1.25 && d8 / d7 < 1.35, '心灵汤勺：胡地特殊招式伤害 +30%');
+  // 阳光花环：妙蛙花飞叶快刀打水箭龟（草 2 倍），晴天 +50%
+  const ven = bmOf(T.makeMon(3, 30, { nature: '勤奋' }));
+  ven.m.moves = ['razor_leaf']; ven.m.pp = [25];
+  const bla = bmOf(T.makeMon(9, 30, { nature: '勤奋' }));
+  ven.m.held = '阳光花环';
+  const d9 = dmg(ven, bla, 'razor_leaf', '晴', [0.9, 0.5]);
+  const d10 = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
+  ok(d9 / d10 > 1.48 && d9 / d10 < 1.52, '阳光花环：晴天时草系招式再 +50%');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);
