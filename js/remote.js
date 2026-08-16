@@ -6,10 +6,10 @@
    ============================================================ */
 
 const REMOTE = {
-  // 默认连云服务器；仅本机（127.0.0.1/localhost）单服务联机时自动取页面同源
+  // 默认连云服务器（HTTPS）；仅本机（127.0.0.1/localhost）单服务联机时自动取页面同源
   server: localStorage.getItem('bkm_remote_server') ||
     ((typeof location !== 'undefined' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost'))
-      ? location.origin : 'http://81.69.228.20:8787'),
+      ? location.origin : 'https://bkmapi.duckdns.org:8787'),
   // 登录态按窗口隔离（sessionStorage）：本机双开两个窗口可以各登各的账号
   token: sessionStorage.getItem('bkm_remote_token') || null,
   name: sessionStorage.getItem('bkm_remote_name') || '',
@@ -158,7 +158,7 @@ function remoteRenderLobby() {
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
-    '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址默认已填为 <b>http://81.69.228.20:8787</b>，可手动修改）。' +
+    '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址默认已填为 <b>https://bkmapi.duckdns.org:8787</b>，可手动修改）。' +
     '本机双开测试：登录态按窗口隔离，两个窗口请<b>分别注册/登录不同账号</b>（新标签页打开，勿用“复制标签页”）。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
