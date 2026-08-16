@@ -2715,6 +2715,33 @@ function fightToEnd() {
   const d10 = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
   ok(d9 / d10 > 1.48 && d9 / d10 < 1.52, '阳光花环：晴天时草系招式再 +50%');
 }
+{
+  // MVP-S3 专属道具机制效果：剩饭盒回合末回血、护士帽恢复道具 ×1.5
+  T.newGame(4);
+  const s = T.getState();
+  // 剩饭盒：卡比兽战斗回合末恢复 1/16 最大 HP
+  s.party = [T.makeMon(143, 30, { nature: '勤奋' })];
+  s.party[0].hp = Math.floor(s.party[0].stats.hp / 2);
+  s.party[0].held = '剩饭盒';
+  T.startWildBattle(16, 2);
+  const before = s.party[0].hp;
+  T.battleMove(0);
+  ok(s.party[0].hp > before && s.party[0].hp <= s.party[0].stats.hp, '剩饭盒：卡比兽回合末恢复 1/16 HP');
+  // 护士帽：吉利蛋用伤药恢复量 20 → 30
+  s.battle = null;
+  s.party = [T.makeMon(113, 30, { nature: '勤奋' })];
+  s.bag = { '伤药': 2 };
+  s.party[0].hp = s.party[0].stats.hp - 50;
+  T.useBagItemOnMon('伤药', 0);
+  const hNoHat = s.party[0].hp;
+  const healNoHat = 50 - (s.party[0].stats.hp - hNoHat);
+  s.party[0].hp = s.party[0].stats.hp - 50;
+  s.party[0].held = '护士帽';
+  T.useBagItemOnMon('伤药', 0);
+  const hWithHat = s.party[0].hp;
+  const healWithHat = 50 - (s.party[0].stats.hp - hWithHat);
+  ok(healNoHat === 20 && healWithHat === 30, '护士帽：吉利蛋恢复道具效果 ×1.5（伤药 20→30）');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);

@@ -1635,6 +1635,11 @@ function endOfTurn(log, kinds) {
       m.hp = Math.min(m.stats.hp, m.hp + heal);
       L(m.name + ' 携带着吃剩的东西，恢复了 ' + heal + ' 点HP！', 'good');
     }
+    if (m.held === '剩饭盒' && m.species === 143 && m.hp > 0 && m.hp < m.stats.hp) {
+      const heal = Math.max(1, Math.floor(m.stats.hp / 16));
+      m.hp = Math.min(m.stats.hp, m.hp + heal);
+      L(m.name + ' 吃着剩饭盒里的饭，恢复了 ' + heal + ' 点HP！', 'good');
+    }
     // 羁绊阶段四：10% 概率回合末自愈异常
     if (bm.side === 'player' && (m.bond || 0) >= 90 && m.status && Math.random() < 0.1) {
       m.status = null;
@@ -2845,7 +2850,9 @@ function useBagItemOnMon(itemName, partyIdx) {
     removeItem(itemName, 1);
     if (item.heal === 'full') { mon.hp = mon.stats.hp; mon.status = null; addLog(mon.name + ' 完全恢复了！', 'good'); if (bondItem) addBond(mon, 1); }
     else {
-      const healed = Math.min(mon.stats.hp - mon.hp, item.heal);
+      let amount = item.heal;
+      if (mon.held === '护士帽' && mon.species === 113) amount = Math.ceil(amount * 1.5); // 护士帽：吉利蛋恢复道具效果 ×1.5
+      const healed = Math.min(mon.stats.hp - mon.hp, amount);
       if (healed <= 0) { addLog(mon.name + ' 的HP是满的！', 'info'); addItem(itemName, 1); return; }
       mon.hp += healed;
       addLog(mon.name + ' 回复了 ' + healed + ' 点HP！', 'good');
