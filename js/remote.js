@@ -346,8 +346,13 @@ async function remoteTick() {
         REMOTE.roomId = d.room_id;
         REMOTE.seen = 0;
         remoteMsg('✅ 匹配成功，对战开始！');
-      } else {
+      } else if (d.queued) {
         remoteMsg('匹配中……（队列第 ' + (d.position || '?') + ' 位）');
+        return;
+      } else {
+        // 已掉出队列（如同一账号重复匹配把排队记录顶掉），停止轮询并明确提示
+        remoteStopPoll();
+        remoteMsg('已掉出匹配队列，请重新点击「快速匹配」', true);
         return;
       }
     }
