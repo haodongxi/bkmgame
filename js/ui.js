@@ -491,6 +491,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'travel\')">🚶 前往下个地点</button>';
     if (bagCount('穿绳') > 0) html += '<button class="btn" onclick="doMapAction(\'escape\')">🧵 使用穿绳</button>';
   }
+  html += '<button class="btn" onclick="remoteOpenLobby()">🛰️ 联机对战</button>';
   html += '<button class="btn" onclick="exportSave()">📤 导出存档</button>';
   $id('action-panel').innerHTML = html;
 }

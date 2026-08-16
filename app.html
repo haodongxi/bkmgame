@@ -308,7 +308,6 @@
       <div class="title-tools">
         <button class="btn btn-sm" onclick="exportSave()">📤 导出存档</button>
         <button class="btn btn-sm" onclick="showImportSave()">📥 导入存档</button>
-        <button class="btn btn-sm" onclick="remoteOpenLobby()">🛰️ 联机对战</button>
       </div>
       <div class="title-reset"><button class="btn btn-sm btn-danger" onclick="uiReset()">删除存档</button></div>
     </div>
@@ -321,10 +320,7 @@
 
     <!-- 主界面 -->
     <div id="screen-map" class="screen">
-      <div class="map-reset-wrap">
-        <button class="btn btn-sm" onclick="remoteOpenLobby()">🛰️ 联机</button>
-        <button class="btn btn-sm btn-danger" onclick="doMapAction('reset')">🗑️ 重开</button>
-      </div>
+      <div class="map-reset-wrap"><button class="btn btn-sm btn-danger" onclick="doMapAction('reset')">🗑️ 重开</button></div>
       <div class="scene-top">
         <span id="loc-label"></span>
         <span id="weather-label"></span>
