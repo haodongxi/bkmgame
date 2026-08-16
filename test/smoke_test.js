@@ -2652,6 +2652,11 @@ function fightToEnd() {
   s.bag = {};
   seq.length = 0; seq.push(0.05);
   ok(T.tryHiddenHeld() === false, '翻出后永久记录，不再重复获得');
+  // 护士帽（吉利蛋专属）也有产出渠道：22号道路隐藏点 0.1%
+  s.nodeId = 'route22';
+  s.collectedHeld = [];
+  seq.length = 0; seq.push(0.0005);
+  ok(T.tryHiddenHeld() === true && s.bag['护士帽'] === 1, '护士帽可通过 22 号道路隐藏点获得');
   // 火箭队抢劫败北：专属道具不可被没收（否则翻出后永久丢失）
   s.battle = { kind: 'rocket_robbery', player: {}, foe: {}, logStart: s.log.length };
   s.money = 1000;

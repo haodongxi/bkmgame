@@ -2710,7 +2710,8 @@ const HIDDEN_HELD_SPOTS = [
   { item: '剧毒针', nodeId: 'fuchsia' },
   { item: '愤怒之角', nodeId: 'route16' },
   { item: '幸运葱', nodeId: 'route5' },
-  { item: '远古之翼', nodeId: 'champion' }
+  { item: '远古之翼', nodeId: 'champion' },
+  { item: '护士帽', nodeId: 'route22' }
 ];
 
 // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（城镇闲逛/野外探索均可触发，翻出的永久记录）
