@@ -364,10 +364,12 @@ section('MVP3：道馆踢馆与城镇事件');
 {
   // 钓鱼
   T.newGame(4);
-  T.getState().keyItems.push('破旧钓竿');
-  T.getState().nodeId = 'route24';
+  const s = T.getState();
+  s.keyItems.push('破旧钓竿');
+  s.nodeId = 'route24';
+  s.collectedHeld = ['秘传之眼', '涡轮喷口']; // 水域专属已领取过，本测试必上钩
   T.fish();
-  ok(T.getState().battle && T.FISH_POOLS.route24.some(function (p) { return p.id === T.getState().battle.foe.mons[0].m.species; }), '钓鱼遇到该水域池中的宝可梦');
+  ok(s.battle && T.FISH_POOLS.route24.some(function (p) { return p.id === s.battle.foe.mons[0].m.species; }), '钓鱼遇到该水域池中的宝可梦');
 }
 {
   // 宿敌小茂
@@ -2604,6 +2606,66 @@ function fightToEnd() {
   ok(secondLogs.some(function (l) { return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; }), '敌方换第二只后重新显示速度对比');
   ok(secondCount > firstCount, '敌方第二只上场后的首回合再次先发制人（+5%）');
   ok(fightToEnd() === 'win', '多宝可梦连战正常打完');
+}
+{
+  // MVP-S1 专属道具：隐藏点 1% 一次性产出、商人 1% 专属、钓鱼 1% 专属、装备绑定、存档兼容
+  T.newGame(4);
+  const s = T.getState();
+  ok(T.ITEMS['电光石'] && T.ITEMS['电光石'].type === 'held' && T.ITEMS['电光石'].onlySpecies === 135, '专属道具数据入库（电光石绑定雷伊布）');
+  ok(Array.isArray(T.ITEMS['诅咒符'].onlySpecies) && T.ITEMS['诅咒符'].onlySpecies.join(',') === '92,93,94', '诅咒符支持一家多只绑定（鬼斯/鬼斯通/耿鬼）');
+  // 隐藏点：1% 命中（枯叶市电光石），一次性不重复
+  s.nodeId = 'vermilion';
+  s.ssAnneDone = true;
+  s.trashFound = true;
+  s.wanderUsed = false;
+  seq.length = 0; seq.push(0.005);
+  T.wanderTown();
+  ok(s.bag['电光石'] === 1 && s.collectedHeld.indexOf('电光石') !== -1, '隐藏点 1% 命中获得电光石并记录');
+  s.wanderUsed = false;
+  seq.length = 0; seq.push(0.005);
+  T.wanderTown();
+  ok(s.bag['电光石'] === 1 && s.collectedHeld.length === 1, '隐藏点一次性：已领取后不再重复获得');
+  // 隐藏点：1% 未命中（7号道路正义项圈）
+  s.nodeId = 'route7';
+  s.wanderUsed = false;
+  seq.length = 0; seq.push(0.05);
+  T.wanderTown();
+  ok(!s.bag['正义项圈'], '隐藏点概率外不获得道具（1% 判定）');
+  // 商人：1% 专属稀有货
+  s.merchantOffer = null;
+  seq.length = 0; seq.push(0.005);
+  T.startMerchantOffer();
+  ok(s.merchantOffer && s.merchantOffer.kind === 'item' && ['心灵汤勺', '力量腰带', '正义项圈', '诅咒符'].indexOf(s.merchantOffer.name) !== -1, '商人 1% 出现专属稀有货');
+  // 钓鱼：1% 水域专属（秘传之眼/涡轮喷口），本杆不上钩
+  s.keyItems.push('破旧钓竿');
+  s.nodeId = 'route24';
+  s.battle = null;
+  seq.length = 0; seq.push(0.5, 0, 0.005);
+  T.fish();
+  ok(!s.battle && (s.bag['秘传之眼'] === 1 || s.bag['涡轮喷口'] === 1), '钓鱼 1% 捞到水域专属且本杆不上钩');
+  // 装备绑定：非绑定拒绝、绑定成功、家族多只可用
+  s.bag = {}; s.collectedHeld = [];
+  s.party = [T.makeMon(25, 30, { nature: '勤奋' }), T.makeMon(135, 30, { nature: '勤奋' }), T.makeMon(94, 30, { nature: '勤奋' }), T.makeMon(16, 30, { nature: '勤奋' })];
+  s.bag['电光石'] = 1;
+  s.bag['诅咒符'] = 1;
+  T.useBagItemOnMon('电光石', 0);
+  ok(s.party[0].held === null, '皮卡丘不能携带电光石（绑定雷伊布）');
+  T.useBagItemOnMon('电光石', 1);
+  ok(s.party[1].held === '电光石', '雷伊布可携带电光石');
+  T.useBagItemOnMon('诅咒符', 3);
+  ok(s.party[3].held === null, '波波不能携带诅咒符');
+  T.useBagItemOnMon('诅咒符', 2);
+  ok(s.party[2].held === '诅咒符', '耿鬼可携带诅咒符（家族绑定）');
+  // 存档兼容
+  s.collectedHeld = ['电光石', '诅咒符'];
+  T.save();
+  s.collectedHeld = [];
+  ok(T.load() && T.getState().collectedHeld.join(',') === '电光石,诅咒符', '专属道具领取记录随存档保存');
+  const legacy = JSON.parse(localStorage.getItem('bkm_poke_save_v1'));
+  delete legacy.collectedHeld;
+  localStorage.setItem('bkm_poke_save_v1', JSON.stringify(legacy));
+  s.collectedHeld = [];
+  ok(T.load() && Array.isArray(T.getState().collectedHeld) && T.getState().collectedHeld.length === 0, '旧档无 collectedHeld 字段默认空数组');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
