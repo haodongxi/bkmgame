@@ -3127,6 +3127,11 @@ function load() {
       return t ? t.id + '@普通' : null;
     }).filter(Boolean);
     STATE.equippedTitle = data.equippedTitle || null; // 旧值无 @ 时按普通解析
+    // 旧档兼容：修复前“重刷无尽之塔会清掉 cleared”的存档（bestFloor≥100 或持有通关称号）读档时恢复通关标记，超越之塔入口不丢
+    if (!STATE.tower.cleared && (STATE.tower.bestFloor >= 100 || STATE.titles.some(function (t) { return t.indexOf('tower100') === 0; }))) {
+      STATE.tower.cleared = true;
+      STATE.tower.replaying = true;
+    }
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
       // 旧档待学招没有 uid：按当时下标补挂到对应宝可梦，防止换首发后错位

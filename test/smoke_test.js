@@ -2771,6 +2771,29 @@ function fightToEnd() {
   T.startSuperTowerFloor();
   ok(s.battle && s.battle.kind === 'super_tower', '重刷无尽塔后仍可进入超越之塔');
 }
+{
+  // 旧档兼容：修复前“重刷清掉 cleared”的存档（曾通关、bestFloor=100 或持有通关称号）读档后恢复超越之塔入口
+  T.newGame(4);
+  const s = T.getState();
+  s.tower = { floor: 12, checkpoint: 10, bestFloor: 100, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  s.titles = ['无尽之塔征服者']; // 旧格式中文名
+  T.save();
+  s.tower = {}; s.titles = [];
+  T.load();
+  const t = T.getState().tower;
+  ok(t.cleared === true && t.replaying === true, '旧档（曾通关但重刷中 cleared=false）读档恢复通关标记');
+  T.getState().nodeId = 'tower';
+  T.startSuperTowerFloor();
+  ok(T.getState().battle && T.getState().battle.kind === 'super_tower', '旧档恢复后可进入超越之塔');
+  // 未通关的普通旧档不受追溯影响
+  T.newGame(4);
+  const s2 = T.getState();
+  s2.tower = { floor: 5, checkpoint: 0, bestFloor: 5, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.save();
+  s2.tower = {};
+  T.load();
+  ok(T.getState().tower.cleared === false && T.getState().tower.replaying === false, '未通关旧档不受追溯影响');
+}
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');
 process.exit(failed > 0 ? 1 : 0);
