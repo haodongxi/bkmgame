@@ -625,7 +625,8 @@ function heldTypeBonus(bm, move) {
     '锐利镰刀': { type: '虫', species: [123] },
     '剧毒针': { type: '毒', species: [15] },
     '愤怒之角': { type: '普通', species: [128] },
-    '远古之翼': { type: '飞行', species: [142] }
+    '远古之翼': { type: '飞行', species: [142] },
+    '阳光花环': { type: '草', species: [3] }
   };
   const cfg = HELD_TYPE_BONUS[bm.m.held];
   if (!cfg || cfg.species.indexOf(bm.m.species) === -1) return 1;

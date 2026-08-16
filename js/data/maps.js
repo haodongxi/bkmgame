@@ -57,7 +57,7 @@ const ITEMS = {
   '正义项圈': { id: 'justice_collar', name: '正义项圈', type: 'held', held: '正义项圈', onlySpecies: 59, desc: '风速狗的专属道具，携带后火系招式威力 +50%' },
   '力量腰带': { id: 'power_belt', name: '力量腰带', type: 'held', held: '力量腰带', onlySpecies: 68, desc: '怪力的专属道具，携带后格斗系招式威力 +50%' },
   '护士帽':   { id: 'nurse_cap', name: '护士帽', type: 'held', held: '护士帽', onlySpecies: 113, desc: '吉利蛋的专属道具，携带后背包恢复道具效果变为 1.5 倍' },
-  '阳光花环': { id: 'sun_crown', name: '阳光花环', type: 'held', held: '阳光花环', onlySpecies: 3, desc: '妙蛙花的专属道具，晴天时草系招式威力再提升 50%' },
+  '阳光花环': { id: 'sun_crown', name: '阳光花环', type: 'held', held: '阳光花环', onlySpecies: 3, desc: '妙蛙花的专属道具，草系招式威力 +50%，晴天时再 +50%' },
   '岩石之心': { id: 'rock_heart', name: '岩石之心', type: 'held', held: '岩石之心', onlySpecies: 95, desc: '大岩蛇的专属道具，携带后岩石系招式威力 +50%' },
   '珍珠泪':   { id: 'pearl_tear', name: '珍珠泪', type: 'held', held: '珍珠泪', onlySpecies: 91, desc: '铁甲贝的专属道具，携带后冰系招式威力 +50%' },
   '锐利镰刀': { id: 'scythe_blade', name: '锐利镰刀', type: 'held', held: '锐利镰刀', onlySpecies: 123, desc: '飞天螳螂的专属道具，携带后虫系招式威力 +50%' },

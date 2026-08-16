@@ -2710,10 +2710,12 @@ function fightToEnd() {
   const ven = bmOf(T.makeMon(3, 30, { nature: '勤奋' }));
   ven.m.moves = ['razor_leaf']; ven.m.pp = [25];
   const bla = bmOf(T.makeMon(9, 30, { nature: '勤奋' }));
+  const dPlain = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
   ven.m.held = '阳光花环';
-  const d9 = dmg(ven, bla, 'razor_leaf', '晴', [0.9, 0.5]);
-  const d10 = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
-  ok(d9 / d10 > 1.48 && d9 / d10 < 1.52, '阳光花环：晴天时草系招式再 +50%');
+  const dHeld = dmg(ven, bla, 'razor_leaf', null, [0.9, 0.5]);
+  const dSun = dmg(ven, bla, 'razor_leaf', '晴', [0.9, 0.5]);
+  ok(dHeld / dPlain > 1.48 && dHeld / dPlain < 1.52, '阳光花环：草系招式威力 +50%');
+  ok(dSun / dHeld > 1.48 && dSun / dHeld < 1.52, '阳光花环：晴天时再 +50%');
 }
 {
   // MVP-S3 专属道具机制效果：剩饭盒回合末回血、护士帽恢复道具 ×1.5
