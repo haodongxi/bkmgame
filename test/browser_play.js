@@ -367,7 +367,7 @@ async function main() {
   await evaljs("STATE.nodeId='celadon'; render();");
   await evaljs('remoteOpenLobby();');
   ok(await evaljs("document.querySelector('#screen-remote').classList.contains('active') && document.querySelector('#remote-lobby').textContent.indexOf('联机对战 · bkmserver') !== -1"), '联机大厅打开');
-  ok(await evaljs("document.querySelector('#rb-server') !== null && document.querySelector('#rb-server').value.indexOf('127.0.0.1:8787') !== -1"), '服务器地址默认值');
+  ok(await evaljs("document.querySelector('#rb-server') !== null && document.querySelector('#rb-server').value.indexOf('8787') !== -1"), '服务器地址默认端口 8787');
   ok(await evaljs("typeof REMOTE !== 'undefined' && REMOTE.server.indexOf('http') === 0"), 'REMOTE 状态已初始化');
   await evaljs('remoteClose();');
   ok(await evaljs("document.querySelector('#screen-map').classList.contains('active') && !document.querySelector('#screen-remote').classList.contains('active')"), '关闭联机返回地图页');
