@@ -117,6 +117,25 @@ async function main() {
   ok(await waitUntil("REMOTE.lastView && REMOTE.lastView.battle && REMOTE.lastView.battle.over", 12000), '浏览器端收到对局结束');
   ok(await evaljs("document.getElementById('rb-status').textContent.indexOf('获胜') !== -1"), '浏览器端显示胜负结果');
 
+  // ---- 随机匹配：排队一方必须能通过队列状态发现房间并进入对战 ----
+  await evaljs("remoteBackToLobby();");
+  await evaljs("remoteQuick();");
+  ok(await waitUntil("REMOTE.mode === 'queue'", 5000), '浏览器进入匹配队列');
+  const nameB2 = 'qbB' + suffix;
+  const tokenB2 = (await serverApi('POST', '/api/register', { name: nameB2, password: 'test1234' })).token;
+  await serverApi('PUT', '/api/me/team', {
+    team: [{ species: 7, level: 50, moves: ['water_gun', 'bite', 'bubble_beam'] }],
+    items: {}
+  }, tokenB2);
+  const q = await serverApi('POST', '/api/queue/join', {}, tokenB2);
+  ok(!q.queued && q.room_id, 'HTTP 方入队并撮合成功');
+  ok(await waitUntil(
+    "REMOTE.battleOpen && REMOTE.lastView && REMOTE.lastView.battle && !REMOTE.lastView.battle.over",
+    15000
+  ), '排队方（浏览器）通过队列状态进入对战');
+  await serverApi('POST', '/api/rooms/' + q.room_id + '/forfeit', {}, tokenB2);
+  ok(await waitUntil("REMOTE.lastView && REMOTE.lastView.battle && REMOTE.lastView.battle.over", 12000), '排队方浏览器收到对局结束');
+
   console.log('\n异常: ' + exceptions.length + ' 个 / 控制台错误: ' + consoleErrors.length + ' 个');
   exceptions.forEach(function (e) { console.error('  EXC: ' + e); });
   consoleErrors.forEach(function (e) { console.error('  ERR: ' + e); });

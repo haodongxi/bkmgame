@@ -342,7 +342,9 @@ function remoteStopPoll() {
 }
 
 async function remoteTick() {
-  if (REMOTE.busy || !REMOTE.roomId) return;
+  if (REMOTE.busy) return;
+  // 排队状态下 roomId 为空，需要继续轮询队列状态，不能提前退出
+  if (REMOTE.mode !== 'queue' && !REMOTE.roomId) return;
   REMOTE.busy = true;
   try {
     if (REMOTE.mode === 'queue') {
