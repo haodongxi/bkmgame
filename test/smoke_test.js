@@ -2554,8 +2554,12 @@ function fightToEnd() {
   T.newGame(4); // 开局选小火龙
   const s = T.getState();
   s.party = [T.makeMon(6, 50, { nature: '固执' })];
-  s.party[0].moves = ['flamethrower', 'dragon_claw', 'earthquake', 'hyper_beam'];
-  s.party[0].pp = [15, 15, 10, 5];
+  // 场景加固：避免破坏光线反作用力 + 随机胜负，保证仓库战必赢（测试关注点在于触发/奖励/一次性）
+  s.party[0].moves = ['flamethrower', 'dragon_claw', 'earthquake', 'body_slam'];
+  s.party[0].pp = [15, 15, 10, 15];
+  s.party[0].stats.hp = 9999;
+  s.party[0].hp = 9999;
+  s.party[0].stats.spe = 300;
   s.nodeId = 'celadon';
   seq.length = 0; seq.push(0.5);
   s.wanderUsed = false;
@@ -2579,6 +2583,24 @@ function fightToEnd() {
   T.save();
   s.rocketWarehouseDone = false;
   ok(T.load() && T.getState().rocketWarehouseDone === true, '仓库标记随存档保存');
+}
+{
+  // 多宝可梦连战：敌方换第二只后，新对位首回合重新判定先发制人与速度对比
+  const s = strongTeam();
+  // 避免自动选招选到破坏光线（反作用力会跳过先发制人日志），换成无反作用的高威力招
+  s.party[0].moves = ['flamethrower', 'dragon_claw', 'earthquake', 'body_slam'];
+  s.party[0].pp = [15, 15, 10, 15];
+  T.startTrainerBattle({ id: 'pair_test', title: '训练家', name: '测试', text: '来战！', party: [{ id: 16, level: 3 }, { id: 19, level: 3 }] });
+  T.battleMove(strongMoveIdx(s.battle)); // 第一回合：秒杀第一只（第二只上场）
+  const firstCount = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  ok(firstCount >= 1, '首个对位首回合先发制人生效');
+  const lenBefore = s.log.length;
+  T.battleMove(strongMoveIdx(s.battle)); // 第二回合：对位敌方第二只
+  const secondLogs = s.log.slice(lenBefore);
+  const secondCount = s.log.filter(function (l) { return l.indexOf('先发制人') !== -1; }).length;
+  ok(secondLogs.some(function (l) { return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; }), '敌方换第二只后重新显示速度对比');
+  ok(secondCount > firstCount, '敌方第二只上场后的首回合再次先发制人（+5%）');
+  ok(fightToEnd() === 'win', '多宝可梦连战正常打完');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

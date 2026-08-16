@@ -742,6 +742,7 @@ function startBattle(kind, opts) {
     over: false,
     outcome: null,
     turn: 0,
+    pair: null, // 上一个行动回合的敌我宝可梦对位（换人后重新判定“首回合先发制人”）
     logStart: STATE.log.length
   };
   STATE.screen = 'battle';
@@ -1700,18 +1701,20 @@ function battleMove(idx) {
     logPos = log.length;
   }
   b.turn++;
+  // 对位首回合：整场第 1 回合，或敌我任一宝可梦更换后的第 1 回合（每只新上场宝可梦都有一次先发制人）
+  const pairFirst = b.turn === 1 || !b.pair || b.pair.p !== pm.m.uid || b.pair.f !== fm.m.uid;
   const pPriority = pMove.effect && pMove.effect.kind === 'priority';
   const fPriority = fMove.effect && fMove.effect.kind === 'priority';
   const pFirst = pPriority ? true : (fPriority ? false : speedOf(pm) >= speedOf(fm));
-  // 速度对比提示：首回合必显，之后仅先手方变化时再显（避免每回合刷屏）
+  // 速度对比提示：每个新对位首回合必显，之后仅先手方变化时再显（避免每回合刷屏）
   const firstSide = pFirst ? 'player' : 'foe';
-  if (b.turn === 1 || firstSide !== b.lastFirst) {
+  if (pairFirst || firstSide !== b.lastFirst) {
     log.push('速度 ' + speedOf(pm) + ' vs ' + speedOf(fm) + '，' + (pFirst ? '你先手！' : '对方先手！'));
     kinds.push('info');
   }
   b.lastFirst = firstSide;
   if (pFirst) {
-    if (b.turn === 1) pm.firstStrike = true; // 仅首回合先发制人（+5%）
+    if (pairFirst) pm.firstStrike = true; // 对位首回合先发制人（+5%）
     useMove(pm, fm, pMove, log, kinds);
     pm.firstStrike = false;
     flushLog();
@@ -1720,7 +1723,7 @@ function battleMove(idx) {
       flushLog();
     }
   } else {
-    if (b.turn === 1) fm.firstStrike = true; // 仅首回合先发制人（+5%）
+    if (pairFirst) fm.firstStrike = true; // 对位首回合先发制人（+5%）
     useMove(fm, pm, fMove, log, kinds);
     fm.firstStrike = false;
     flushLog();
@@ -1729,6 +1732,7 @@ function battleMove(idx) {
       flushLog();
     }
   }
+  b.pair = { p: pm.m.uid, f: fm.m.uid };
   if (!b.over) {
     endOfTurn(log, kinds);
     flushLog();
