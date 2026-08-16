@@ -911,7 +911,7 @@ function openMonDetailModal(mon, inParty) {
     const left = (mon.pp && mon.pp[i] !== undefined) ? mon.pp[i] : mv.pp;
     movesHtml += '<div class="detail-row"><span><span class="tag-known">已学会</span>' +
       '<span class="mv-name" style="color:' + typeColor(mv.type) + '">' + mv.name + '</span> · ' + mv.type + '</span><span>' +
-      (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp +
+      mv.category + (mv.power > 0 ? ' · 威力 ' + mv.power : '') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + left + '/' + mv.pp +
       (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
   }
   let evoHtml = '不会进化';
@@ -961,8 +961,8 @@ function showMoveReplaceModal(idx) {
     if (!mv) continue;
     const forgotten = (mon.forgottenMoves || []).indexOf(learnable[i]) !== -1;
     learnHtml += '<button class="btn btn-sm move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="doReplaceMove(' + idx + ',' + _moveReplaceSlot + ',\'' + learnable[i] + '\')">' +
-      '<span class="tag-learn">要学习</span>' + mv.name + '<span class="move-type">' + mv.type + '</span>' +
-      (mv.power > 0 ? '<span class="move-eff">威力 ' + mv.power + '</span>' : '<span class="move-eff">变化</span>') +
+      '<span class="tag-learn">要学习</span>' + mv.name + '<span class="move-type">' + (mv.category === '物理' ? '物攻' : (mv.category === '特殊' ? '特攻' : '变化')) + ' · ' + mv.type + '</span>' +
+      '<span class="move-eff">' + mv.category + (mv.power > 0 ? ' · 威力 ' + mv.power : '') + '</span>' +
       (forgotten ? '<span class="move-effect">曾不学（升级不再自动提示，可手动学回）</span>' : (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '')) + '</button>';
   }
   openModal('更换招式 · ' + mon.name,
@@ -1702,7 +1702,7 @@ function renderBattle() {
     const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
     if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
     html += '<button class="btn move-btn" ' + ((left <= 0 || !b.waitingPlayer) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
-      mv.name + '<span class="move-type">' + mv.type + '</span>' + effHint(mv, foeTypes) +
+      mv.name + '<span class="move-type">' + (mv.category === '物理' ? '物攻' : (mv.category === '特殊' ? '特攻' : '变化')) + ' · ' + mv.type + '</span>' + effHint(mv, foeTypes) +
       (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') +
       '<span class="move-pp">PP ' + left + '/' + mv.pp + '</span></button>';
   }

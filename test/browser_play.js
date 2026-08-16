@@ -212,6 +212,7 @@ async function main() {
   ok(await evaljs("document.querySelectorAll('#battle-actions .btn').length === STATE.battle.player.mons[0].m.moves.length + 3"), '战斗按钮 = 招式+道具+换人+逃跑');
   ok(await evaljs("document.querySelector('#battle-actions .move-pp') !== null"), '招式按钮显示 PP');
   ok(await evaljs("document.querySelector('#battle-actions .move-effect') !== null"), '招式按钮显示效果说明');
+  ok(await evaljs("document.querySelector('#battle-actions .move-type').textContent.indexOf('物攻') !== -1 || document.querySelector('#battle-actions .move-type').textContent.indexOf('特攻') !== -1"), '战斗招式按钮显示物攻/特攻类别');
   ok(await evaljs("document.querySelector('#battle-actions').textContent.indexOf('对方攻击↓') !== -1"), '叫声效果说明：对方攻击↓');
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
   ok(await evaljs("document.querySelector('#battle-player .battle-name .rarity.r-rare') !== null"), '我方战斗卡片显示稀有度词缀');
