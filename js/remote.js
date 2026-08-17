@@ -160,6 +160,7 @@ function remoteRenderLobby() {
     '<button class="btn" onclick="remoteQuick()">⚡ 快速匹配</button>' +
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
+    '<div class="remote-hint">PvP规则：进入对战后队伍统一为 Lv100，最大HP与初始HP为通常值的 5 倍。</div>' +
     '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
     '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址默认已填为 <b>https://bkmapi.duckdns.org:8787</b>，可手动修改）。' +
     '本机双开测试：登录态按窗口隔离，两个窗口请<b>分别注册/登录不同账号</b>（新标签页打开，勿用“复制标签页”）。</div>' +
