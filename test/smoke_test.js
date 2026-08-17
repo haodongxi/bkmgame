@@ -32,7 +32,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
+  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -910,6 +910,15 @@ ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4
   const cntBefore = s.bag['精灵球'];
   T.sellItem('精灵球', 99);
   ok(s.bag['精灵球'] === cntBefore, '批量出售超出持有数时被拦截');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章', '粉红徽章', '金色徽章', '深红徽章', '绿色徽章'];
+  ok(T.getMartStock().indexOf('重生药') !== -1, '8 徽章解锁重生药');
+  s.money = 100000;
+  T.buyItem('重生药', 1);
+  ok(s.money === 0 && s.bag['重生药'] === 1, '购买重生药花费 10 万金币');
 }
 
 // ---------- 12. 2026-08-13 bug 修复回归 ----------
@@ -1950,6 +1959,26 @@ section('MVP11.1：喂养系统');
   T.useBagItemOnMon('攻击糖果', 0, 3);
   ok(mon.candyBonus.atk === 15 && mon.candyBonus.total === 50, '批量喂糖果遇到上限时只吃到可用数量');
   ok(s.bag['攻击糖果'] === 2, '批量喂糖果遇上限时保留多余糖果');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.ivs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  T.rerollMonIvs(mon);
+  ok(Object.keys(mon.ivs).every(function (k) { return mon.ivs[k] >= 0 && mon.ivs[k] <= 31; }), '洗天赋重置后个体值落在 0~31');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.ivs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const oldIvs = JSON.stringify(mon.ivs);
+  s.bag['重生药'] = 1;
+  T.useBagItemOnMon('重生药', 0);
+  ok((s.bag['重生药'] || 0) === 0, '重生药使用后消耗');
+  ok(JSON.stringify(mon.ivs) !== oldIvs, '重生药会重新随机个体值');
+  ok(mon.stats.hp >= mon.level + 10, '洗天赋后能力值会按新个体值重算');
 }
 {
   T.newGame(4);

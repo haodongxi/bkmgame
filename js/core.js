@@ -290,6 +290,18 @@ function recalcStats(mon) {
   mon.hp = Math.min(stats.hp, mon.hp + Math.max(0, hpGain));
 }
 
+function rerollMonIvs(mon) {
+  if (!mon) return false;
+  const ivs = {};
+  for (let i = 0; i < STAT_KEYS.length; i++) {
+    ivs[STAT_KEYS[i]] = randInt(0, 31);
+  }
+  mon.ivs = ivs;
+  recalcStats(mon);
+  if (mon.hp > mon.stats.hp) mon.hp = mon.stats.hp;
+  return true;
+}
+
 // ---------------- 等级 / 学习 / 进化 ----------------
 
 function grantExp(mon, amount, log, kinds) {
@@ -2959,6 +2971,12 @@ function useBagItemOnMon(itemName, partyIdx, qty) {
     addLog(mon.name + ' 吃下了【' + itemName + '】×' + canUse + '，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了 ' + canUse + ' 点！', 'good');
     return;
   }
+  if (item.type === 'retalent') {
+    removeItem(itemName, 1);
+    rerollMonIvs(mon);
+    addLog(mon.name + ' 喝下了【' + itemName + '】，六项天赋被重置并重新随机了！', 'good');
+    return;
+  }
   if (item.type === 'shiny') {
     if (mon.shiny) { addLog(mon.name + ' 已经是闪光宝可梦了！', 'info'); return; }
     removeItem(itemName, 1);
@@ -3251,7 +3269,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
     HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,
     FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,
     addBond: addBond,
