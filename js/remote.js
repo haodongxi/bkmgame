@@ -205,6 +205,7 @@ function remoteDraftHtml(draft) {
       '<small>技能：' + esc(moves) + '　携带：' + esc(m.held || '无') + '</small>' +
       '<span><button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',-1)">↑</button>' +
       '<button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',1)">↓</button>' +
+      '<button class="btn btn-sm" onclick="remoteShowDraftDetail(' + i + ')">详情</button>' +
       '<button class="btn btn-sm" onclick="remoteEditDraftMoves(' + i + ')">技能</button>' +
       '<button class="btn btn-sm" onclick="remoteEditDraftHeld(' + i + ')">携带物</button></span></div>';
   }).join('');
@@ -212,6 +213,36 @@ function remoteDraftHtml(draft) {
     '<div class="remote-hint">调整完成后确认上传；对战属性按 Lv100 计算，HP×5。对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
     '<div class="remote-actions"><button class="btn btn-primary" onclick="remoteUploadTeam()">' + (REMOTE.pvpDraftConfirmed ? '✅ 已确认上传（可重新上传）' : '📤 确认上传 PvP 队伍') + '</button>' +
     '<button class="btn" onclick="remoteLoadDraftFromSingle()">重新读取单机队伍</button></div></div>';
+}
+
+function remoteShowDraftDetail(index) {
+  const m = REMOTE.pvpDraft && REMOTE.pvpDraft[index];
+  if (!m || !POKEDEX[m.species]) return;
+  const d = POKEDEX[m.species];
+  const nature = NATURES[m.nature] || NATURES['勤奋'];
+  const ivs = m.ivs || {};
+  const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+  const stats = {};
+  stats.hp = Math.floor((2 * d.base.hp + (ivs.hp || 0)) * 100 / 100) + 110;
+  ['atk', 'def', 'spa', 'spd', 'spe'].forEach(function (k) {
+    stats[k] = Math.floor((2 * d.base[k] + (ivs[k] || 0) + 5) * nature[k]);
+  });
+  stats.hp *= 5;
+  let statsHtml = '';
+  Object.keys(statNames).forEach(function (k) { statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] + (k === 'hp' ? '（PvP HP×5）' : '') + '</span></div>'; });
+  let movesHtml = '';
+  (m.moves || []).forEach(function (id) {
+    const mv = MOVES[id]; if (!mv) return;
+    movesHtml += '<div class="detail-row"><span class="mv-name" style="color:' + typeColor(mv.type) + '">' + esc(mv.name) + ' · ' + esc(mv.type) + '</span><span>' +
+      mv.category + (mv.power > 0 ? ' · 威力 ' + mv.power : '') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + mv.pp +
+      (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
+  });
+  openModal((d.name || '宝可梦') + ' · PvP详情',
+    '<div class="detail-lv">单机 Lv.' + m.level + ' → PvP Lv.100 · ' + d.types.join('/') + '</div>' +
+    '<div class="shop-hint">性格：' + esc(m.nature || '勤奋') + '　携带：' + esc(m.held || '无') + '</div>' +
+    '<div class="shop-hint">—— PvP能力值 ——</div>' + statsHtml +
+    '<div class="shop-hint">—— PvP招式 ——</div>' + (movesHtml || '<div class="shop-hint">暂无招式</div>') +
+    '<div class="modal-btns"><button class="btn" onclick="closeModal()">返回准备广场</button></div>');
 }
 
 async function remoteTest() {
