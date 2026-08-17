@@ -22,7 +22,9 @@ const REMOTE = {
   busy: false,
   battleOpen: false,
   prevScreen: 'title',
-  switchPromptKey: ''
+  switchPromptKey: '',
+  pvpDraft: null,
+  pvpDraftConfirmed: false
 };
 
 // 对战可用道具（与 bkmserver engine/items.py 对齐）
@@ -125,6 +127,8 @@ function remoteRenderLobby() {
   const el = $id('remote-lobby');
   const partyCount = (STATE.party || []).length;
   const logged = !!REMOTE.token;
+  const draft = REMOTE.pvpDraft || [];
+  const draftHtml = logged ? remoteDraftHtml(draft) : '';
   el.innerHTML =
     '<div class="remote-panel pixel-frame">' +
     '<div class="sec-title">—— 联机对战 · bkmserver ——</div>' +
@@ -138,21 +142,40 @@ function remoteRenderLobby() {
       '<div class="remote-row"><span class="remote-label">密码</span><input id="rb-pass" type="password" placeholder="至少 4 位">' +
       '<button class="btn btn-sm" onclick="remoteLogin()">登录</button>' +
       '<button class="btn btn-sm" onclick="remoteRegister()">注册</button></div>') +
-    '<div class="remote-actions">' +
-    '<button class="btn" onclick="remoteUploadTeam()">📤 上传当前队伍（' + partyCount + ' 只）</button>' +
-    '</div>' +
+    (logged ? '<div class="remote-actions"><button class="btn" onclick="remoteLoadDraftFromSingle()">🧳 读取单机队伍</button>' +
+    '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button>' +
+    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button></div>' : '') +
+    draftHtml +
     '<div class="remote-row" style="margin-top:8px"><span class="remote-label">房间码</span>' +
     '<input id="rb-code" type="text" placeholder="6 位房间码">' +
     '<button class="btn btn-sm" onclick="remoteJoin()">加入</button></div>' +
     '<div class="remote-actions">' +
-    '<button class="btn btn-primary" onclick="remoteCreate()">🏠 创建房间</button>' +
-    '<button class="btn" onclick="remoteQuick()">⚡ 快速匹配</button>' +
+    '<button class="btn btn-primary" onclick="remoteCreate()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>🏠 创建房间</button>' +
+    '<button class="btn" onclick="remoteQuick()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>⚡ 快速匹配</button>' +
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：先培养好单机队伍，再点击“上传当前队伍”。</div>' +
     '<div class="remote-hint">PvP规则：对战时队伍统一为 Lv100，HP×5；单机存档不会被修改。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
+}
+
+function remoteDraftHtml(draft) {
+  if (!draft.length) return '<div class="remote-hint">PvP准备广场：先读取单机队伍，再调整首发、招式和携带物。这里的调整只存在于本次联机准备，不会改动单机存档。</div>';
+  let rows = draft.map(function (m, i) {
+    const name = POKEDEX[m.species] ? POKEDEX[m.species].name : ('No.' + m.species);
+    const moves = (m.moves || []).map(function (id) { return MOVES[id] ? MOVES[id].name : id; }).join('、') || '无';
+    return '<div class="remote-draft-row"><span>' + (i === 0 ? '⭐ ' : '') + esc(name) + ' Lv' + m.level + (i === 0 ? '（首发）' : '') + '</span>' +
+      '<small>技能：' + esc(moves) + '　携带：' + esc(m.held || '无') + '</small>' +
+      '<span><button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',-1)">↑</button>' +
+      '<button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',1)">↓</button>' +
+      '<button class="btn btn-sm" onclick="remoteEditDraftMoves(' + i + ')">技能</button>' +
+      '<button class="btn btn-sm" onclick="remoteEditDraftHeld(' + i + ')">携带物</button></span></div>';
+  }).join('');
+  return '<div class="remote-prep pixel-frame"><div class="sec-title">—— PvP 准备广场 ——</div>' +
+    '<div class="remote-hint">调整完成后确认上传；对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
+    '<div class="remote-actions"><button class="btn btn-primary" onclick="remoteUploadTeam()">' + (REMOTE.pvpDraftConfirmed ? '✅ 已确认上传（可重新上传）' : '📤 确认上传 PvP 队伍') + '</button>' +
+    '<button class="btn" onclick="remoteLoadDraftFromSingle()">重新读取单机队伍</button></div></div>';
 }
 
 async function remoteTest() {
@@ -233,17 +256,101 @@ function remoteBuildTeam() {
   return { team: team, items: items };
 }
 
+function remoteDraftFromSingle() {
+  return (STATE.party || []).map(function (m, i) {
+    return { sourceUid: m.uid || null, sourceIndex: i, species: m.species, level: m.level,
+      nature: m.nature, ivs: m.ivs || undefined, moves: (m.moves || []).slice(0, 4), held: m.held || null };
+  });
+}
+
+function remoteDraftPayload() {
+  const team = (REMOTE.pvpDraft || []).map(function (m) {
+    const e = { species: m.species, level: m.level, nature: m.nature, ivs: m.ivs || undefined, moves: (m.moves || []).slice(0, 4) };
+    if (m.held) e.held = m.held;
+    return e;
+  });
+  const items = {};
+  REMOTE_BATTLE_ITEMS.forEach(function (k) { if (STATE.bag && STATE.bag[k] > 0) items[k] = Math.min(9, STATE.bag[k]); });
+  return { team: team, items: items };
+}
+
+function remoteLoadDraftFromSingle() {
+  const draft = remoteDraftFromSingle();
+  if (!draft.length) { remoteMsg('当前单机队伍为空，请先培养宝可梦', true); return; }
+  REMOTE.pvpDraft = draft; REMOTE.pvpDraftConfirmed = false;
+  remoteMsg('已读取单机队伍，可在准备广场调整；单机存档未改变'); render();
+}
+
+function remoteMoveDraft(index, direction) {
+  const next = index + direction;
+  if (!REMOTE.pvpDraft || next < 0 || next >= REMOTE.pvpDraft.length) return;
+  const tmp = REMOTE.pvpDraft[index]; REMOTE.pvpDraft[index] = REMOTE.pvpDraft[next]; REMOTE.pvpDraft[next] = tmp;
+  REMOTE.pvpDraftConfirmed = false; render();
+}
+
+function remoteEditDraftMoves(index) {
+  const m = REMOTE.pvpDraft && REMOTE.pvpDraft[index]; if (!m) return;
+  const source = (STATE.party || []).find(function (x) { return m.sourceUid && x.uid === m.sourceUid; }) || STATE.party[m.sourceIndex];
+  const ids = (m.moves || []).concat(source ? learnableMoves(source) : []).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
+  const html = '<div class="remote-hint">选择后立即替换对应栏位，修改只作用于 PvP 临时队伍。</div>' + [0, 1, 2, 3].map(function (slot) {
+    return '<div class="remote-row"><span>第' + (slot + 1) + '格</span><select id="remote-move-' + slot + '">' + ids.map(function (id) { return '<option value="' + esc(id) + '" ' + (m.moves[slot] === id ? 'selected' : '') + '>' + esc(MOVES[id].name) + '</option>'; }).join('') + '</select><button class="btn btn-sm" onclick="remoteSetDraftMove(' + index + ',' + slot + ')">确定</button></div>';
+  }).join('');
+  openModal('调整招式', html);
+}
+
+function remoteSetDraftMove(index, slot) {
+  const m = REMOTE.pvpDraft[index]; const el = $id('remote-move-' + slot);
+  if (!m || !el) return;
+  if (m.moves.indexOf(el.value) !== -1 && m.moves[slot] !== el.value) { remoteMsg('同一只宝可梦不能重复携带同一招式', true); return; }
+  m.moves[slot] = el.value; REMOTE.pvpDraftConfirmed = false; closeModal(); render();
+}
+
+function remoteEditDraftHeld(index) {
+  const m = REMOTE.pvpDraft[index]; if (!m) return;
+  const choices = [''].concat(Object.keys(ITEMS).filter(function (name) { return ITEMS[name].type === 'held' && STATE.bag && STATE.bag[name] > 0; }));
+  openModal('调整携带物', choices.map(function (name) { return '<button class="btn" style="width:100%;margin:3px 0" onclick="remoteSetDraftHeld(' + index + ',\'' + esc(name) + '\')">' + esc(name || '不携带') + '</button>'; }).join(''));
+}
+
+function remoteSetDraftHeld(index, held) {
+  if (REMOTE.pvpDraft[index]) REMOTE.pvpDraft[index].held = held || null;
+  REMOTE.pvpDraftConfirmed = false; closeModal(); render();
+}
+
 async function remoteUploadTeam() {
   if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
-  const payload = remoteBuildTeam();
+  if (!REMOTE.pvpDraft) remoteLoadDraftFromSingle();
+  const payload = remoteDraftPayload();
   if (!payload) { remoteMsg('当前队伍为空，请先培养宝可梦', true); return; }
   try {
     const d = await remoteApi('PUT', '/api/me/team', payload);
-    remoteMsg('✅ 队伍已上传：' + d.mons.map(function (m) { return m.name + ' Lv' + m.level; }).join('、'));
+    REMOTE.pvpDraftConfirmed = true;
+    remoteMsg('✅ PvP队伍已确认上传：' + d.mons.map(function (m) { return m.name + ' Lv' + m.level; }).join('、'));
+    render();
   } catch (e) {
     console.error('[remote] 上传队伍失败', e);
     remoteMsg('队伍上传失败：' + e.message, true);
   }
+}
+
+async function remoteUploadCloudSave() {
+  if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
+  const raw = localStorage.getItem('bkm_poke_save_v1');
+  if (!raw) { remoteMsg('当前还没有单机存档', true); return; }
+  let data; try { data = JSON.parse(raw); } catch (e) { remoteMsg('本机存档损坏，无法上传', true); return; }
+  if (!data || data.version !== GAME_VERSION) { remoteMsg('本机存档版本不匹配，请先在游戏内加载存档', true); return; }
+  try { const meta = await remoteApi('PUT', '/api/me/save', { save: data }); remoteMsg('✅ 云存档上传成功（' + meta.size + ' 字节）'); }
+  catch (e) { remoteMsg('云存档上传失败：' + e.message, true); }
+}
+
+async function remoteDownloadCloudSave() {
+  if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
+  try {
+    const data = await remoteApi('GET', '/api/me/save');
+    if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');
+    if (!confirm('下载云存档会覆盖当前浏览器里的单机存档，确定继续吗？')) return;
+    localStorage.setItem('bkm_poke_save_v1', JSON.stringify(data.save));
+    load(); closeModal(); remoteMsg('✅ 云存档已下载并加载；PvP准备队伍仍保持独立'); render();
+  } catch (e) { remoteMsg('云存档下载失败：' + e.message, true); }
 }
 
 // ---------------- 房间 / 匹配 ----------------
