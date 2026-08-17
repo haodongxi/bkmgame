@@ -798,12 +798,15 @@ function showPartyModal(mode, itemName) {
     else if (isItem) {
       if (item && item.type === 'candy') {
         const q = bagUseQtyInfo(itemName, i);
-        btn = '<div class="row-btns"><span class="shop-qty">' +
+        const meta = q.max <= 0 ? '该属性或总量已满' : '本次最多可喂 ' + q.max + ' 颗';
+        btn = '<div class="row-btns candy-actions">' +
+          '<div class="candy-stepper shop-qty">' +
           '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',-1)"' + (q.qty <= 1 ? ' disabled' : '') + '>−</button>' +
-          '<b>' + (q.max <= 0 ? 0 : q.qty) + '</b>' +
+          '<div class="candy-qty">' + (q.max <= 0 ? 0 : q.qty) + '</div>' +
           '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',1)"' + (q.max <= 0 || q.qty >= q.max ? ' disabled' : '') + '>+</button>' +
-          '<button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ',' + q.qty + ')"' + (q.max <= 0 ? ' disabled' : '') + '>' + (q.max <= 0 ? '已满' : '喂食（' + q.qty + '颗）') + '</button>' +
-          '</span></div>';
+          '</div>' +
+          '<button class="btn btn-sm candy-feed-btn" onclick="doItemOnMon(\'' + itemName + '\',' + i + ',' + q.qty + ')"' + (q.max <= 0 ? ' disabled' : '') + '>' + (q.max <= 0 ? '已达上限' : '喂食 ' + q.qty + ' 颗') + '</button>' +
+          '<div class="candy-meta">' + meta + '</div></div>';
       } else {
         btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
       }
