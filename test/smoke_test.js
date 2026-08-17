@@ -13,6 +13,8 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
   '  FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK,\n' +
+  '  HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,\n' +
+  '  FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
   '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove, acquisitionPaths: acquisitionPaths,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
@@ -30,7 +32,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,\n' +
+  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -651,7 +653,7 @@ section('MVP4 支线与技能表扩充');
     return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
   });
   ok(bad.length === 0, '全部技能字段完整');
-  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1 };
+  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1, leaveOneWild: 1 };
   const badEff = moveIds.filter(function (id) {
     const e = T.MOVES[id].effect;
     return e && !effKinds[e.kind];
@@ -770,7 +772,7 @@ section('MVP7：招式 PP');
 // ---------- 10.6 MVP8：商店提价与探索金币事件 ----------
 section('MVP8：商店提价与探索金币事件');
 {
-  ok(T.ITEMS['高级球'].price === 4000 && T.ITEMS['大师球'].price === 50000, '后期道具价格已上调');
+  ok(T.ITEMS['高级球'].price === 3000 && T.ITEMS['大师球'].price === 50000, '后期道具价格已上调');
   ok(T.ITEMS['雷之石'].price === 5000 && T.ITEMS['幸运蛋'].price === 20000, '进化石/持有道具价格上调');
   T.newGame(4);
   ok(T.getMartStock().indexOf('大师球') === -1, '0徽章商店无大师球');
@@ -892,26 +894,75 @@ ok(T.getMartStock().indexOf('好伤药') !== -1, '2 徽章解锁好伤药');
 T.buyItem('好伤药');
 ok(T.getState().bag['好伤药'] === 1 && T.getState().money === 5000 - 700, '购买成功');
 T.sellItem('精灵球');
-ok(T.getState().money === 5000 - 700 + 100 && T.getState().bag['精灵球'] === 4, '半价出售成功');
+ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4, '半价出售成功');
 {
   // 批量购买/出售
   T.newGame(4);
   const s = T.getState();
   s.money = 5000;
   T.buyItem('精灵球', 3);
-  ok(s.bag['精灵球'] === 8 && s.money === 5000 - 600, '批量购买 3 个精灵球扣 600 金');
+  ok(s.bag['精灵球'] === 8 && s.money === 5000 - 300, '批量购买 3 个精灵球扣 300 金');
   T.sellItem('精灵球', 2);
-  ok(s.bag['精灵球'] === 6 && s.money === 5000 - 600 + 200, '批量出售 2 个精灵球得 200 金');
+  ok(s.bag['精灵球'] === 6 && s.money === 5000 - 300 + 100, '批量出售 2 个精灵球得 100 金');
   const moneyBefore = s.money;
-  T.buyItem('高级球', 10); // 4000*10 远超余额
+  T.buyItem('高级球', 10); // 3000*10 远超余额
   ok(s.money === moneyBefore && (s.bag['高级球'] || 0) === 0, '批量购买超出余额时被拦截');
   const cntBefore = s.bag['精灵球'];
   T.sellItem('精灵球', 99);
   ok(s.bag['精灵球'] === cntBefore, '批量出售超出持有数时被拦截');
 }
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章'];
+  ok(T.getMartStock().indexOf('TM点到为止') !== -1, '4 徽章解锁 TM点到为止');
+  s.money = 8000;
+  T.buyItem('TM点到为止', 1);
+  ok(s.money === 0 && s.bag['TM点到为止'] === 1, '购买 TM点到为止花费 8000 金币');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['TM点到为止'] = 1;
+  T.useBagItemOnMon('TM点到为止', 0);
+  ok(s.party[0].moves.indexOf('false_swipe') !== -1, 'TM点到为止可学会招式点到为止');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章', '粉红徽章', '金色徽章', '深红徽章', '绿色徽章'];
+  ok(T.getMartStock().indexOf('重生药') !== -1, '8 徽章解锁重生药');
+  s.money = 100000;
+  T.buyItem('重生药', 1);
+  ok(s.money === 0 && s.bag['重生药'] === 1, '购买重生药花费 10 万金币');
+}
 
 // ---------- 12. 2026-08-13 bug 修复回归 ----------
 section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / 学招存档）');
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['false_swipe'];
+  s.party[0].pp = [40];
+  T.startWildBattle(16, 4);
+  s.battle.foe.mons[0].m.hp = 1;
+  T.battleMove(0);
+  ok(s.battle && !s.battle.over, '点到为止命中野生宝可梦后战斗继续');
+  ok(s.battle.foe.mons[0].m.hp === 1, '点到为止对野生宝可梦触发留 1 HP');
+  ok(s.log.some(function (t) { return t.indexOf('点到为止 手下留情') !== -1 || t.indexOf('点到为止手下留情') !== -1; }), '点到为止触发时写入提示日志');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['false_swipe'];
+  s.party[0].pp = [40];
+  T.startTrainerBattle({ id: 'fs_test', title: '短裤小子', name: '阿测', text: '来吧！', prize: 100, party: [{ id: 16, level: 2, moves: ['tackle'] }] });
+  s.battle.foe.mons[0].m.hp = 1;
+  T.battleMove(0);
+  ok(s.lastResult === 'win', '点到为止在训练家战不会保留 1 HP');
+}
 {
   // 双灭：最后一只宝可梦与敌方同回合倒下 → 判负并回城恢复，不会留下全灭队伍
   T.newGame(4);
@@ -1485,7 +1536,7 @@ section('无尽之塔');
   s.titles = ['无尽之塔征服者'];
   T.startTowerFloor();
   ok(s.battle && s.battle.kind === 'tower', '通关后点击挑战可再次进入塔内战斗（重刷）');
-  ok(s.tower.cleared === false && s.tower.floor === 1 && s.tower.checkpoint === 0, '重刷从第 1 层重新开始');
+  ok(s.tower.cleared === true && s.tower.replaying === true && s.tower.floor === 1 && s.tower.checkpoint === 0, '重刷从第 1 层重新开始且保留通关标记');
   ok(s.titles.indexOf('无尽之塔征服者') !== -1 && s.tower.bestFloor === 100, '重刷保留称号与历史最佳');
   let g = 0;
   while (s.battle && !s.battle.over && g++ < 80) {
@@ -1922,11 +1973,14 @@ section('MVP11.1：喂养系统');
   T.newGame(4);
   const s = T.getState();
   const mon = s.party[0];
-  s.bag['攻击糖果'] = 2;
+  s.bag['攻击糖果'] = 5;
   const atkBefore = mon.stats.atk;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(mon.candyBonus.atk === 1 && mon.stats.atk === atkBefore + 1, '喂糖果：面板 +1');
-  ok(s.bag['攻击糖果'] === 1, '糖果消耗 1 颗');
+  ok(s.bag['攻击糖果'] === 4, '糖果消耗 1 颗');
+  T.useBagItemOnMon('攻击糖果', 0, 3);
+  ok(mon.candyBonus.atk === 4 && mon.stats.atk === atkBefore + 4, '批量喂糖果：面板按数量提升');
+  ok(s.bag['攻击糖果'] === 1, '批量喂糖果按数量消耗');
   mon.candyBonus.atk = 15;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(s.bag['攻击糖果'] === 1, '单项达到上限后无法继续喂');
@@ -1934,6 +1988,37 @@ section('MVP11.1：喂养系统');
   mon.candyBonus.total = 50;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(s.bag['攻击糖果'] === 1, '总和达到上限后无法继续喂');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.candyBonus.atk = 14;
+  mon.candyBonus.total = 49;
+  s.bag['攻击糖果'] = 3;
+  T.useBagItemOnMon('攻击糖果', 0, 3);
+  ok(mon.candyBonus.atk === 15 && mon.candyBonus.total === 50, '批量喂糖果遇到上限时只吃到可用数量');
+  ok(s.bag['攻击糖果'] === 2, '批量喂糖果遇上限时保留多余糖果');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.ivs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  T.rerollMonIvs(mon);
+  ok(Object.keys(mon.ivs).every(function (k) { return mon.ivs[k] >= 0 && mon.ivs[k] <= 31; }), '洗天赋重置后个体值落在 0~31');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.ivs = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  const oldIvs = JSON.stringify(mon.ivs);
+  s.bag['重生药'] = 1;
+  T.useBagItemOnMon('重生药', 0);
+  ok((s.bag['重生药'] || 0) === 0, '重生药使用后消耗');
+  ok(JSON.stringify(mon.ivs) !== oldIvs, '重生药会重新随机个体值');
+  ok(mon.stats.hp >= mon.level + 10, '洗天赋后能力值会按新个体值重算');
 }
 {
   T.newGame(4);
@@ -2337,6 +2422,16 @@ function fightToEnd() {
   s.nodeId = 'tower';
   s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
   T.startTowerFloor();
+  s.battle.player.mons[0].m.moves = ['thunderbolt'];
+  s.battle.player.mons[0].m.pp = [15];
+  s.battle.player.mons[0].m.stats.spe = 999;
+  s.battle.player.mons[0].m.stats.hp = 99999;
+  s.battle.player.mons[0].m.hp = 99999;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.stats.hp = 99999;
+  s.battle.foe.mons[0].m.hp = 99999;
   ok(s.battle.canRun === false, '塔内不可逃跑（速度机制不改变）');
   T.battleRun();
   ok(s.battle && !s.battle.over, '塔内逃跑仍被拦截');
@@ -2652,6 +2747,11 @@ function fightToEnd() {
   s.bag = {};
   seq.length = 0; seq.push(0.05);
   ok(T.tryHiddenHeld() === false, '翻出后永久记录，不再重复获得');
+  // 护士帽（吉利蛋专属）也有产出渠道：22号道路隐藏点 0.1%
+  s.nodeId = 'route22';
+  s.collectedHeld = [];
+  seq.length = 0; seq.push(0.0005);
+  ok(T.tryHiddenHeld() === true && s.bag['护士帽'] === 1, '护士帽可通过 22 号道路隐藏点获得');
   // 火箭队抢劫败北：专属道具不可被没收（否则翻出后永久丢失）
   s.battle = { kind: 'rocket_robbery', player: {}, foe: {}, logStart: s.log.length };
   s.money = 1000;
@@ -2760,6 +2860,87 @@ function fightToEnd() {
   const hWithHat = s.party[0].hp;
   const healWithHat = 50 - (s.party[0].stats.hp - hWithHat);
   ok(healNoHat === 20 && healWithHat === 30, '护士帽：吉利蛋恢复道具效果 ×1.5（伤药 20→30）');
+}
+{
+  // 重刷无尽之塔不丢失超越之塔入口：cleared 保持 true，replaying 标记重刷中
+  const s = superTeam();
+  s.nodeId = 'tower';
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.startTowerFloor(); // 通关后点挑战：重刷从第 1 层开始
+  ok(s.tower.cleared === true && s.tower.replaying === true && s.tower.floor === 1, '重刷无尽塔保留通关标记（cleared=true、replaying=true）');
+  T.startSuperTowerFloor();
+  ok(s.battle && s.battle.kind === 'super_tower', '重刷无尽塔后仍可进入超越之塔');
+}
+{
+  // 旧档兼容：修复前“重刷清掉 cleared”的存档（曾通关、bestFloor=100 或持有通关称号）读档后恢复超越之塔入口
+  T.newGame(4);
+  const s = T.getState();
+  s.tower = { floor: 12, checkpoint: 10, bestFloor: 100, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  s.titles = ['无尽之塔征服者']; // 旧格式中文名
+  T.save();
+  s.tower = {}; s.titles = [];
+  T.load();
+  const t = T.getState().tower;
+  ok(t.cleared === true && t.replaying === true, '旧档（曾通关但重刷中 cleared=false）读档恢复通关标记');
+  T.getState().nodeId = 'tower';
+  T.startSuperTowerFloor();
+  ok(T.getState().battle && T.getState().battle.kind === 'super_tower', '旧档恢复后可进入超越之塔');
+  // 未通关的普通旧档不受追溯影响
+  T.newGame(4);
+  const s2 = T.getState();
+  s2.tower = { floor: 5, checkpoint: 0, bestFloor: 5, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.save();
+  s2.tower = {};
+  T.load();
+  ok(T.getState().tower.cleared === false && T.getState().tower.replaying === false, '未通关旧档不受追溯影响');
+}
+{
+  // 双塔交错：无尽塔重刷中切超越塔再切回、超越塔重刷不影响无尽塔、重刷中通关复位
+  const s = superTeam();
+  s.nodeId = 'tower';
+  s.tower = { floor: 100, checkpoint: 95, bestFloor: 100, cleared: true, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false };
+  T.startTowerFloor(); // 无尽塔重刷
+  ok(s.tower.replaying === true && s.tower.cleared === true && s.tower.floor === 1, '无尽塔重刷开始（保留通关标记）');
+  s.tower.floor = 3; // 模拟重刷已打到第 3 层
+  // 切超越塔（重刷中可进）
+  T.startSuperTowerFloor();
+  ok(s.battle && s.battle.kind === 'super_tower', '无尽塔重刷中可进入超越之塔');
+  ok(s.tower.floor === 3 && s.tower.replaying === true, '超越塔战斗不干扰无尽塔重刷进度');
+  // 切回无尽塔：replaying=true 不重置，继续第 3 层
+  T.startTowerFloor();
+  ok(s.battle && s.battle.kind === 'tower' && s.tower.floor === 3, '切回无尽塔继续重刷进度（不重置）');
+  // 超越塔通关后重刷：不影响无尽塔状态
+  s.tower.superFloor = 100;
+  s.tower.superCleared = true;
+  T.startSuperTowerFloor();
+  ok(s.tower.superFloor === 1 && s.tower.superCleared === false, '超越塔重刷从第 1 层开始');
+  ok(s.tower.floor === 3 && s.tower.replaying === true && s.tower.cleared === true, '超越塔重刷不影响无尽塔状态');
+  // 无尽塔重刷中再次通关：replaying 复位
+  s.tower.floor = 100;
+  s.tower.checkpoint = 95;
+  s.battle = { kind: 'tower', player: {}, foe: {}, logStart: s.log.length };
+  T.endBattle('win');
+  ok(s.tower.cleared === true && s.tower.replaying === false && s.tower.floor === 100, '无尽塔重刷中再次通关后状态复位');
+  // 复位后再挑战：开启新一轮重刷
+  T.startTowerFloor();
+  ok(s.tower.replaying === true && s.tower.floor === 1, '再次通关后点挑战开启新一轮重刷');
+}
+{
+  // 专属道具全量产出覆盖：每一件专属道具至少有一条获取渠道（防止新增道具忘记挂产出）
+  T.newGame(4);
+  const heldItems = Object.keys(T.ITEMS).filter(function (k) {
+    return T.ITEMS[k].type === 'held' && T.ITEMS[k].onlySpecies;
+  });
+  const sources = {};
+  T.HIDDEN_HELD_SPOTS.forEach(function (sp) { sources[sp.item] = true; });
+  T.HELD_MERCHANT.forEach(function (m) { sources[m.name] = true; });
+  T.TOWER_HELD_POOL.forEach(function (n) { sources[n] = true; });
+  T.FISH_HELD_DROPS.forEach(function (n) { sources[n] = true; });
+  sources[T.ROCKET_HELD_DROP] = true;
+  sources['电气球'] = true; // 华蓝市垃圾桶（旧渠道）
+  const missing = heldItems.filter(function (k) { return !sources[k]; });
+  ok(missing.length === 0, '所有专属道具都有产出渠道' + (missing.length ? '（缺：' + missing.join(',') + '）' : ''));
+  ok(T.HIDDEN_HELD_SPOTS.length >= 17, '隐藏点数量完整（17 处）');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

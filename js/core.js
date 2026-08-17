@@ -25,7 +25,7 @@ const STATE = {
   party: [],
   box: [],
   visitedNodes: [],
-  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false },
+  tower: { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false },
   titles: [],
   equippedTitle: null,
   log: [],
@@ -288,6 +288,18 @@ function recalcStats(mon) {
   const hpGain = stats.hp - oldMax;
   mon.stats = stats;
   mon.hp = Math.min(stats.hp, mon.hp + Math.max(0, hpGain));
+}
+
+function rerollMonIvs(mon) {
+  if (!mon) return false;
+  const ivs = {};
+  for (let i = 0; i < STAT_KEYS.length; i++) {
+    ivs[STAT_KEYS[i]] = randInt(0, 31);
+  }
+  mon.ivs = ivs;
+  recalcStats(mon);
+  if (mon.hp > mon.stats.hp) mon.hp = mon.stats.hp;
+  return true;
 }
 
 // ---------------- 等级 / 学习 / 进化 ----------------
@@ -1246,11 +1258,11 @@ function towerThemeFor(floor) {
 
 function startTowerFloor() {
   const t = STATE.tower;
-  if (t.cleared) {
-    // 通关后重刷：从第 1 层重新开始，保留称号与历史最佳
+  if (t.cleared && !t.replaying) {
+    // 通关后首次重刷：从第 1 层重新开始，保留称号与历史最佳；cleared 保持 true（超越之塔入口依赖它）
+    t.replaying = true;
     t.floor = 1;
     t.checkpoint = 0;
-    t.cleared = false;
     addLog('你再次踏入无尽之塔，从第 1 层重新挑战！（称号与历史最佳保留）', 'info');
   }
   const team = towerFoeTeam(t.floor);
@@ -1507,6 +1519,13 @@ function useMove(user, target, move, log, kinds) {
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
   t.hp -= totalDmg;
+  if (t.hp <= 0 &&
+      move.effect && move.effect.kind === 'leaveOneWild' &&
+      STATE.battle && STATE.battle.kind === 'wild' &&
+      user.side === 'player' && target.side === 'foe') {
+    t.hp = 1;
+    L(move.name + ' 手下留情，' + t.name + ' 留下了 1 点HP！', 'good');
+  }
   if (user.firstStrike) L(m.name + ' 先发制人，气势如虹！', 'info');
   L(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg, side);
   // 羁绊阶段四：20% 毅力锁血（每场最多一次）
@@ -2086,8 +2105,7 @@ function endBattle(outcome) {
         ['精灵球', '好伤药', '万灵药', 'PP回复药'];
       // 专属道具：每 5 层奖励 0.1% 概率给一件专属道具（稀有收藏）
       if (Math.random() < 0.001) {
-        const heldPool = ['电光石', '诅咒符', '力量腰带', '快龙之鳞', '秘传之眼', '锐利镰刀', '远古之翼', '珍珠泪'];
-        const item = heldPool[randInt(0, heldPool.length - 1)];
+        const item = TOWER_HELD_POOL[randInt(0, TOWER_HELD_POOL.length - 1)];
         addItem(item, 1);
         addLog('第 ' + lvl + ' 层奖励：【' + item + '】！', 'good');
       } else {
@@ -2098,6 +2116,7 @@ function endBattle(outcome) {
     }
     if (t.floor > 100) {
       t.cleared = true;
+      t.replaying = false; // 再次通关后，下次点击重新挑战新一轮
       t.floor = 100;
       addLog('你征服了无尽之塔！', 'good');
       addTitle('tower100', '稀有'); // 保底稀有
@@ -2398,7 +2417,7 @@ function fish() {
   const level = node.levels[0] + randInt(0, 2);
   // 专属道具：钓鱼 0.1% 概率捞到水域专属（本杆不再上钩宝可梦）
   if (Math.random() < 0.001) {
-    const drop = ['秘传之眼', '涡轮喷口'][randInt(0, 1)];
+    const drop = FISH_HELD_DROPS[randInt(0, FISH_HELD_DROPS.length - 1)];
     if (STATE.collectedHeld.indexOf(drop) === -1) {
       addItem(drop, 1);
       STATE.collectedHeld.push(drop);
@@ -2507,12 +2526,6 @@ function useWeatherItem(itemName) {
 
 function startMerchantOffer() {
   // 专属道具：0.1% 概率出现稀有专属货（贵价收藏品）
-  const HELD_MERCHANT = [
-    { name: '心灵汤勺', price: 20000 },
-    { name: '力量腰带', price: 15000 },
-    { name: '正义项圈', price: 12000 },
-    { name: '诅咒符', price: 18000 }
-  ];
   if (Math.random() < 0.001) {
     const d = HELD_MERCHANT[randInt(0, HELD_MERCHANT.length - 1)];
     STATE.merchantOffer = { kind: 'item', name: d.name, price: d.price };
@@ -2709,8 +2722,20 @@ const HIDDEN_HELD_SPOTS = [
   { item: '剧毒针', nodeId: 'fuchsia' },
   { item: '愤怒之角', nodeId: 'route16' },
   { item: '幸运葱', nodeId: 'route5' },
-  { item: '远古之翼', nodeId: 'champion' }
+  { item: '远古之翼', nodeId: 'champion' },
+  { item: '护士帽', nodeId: 'route22' }
 ];
+
+// 专属道具其他产出渠道（集中管理，回归测试保证每件专属道具至少有一条产出）
+const HELD_MERCHANT = [
+  { name: '心灵汤勺', price: 20000 },
+  { name: '力量腰带', price: 15000 },
+  { name: '正义项圈', price: 12000 },
+  { name: '诅咒符', price: 18000 }
+];
+const TOWER_HELD_POOL = ['电光石', '诅咒符', '力量腰带', '快龙之鳞', '秘传之眼', '锐利镰刀', '远古之翼', '珍珠泪'];
+const FISH_HELD_DROPS = ['秘传之眼', '涡轮喷口'];
+const ROCKET_HELD_DROP = '诅咒符'; // 火箭队胜利后 0.1% 掉落
 
 // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（城镇闲逛/野外探索均可触发，翻出的永久记录）
 function tryHiddenHeld() {
@@ -2850,9 +2875,10 @@ function useEscapeRope() {
   addLog('你使用穿绳瞬间回到了 ' + MAP_NODES[STATE.lastTown].name + '！', 'info');
 }
 
-function useBagItemOnMon(itemName, partyIdx) {
+function useBagItemOnMon(itemName, partyIdx, qty) {
   const item = ITEMS[itemName];
   const mon = STATE.party[partyIdx];
+  qty = Math.max(1, Math.floor(qty || 1));
   if (!item || !mon) return;
   if (bagCount(itemName) <= 0) { addLog('没有这个道具。', 'info'); return; }
   if (item.type === 'heal') {
@@ -2935,14 +2961,27 @@ function useBagItemOnMon(itemName, partyIdx) {
   }
   if (item.type === 'candy') {
     const stat = item.stat;
-    const cb = mon.candyBonus;
-    if (cb[stat] >= 15) { addLog(mon.name + ' 的该项属性已达极限！', 'info'); return; }
-    if (cb.total >= 50) { addLog(mon.name + ' 已经吃不下任何糖果了！', 'info'); return; }
-    removeItem(itemName, 1);
-    cb[stat]++;
-    cb.total++;
+    const cb = mon.candyBonus || (mon.candyBonus = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 });
+    if ((cb[stat] || 0) >= 15) { addLog(mon.name + ' 的该项属性已达极限！', 'info'); return; }
+    if ((cb.total || 0) >= 50) { addLog(mon.name + ' 已经吃不下任何糖果了！', 'info'); return; }
+    const canUse = Math.min(
+      qty,
+      bagCount(itemName),
+      Math.max(0, 15 - (cb[stat] || 0)),
+      Math.max(0, 50 - (cb.total || 0))
+    );
+    if (canUse <= 0) return;
+    removeItem(itemName, canUse);
+    cb[stat] = (cb[stat] || 0) + canUse;
+    cb.total = (cb.total || 0) + canUse;
     recalcStats(mon);
-    addLog(mon.name + ' 吃下了【' + itemName + '】，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了！', 'good');
+    addLog(mon.name + ' 吃下了【' + itemName + '】×' + canUse + '，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了 ' + canUse + ' 点！', 'good');
+    return;
+  }
+  if (item.type === 'retalent') {
+    removeItem(itemName, 1);
+    rerollMonIvs(mon);
+    addLog(mon.name + ' 喝下了【' + itemName + '】，六项天赋被重置并重新随机了！', 'good');
     return;
   }
   if (item.type === 'shiny') {
@@ -3117,7 +3156,7 @@ function load() {
     STATE.party = (data.party || []).map(deserializeMon);
     STATE.box = (data.box || []).map(deserializeMon);
     STATE.visitedNodes = data.visitedNodes || [];
-    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false }, data.tower || {});
+    STATE.tower = Object.assign({ floor: 1, checkpoint: 0, bestFloor: 0, cleared: false, replaying: false, superFloor: 1, superCheckpoint: 0, superBest: 0, superCleared: false }, data.tower || {});
     // 旧档称号兼容：数组项可能是 id 或中文名（无稀有度）→ 统一转 '称号id@普通'
     STATE.titles = (data.titles || []).map(function (item) {
       if (typeof item !== 'string' || !item) return null;
@@ -3126,6 +3165,11 @@ function load() {
       return t ? t.id + '@普通' : null;
     }).filter(Boolean);
     STATE.equippedTitle = data.equippedTitle || null; // 旧值无 @ 时按普通解析
+    // 旧档兼容：修复前“重刷无尽之塔会清掉 cleared”的存档（bestFloor≥100 或持有通关称号）读档时恢复通关标记，超越之塔入口不丢
+    if (!STATE.tower.cleared && (STATE.tower.bestFloor >= 100 || STATE.titles.some(function (t) { return t.indexOf('tower100') === 0; }))) {
+      STATE.tower.cleared = true;
+      STATE.tower.replaying = true;
+    }
     STATE.pendingLearn = (data.pendingLearn || []).filter(function (p) {
       if (!p || !p.moveId || !MOVES[p.moveId]) return false;
       // 旧档待学招没有 uid：按当时下标补挂到对应宝可梦，防止换首发后错位
@@ -3232,7 +3276,9 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies,
+    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
+    HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,
+    FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,
     addBond: addBond,
     startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,
     useRepel: useRepel, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,

@@ -133,6 +133,25 @@
     .hp-text { font-size: 9px; color: var(--text-dim); margin-top: 3px; }
     .party-pp { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
     .status-badge { font-size: 10px; }
+    .battle-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      padding: 2px 6px;
+      font-size: 9px;
+      line-height: 1.2;
+      border: 2px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .battle-status.status-poison { background: #4d2a63; border-color: #8a59b4; color: #f0d8ff; }
+    .battle-status.status-badly-poison { background: #6a1f6b; border-color: #d46ad7; color: #ffd5ff; box-shadow: 0 0 8px rgba(212,106,215,0.28); }
+    .battle-status.status-burn { background: #632d20; border-color: #ff8a5b; color: #ffd9c9; }
+    .battle-status.status-paralysis { background: #5d521f; border-color: #f8d030; color: #fff0aa; }
+    .battle-status.status-sleep { background: #27425f; border-color: #78b8ff; color: #d7ebff; }
+    .battle-status.status-freeze { background: #1d5463; border-color: #7ae8ff; color: #d9fbff; }
 
     #action-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .travel-btn, .learn-btn, .modal-btns .btn { width: 100%; margin-top: 6px; }
@@ -171,6 +190,8 @@
     .battle-icon { display: flex; align-items: center; }
     .battle-info { flex: 1; }
     .battle-name { font-size: 13px; }
+    .battle-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .battle-head .battle-status { flex: 0 0 auto; }
     .battle-lv { font-size: 10px; color: var(--text-dim); margin: 4px 0; }
     .vs-divider { text-align: center; color: var(--red); font-size: 11px; margin: 2px 0; }
     #battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
@@ -247,6 +268,12 @@
     .move-dex-search { width: 100%; background: #10131a; color: var(--text); border: 3px solid var(--border); font-family: var(--font); font-size: 10px; padding: 8px; margin-bottom: 6px; }
     .modal-btns { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
     .row-btns { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+    .candy-actions { flex: 0 0 124px; justify-content: center; align-self: stretch; }
+    .candy-stepper { display: grid; grid-template-columns: 28px 1fr 28px; gap: 4px; align-items: center; margin: 0; }
+    .candy-stepper .btn { width: 28px; padding: 6px 0; text-align: center; }
+    .candy-qty { display: flex; align-items: center; justify-content: center; min-height: 30px; border: 3px solid var(--border); background: #171b24; color: var(--gold); box-shadow: inset -3px -3px 0 rgba(0,0,0,0.35), inset 3px 3px 0 rgba(255,255,255,0.08); }
+    .candy-feed-btn { width: 100%; padding: 7px 8px; text-align: center; }
+    .candy-meta { min-height: 24px; font-size: 8px; color: var(--text-dim); line-height: 1.5; text-align: center; }
     .detail-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
     .detail-icon { display: flex; align-items: center; }
     .detail-name { font-size: 13px; }

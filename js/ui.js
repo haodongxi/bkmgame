@@ -179,6 +179,23 @@ function statusIcon(status) {
   return '<span class="status-badge">' + (map[status] || status) + '</span>';
 }
 
+function statusClass(status) {
+  const map = {
+    '中毒': 'status-poison',
+    '剧毒': 'status-badly-poison',
+    '灼伤': 'status-burn',
+    '麻痹': 'status-paralysis',
+    '睡眠': 'status-sleep',
+    '冰冻': 'status-freeze'
+  };
+  return map[status] || '';
+}
+
+function battleStatusBadge(status) {
+  if (!status) return '';
+  return '<span class="battle-status ' + statusClass(status) + '">' + status + '</span>';
+}
+
 // 稀有度词缀（普通不显示，传说/稀有/少见显示彩色标签）
 function rarityTag(mon) {
   const r = rarityOf(mon);
@@ -467,7 +484,7 @@ function renderMap() {
   } else if (node.id === 'tower') {
     // 无尽之塔：塔内专用操作（不能回城补给，只能靠背包道具）
     const t = STATE.tower;
-    const btnText = t.cleared ? '重新挑战（第 1 层）' : (t.floor > 1 ? '挑战第 ' + t.floor + ' 层' : '开始挑战（第 1 层）');
+    const btnText = (t.replaying || t.floor > 1) ? '挑战第 ' + t.floor + ' 层' : (t.cleared ? '重新挑战（第 1 层）' : '开始挑战（第 1 层）');
     html += '<button class="btn btn-primary" onclick="doMapAction(\'towerFight\')">🗼 ' + btnText + '</button>';
     if (t.cleared) {
       const st = t.superCleared ? '重新挑战（第 1 层）' : (t.superFloor > 1 ? '挑战第 ' + t.superFloor + ' 层' : '开始挑战（第 1 层）');
@@ -604,6 +621,7 @@ function showShopModal() {
 
 const _buyQty = {};
 const _sellQty = {};
+const _bagUseQty = {};
 
 // 商店数量加减：原地更新该行数量与总价，不整表重渲染（避免滚动跳回顶部）
 function shopStep(kind, name, delta) {
@@ -665,7 +683,7 @@ const BAG_TABS = [
   { id: 'ball', label: '精灵球', match: function (item) { return item.type === 'ball'; } },
   { id: 'tm', label: '技能机', match: function (item) { return item.type === 'tm'; } },
   { id: 'key', label: '关键物品', match: function (item) { return item.type === 'key'; } },
-  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy', 'shiny', 'shard', 'egg'].indexOf(item.type) !== -1; } },
+  { id: 'misc', label: '道具', match: function (item) { return ['stone', 'held', 'repel', 'weather', 'weatherboost', 'escape', 'loot', 'candy', 'shiny', 'shard', 'egg', 'retalent'].indexOf(item.type) !== -1; } },
   { id: 'titles', label: '🏅 称号', match: function () { return false; } }
 ];
 
@@ -703,7 +721,7 @@ function showBagModal(inBattle, tab) {
     if (!item) continue;
     let usable = false;
     if (inBattle && (item.type === 'ball' || item.type === 'heal' || item.type === 'cure')) usable = true;
-    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy' || item.type === 'egg')) usable = true;
+    if (!inBattle && (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'repel' || item.type === 'weather' || item.type === 'weatherboost' || item.type === 'escape' || item.type === 'candy' || item.type === 'egg' || item.type === 'retalent')) usable = true;
     html += '<div class="shop-row"><span title="' + itemDesc(item) + '">' + name + ' ×' + bagCount(name) + '</span>' +
       (usable ? '<button class="btn btn-sm" onclick="doBagUse(\'' + name + '\',' + (inBattle ? 'true' : 'false') + ')">使用</button>' : '') +
       '</div><div class="shop-desc">' + itemDesc(item) + '</div>';
@@ -752,9 +770,32 @@ function doBagUse(name, inBattle) {
     render();
     return;
   }
-  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'candy') {
+  if (item.type === 'heal' || item.type === 'cure' || item.type === 'stone' || item.type === 'tm' || item.type === 'pp' || item.type === 'held' || item.type === 'candy' || item.type === 'retalent') {
     showPartyModal('item', name);
   }
+}
+
+function bagUseQtyInfo(itemName, monIdx) {
+  const item = ITEMS[itemName];
+  const mon = STATE.party[monIdx];
+  if (!item || !mon) return { qty: 0, max: 0 };
+  if (item.type !== 'candy') return { qty: bagCount(itemName) > 0 ? 1 : 0, max: bagCount(itemName) > 0 ? 1 : 0 };
+  const cb = mon.candyBonus || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 };
+  const max = Math.max(0, Math.min(
+    bagCount(itemName),
+    15 - (cb[item.stat] || 0),
+    50 - (cb.total || 0)
+  ));
+  const key = itemName + '@' + monIdx;
+  return { qty: max <= 0 ? 0 : Math.min(_bagUseQty[key] || 1, max), max: max };
+}
+
+function partyItemStep(itemName, monIdx, delta) {
+  const info = bagUseQtyInfo(itemName, monIdx);
+  if (info.max <= 0) return;
+  const key = itemName + '@' + monIdx;
+  _bagUseQty[key] = Math.max(1, Math.min(info.max, info.qty + delta));
+  showPartyModal('item', itemName);
 }
 
 function showPartyModal(mode, itemName) {
@@ -762,6 +803,7 @@ function showPartyModal(mode, itemName) {
   const isSwitch = mode === 'switch';
   const isItem = mode === 'item';
   const isBoxSwap = mode === 'boxswap';
+  const item = isItem ? ITEMS[itemName] : null;
   const activeIdx = (isSwitch && STATE.battle) ? STATE.battle.player.active : -1;
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
@@ -772,7 +814,22 @@ function showPartyModal(mode, itemName) {
         (m.hp <= 0 ? '已倒下' : (i === activeIdx ? '在场' : '上场')) + '</button></div>';
     }
     else if (isBoxSwap) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doBoxSwapConfirm(' + i + ')">换入</button></div>';
-    else if (isItem) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
+    else if (isItem) {
+      if (item && item.type === 'candy') {
+        const q = bagUseQtyInfo(itemName, i);
+        const meta = q.max <= 0 ? '该属性或总量已满' : '本次最多可喂 ' + q.max + ' 颗';
+        btn = '<div class="row-btns candy-actions">' +
+          '<div class="candy-stepper shop-qty">' +
+          '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',-1)"' + (q.qty <= 1 ? ' disabled' : '') + '>−</button>' +
+          '<div class="candy-qty">' + (q.max <= 0 ? 0 : q.qty) + '</div>' +
+          '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',1)"' + (q.max <= 0 || q.qty >= q.max ? ' disabled' : '') + '>+</button>' +
+          '</div>' +
+          '<button class="btn btn-sm candy-feed-btn" onclick="doItemOnMon(\'' + itemName + '\',' + i + ',' + q.qty + ')"' + (q.max <= 0 ? ' disabled' : '') + '>' + (q.max <= 0 ? '已达上限' : '喂食 ' + q.qty + ' 颗') + '</button>' +
+          '<div class="candy-meta">' + meta + '</div></div>';
+      } else {
+        btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
+      }
+    }
     else {
       btn = '<div class="row-btns">';
       if (i === 0) btn += '<span class="lead-tag">首发</span>';
@@ -789,6 +846,9 @@ function showPartyModal(mode, itemName) {
   }
   if (!isSwitch && !isItem && !isBoxSwap) {
     html += '<button class="btn" onclick="showBoxModal()">📦 电脑箱（' + STATE.box.length + '只）</button>';
+  }
+  if (isItem && item && item.type === 'candy') {
+    html = '<div class="shop-hint">糖果支持批量喂食，最多喂到该项 15 点、总和 50 点。</div>' + html;
   }
   openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : (isBoxSwap ? '选择要存入箱子的宝可梦' : '精灵队伍')), html);
   for (let i = 0; i < STATE.party.length; i++) {
@@ -882,8 +942,8 @@ function doSetLead(idx) {
   render();
 }
 
-function doItemOnMon(name, idx) {
-  useBagItemOnMon(name, idx);
+function doItemOnMon(name, idx, qty) {
+  useBagItemOnMon(name, idx, qty || 1);
   save();
   closeModal();
   render();
@@ -1683,6 +1743,7 @@ function moveEffectText(mv) {
     case 'dream': return '仅对方睡眠时吸取HP';
     case 'fixed': return '固定造成' + (e.dmg || '?') + '伤害';
     case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
+    case 'leaveOneWild': return '对野生宝可梦手下留情，至少保留1HP';
     default: return '';
   }
 }
@@ -1736,7 +1797,7 @@ function battleCard(bm, side, hit) {
   const m = bm.m;
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
-    '<div class="battle-info"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
+    '<div class="battle-info"><div class="battle-head"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + '</div>' + battleStatusBadge(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + (m.displayLevel || m.level) + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
     '</div></div>';
 }

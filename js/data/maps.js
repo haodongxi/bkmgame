@@ -11,9 +11,9 @@ const WEATHER = {
 };
 
 const ITEMS = {
-  '精灵球': { id: 'pokeball', name: '精灵球', type: 'ball', ballMult: 1,    price: 200,  desc: '捕捉野生宝可梦' },
-  '超级球': { id: 'greatball', name: '超级球', type: 'ball', ballMult: 1.5,  price: 2000, minBadges: 4, desc: '比精灵球更容易捕捉' },
-  '高级球': { id: 'ultraball', name: '高级球', type: 'ball', ballMult: 2,    price: 4000, minBadges: 6, desc: '效果极佳的精灵球' },
+  '精灵球': { id: 'pokeball', name: '精灵球', type: 'ball', ballMult: 1,    price: 100,  desc: '捕捉野生宝可梦' },
+  '超级球': { id: 'greatball', name: '超级球', type: 'ball', ballMult: 1.5,  price: 1200, minBadges: 4, desc: '比精灵球更容易捕捉' },
+  '高级球': { id: 'ultraball', name: '高级球', type: 'ball', ballMult: 2,    price: 3000, minBadges: 6, desc: '效果极佳的精灵球' },
   '大师球': { id: 'masterball', name: '大师球', type: 'ball', master: true, price: 50000, minBadges: 8, desc: '必定能捕捉野生宝可梦的最强精灵球' },
   '伤药':   { id: 'potion', name: '伤药', type: 'heal', heal: 20,  price: 300,  desc: '恢复宝可梦20点HP' },
   '好伤药': { id: 'superpotion', name: '好伤药', type: 'heal', heal: 60,  price: 700,  minBadges: 2, desc: '恢复宝可梦60点HP' },
@@ -21,6 +21,7 @@ const ITEMS = {
   '万灵药': { id: 'fullheal', name: '万灵药', type: 'cure', cure: 'all', price: 1000, minBadges: 2, desc: '治愈宝可梦身上的任意异常状态' },
   'PP回复药': { id: 'ether', name: 'PP回复药', type: 'pp', pp: 10, price: 800, minBadges: 2, desc: '回复一只宝可梦全部招式各 10 点PP' },
   'PP满回复药': { id: 'maxether', name: 'PP满回复药', type: 'pp', pp: 'full', price: 3200, minBadges: 6, desc: '回复一只宝可梦全部招式满PP' },
+  '重生药': { id: 'rebirth_potion', name: '重生药', type: 'retalent', price: 100000, minBadges: 8, desc: '重置并随机一只宝可梦的六项个体值（天赋）' },
   '喷雾剂': { id: 'repel', name: '喷雾剂', type: 'repel', price: 800, minBadges: 4, desc: '使用后接下来 10 次探索不会遇到野生宝可梦' },
   '求雨符': { id: 'rain_talisman', name: '求雨符', type: 'weather', weather: '雨', price: 1200, minBadges: 4, desc: '使用后 10 次探索内，雨天出现概率大幅提升' },
   '大晴符': { id: 'sunny_talisman', name: '大晴符', type: 'weather', weather: '晴', price: 800, minBadges: 4, desc: '使用后 10 次探索内，晴天出现概率大幅提升' },
@@ -45,6 +46,7 @@ const ITEMS = {
   'TM喷射火焰': { id: 'tm_flamethrower', name: 'TM喷射火焰', type: 'tm', move: 'flamethrower', desc: '让宝可梦习得招式：喷射火焰' },
   'TM挖洞': { id: 'tm_dig', name: 'TM挖洞', type: 'tm', move: 'dig', desc: '让宝可梦习得招式：挖洞' },
   'TM居合斩': { id: 'tm_cut', name: 'TM居合斩', type: 'tm', move: 'cut', desc: '让宝可梦习得招式：居合斩' },
+  'TM点到为止': { id: 'tm_false_swipe', name: 'TM点到为止', type: 'tm', move: 'false_swipe', price: 8000, minBadges: 4, desc: '让宝可梦习得招式：点到为止' },
   '电气球':   { id: 'lightball', name: '电气球', type: 'held', held: '电气球', onlySpecies: 25, desc: '只有皮卡丘能携带，携带后攻击与特攻翻倍' },
   '电光石':   { id: 'electric_gem', name: '电光石', type: 'held', held: '电光石', onlySpecies: 135, desc: '雷伊布的专属道具，携带后电系招式威力 +50%' },
   '诅咒符':   { id: 'curse_talisman', name: '诅咒符', type: 'held', held: '诅咒符', onlySpecies: [92, 93, 94], desc: '鬼斯一家的专属道具，携带后幽灵系招式威力 +50%' },
@@ -497,12 +499,14 @@ const MART_STOCK = [
   { name: '求雨符', minBadges: 4 },
   { name: '大晴符', minBadges: 4 },
   { name: '气象罗盘', minBadges: 4 },
+  { name: 'TM点到为止', minBadges: 4 },
   { name: '高级球', minBadges: 6 },
   { name: 'PP满回复药', minBadges: 6 },
   { name: '雷雨符', minBadges: 6 },
   { name: '沙暴符', minBadges: 6 },
   { name: '全复药', minBadges: 8 },
   { name: '大师球', minBadges: 8 },
+  { name: '重生药', minBadges: 8 },
   { name: '吃剩的东西', minBadges: 8 },
   { name: '幸运蛋', minBadges: 8 }
 ];
