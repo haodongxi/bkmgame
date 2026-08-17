@@ -221,15 +221,25 @@ function remoteShowDraftDetail(index) {
   const d = POKEDEX[m.species];
   const nature = NATURES[m.nature] || NATURES['勤奋'];
   const ivs = m.ivs || {};
+  const candy = m.candyBonus || {};
+  const titleBonus = typeof equippedTitleBonus === 'function' ? equippedTitleBonus() : {};
   const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
+  const baseStats = {};
   const stats = {};
-  stats.hp = Math.floor((2 * d.base.hp + (ivs.hp || 0)) * 100 / 100) + 110;
+  baseStats.hp = Math.floor((2 * d.base.hp + (ivs.hp || 0)) * 100 / 100) + 110;
   ['atk', 'def', 'spa', 'spd', 'spe'].forEach(function (k) {
-    stats[k] = Math.floor((2 * d.base[k] + (ivs[k] || 0) + 5) * nature[k]);
+    baseStats[k] = Math.floor((2 * d.base[k] + (ivs[k] || 0) + 5) * nature[k]);
+    stats[k] = baseStats[k] + (candy[k] || 0) + (titleBonus[k] || 0);
   });
-  stats.hp *= 5;
+  stats.hp = (baseStats.hp + (candy.hp || 0)) * 5;
   let statsHtml = '';
-  Object.keys(statNames).forEach(function (k) { statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] + (k === 'hp' ? '（PvP HP×5）' : '') + '</span></div>'; });
+  Object.keys(statNames).forEach(function (k) {
+    const parts = [];
+    if (candy[k]) parts.push('糖果 +' + candy[k]);
+    if (titleBonus[k]) parts.push('称号 +' + titleBonus[k]);
+    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] + (k === 'hp' ? '（PvP HP×5）' : '') +
+      (parts.length ? '<br><small class="move-effect">基础 ' + baseStats[k] + ' · ' + parts.join(' · ') + '</small>' : '') + '</span></div>';
+  });
   let movesHtml = '';
   (m.moves || []).forEach(function (id) {
     const mv = MOVES[id]; if (!mv) return;
@@ -240,6 +250,7 @@ function remoteShowDraftDetail(index) {
   openModal((d.name || '宝可梦') + ' · PvP详情',
     '<div class="detail-lv">单机 Lv.' + m.level + ' → PvP Lv.100 · ' + d.types.join('/') + '</div>' +
     '<div class="shop-hint">性格：' + esc(m.nature || '勤奋') + '　携带：' + esc(m.held || '无') + '</div>' +
+    '<div class="shop-hint">称号加成：' + (Object.keys(titleBonus).filter(function (k) { return titleBonus[k] > 0; }).map(function (k) { return (STAT_NAME[k] || k) + '+' + titleBonus[k]; }).join('、') || '无') + '</div>' +
     '<div class="shop-hint">—— PvP能力值 ——</div>' + statsHtml +
     '<div class="shop-hint">—— PvP招式 ——</div>' + (movesHtml || '<div class="shop-hint">暂无招式</div>') +
     '<div class="modal-btns"><button class="btn" onclick="closeModal()">返回准备广场</button></div>');
@@ -311,6 +322,7 @@ function remoteBuildTeam() {
       level: m.level,
       nature: m.nature,
       ivs: m.ivs || undefined,
+      candyBonus: m.candyBonus || undefined,
       moves: (m.moves || []).slice(0, 4)
     };
     if (m.held) e.held = m.held;
@@ -320,25 +332,26 @@ function remoteBuildTeam() {
   REMOTE_BATTLE_ITEMS.forEach(function (k) {
     if (STATE.bag && STATE.bag[k] > 0) items[k] = Math.min(9, STATE.bag[k]);
   });
-  return { team: team, items: items };
+  return { team: team, items: items, titleBonus: typeof equippedTitleBonus === 'function' ? equippedTitleBonus() : {} };
 }
 
 function remoteDraftFromSingle() {
   return (STATE.party || []).slice(0, 4).map(function (m, i) {
     return { sourceUid: m.uid || null, sourceIndex: i, species: m.species, level: m.level,
-      nature: m.nature, ivs: m.ivs || undefined, moves: (m.moves || []).slice(0, 4), held: m.held || null };
+      nature: m.nature, ivs: m.ivs || undefined, candyBonus: m.candyBonus || {}, moves: (m.moves || []).slice(0, 4), held: m.held || null };
   });
 }
 
 function remoteDraftPayload() {
   const team = (REMOTE.pvpDraft || []).map(function (m) {
-    const e = { species: m.species, level: m.level, nature: m.nature, ivs: m.ivs || undefined, moves: (m.moves || []).slice(0, 4) };
+    const e = { species: m.species, level: m.level, nature: m.nature, ivs: m.ivs || undefined,
+      candyBonus: m.candyBonus || undefined, moves: (m.moves || []).slice(0, 4) };
     if (m.held) e.held = m.held;
     return e;
   });
   const items = {};
   REMOTE_BATTLE_ITEMS.forEach(function (k) { if (STATE.bag && STATE.bag[k] > 0) items[k] = Math.min(9, STATE.bag[k]); });
-  return { team: team, items: items };
+  return { team: team, items: items, titleBonus: typeof equippedTitleBonus === 'function' ? equippedTitleBonus() : {} };
 }
 
 function remoteLoadDraftFromSingle() {
