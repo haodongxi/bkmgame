@@ -312,7 +312,9 @@ function exportSave() {
     const code = btoa(unescape(encodeURIComponent(raw)));
     openModal('导出存档', '<div class="shop-hint">复制下面的存档码，粘贴到另一台设备即可导入：</div>' +
       '<textarea id="save-code" class="save-code" readonly>' + code + '</textarea>' +
-      '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button></div>');
+      '<div id="save-cloud-msg" class="shop-hint"></div>' +
+      '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button>' +
+      '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button></div>');
   } catch (e) {
     alert('导出失败：' + e.message);
   }
@@ -354,7 +356,9 @@ function copySaveCode() {
 function showImportSave() {
   openModal('导入存档', '<div class="shop-hint">粘贴存档码后点击导入（会覆盖当前存档）：</div>' +
     '<textarea id="import-code" class="save-code" placeholder="粘贴存档码..."></textarea>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入</button></div>');
+    '<div id="save-cloud-msg" class="shop-hint"></div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入存档码</button>' +
+    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button></div>');
 }
 
 function doImportSave() {

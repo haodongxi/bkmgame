@@ -66,7 +66,7 @@ async function remoteApi(method, path, body) {
 }
 
 function remoteMsg(text, isErr) {
-  const el = $id('remote-msg') || $id('rb-msg');
+  const el = $id('remote-msg') || $id('rb-msg') || $id('save-cloud-msg');
   if (el) {
     el.textContent = text;
     el.className = 'remote-msg' + (isErr ? ' err' : '');
@@ -348,8 +348,11 @@ async function remoteDownloadCloudSave() {
     const data = await remoteApi('GET', '/api/me/save');
     if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');
     if (!confirm('下载云存档会覆盖当前浏览器里的单机存档，确定继续吗？')) return;
+    const fromSaveModal = !!$id('save-cloud-msg');
     localStorage.setItem('bkm_poke_save_v1', JSON.stringify(data.save));
-    load(); closeModal(); remoteMsg('✅ 云存档已下载并加载；PvP准备队伍仍保持独立'); render();
+    load(); closeModal(); render();
+    if (fromSaveModal) alert('✅ 云存档已下载并加载；PvP准备队伍仍保持独立');
+    else remoteMsg('✅ 云存档已下载并加载；PvP准备队伍仍保持独立');
   } catch (e) { remoteMsg('云存档下载失败：' + e.message, true); }
 }
 
