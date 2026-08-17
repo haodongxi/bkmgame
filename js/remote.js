@@ -54,7 +54,13 @@ async function remoteApi(method, path, body) {
   try { j = await resp.json(); } catch (e) { /* 非 JSON 响应 */ }
   if (!resp.ok) {
     let msg = 'HTTP ' + resp.status;
-    if (j) {
+    if (resp.status === 401) {
+      REMOTE.token = null;
+      REMOTE.name = '';
+      remoteSaveCfg();
+      msg = '登录已过期，请先在联机对战重新登录';
+    }
+    if (j && resp.status !== 401) {
       if (typeof j.error === 'string') msg = j.error;
       else if (j.error && j.error.errors) msg = j.error.errors.join('；');
       else if (j.data && j.data.errors) msg = j.data.errors.join('；');
@@ -333,7 +339,7 @@ async function remoteUploadTeam() {
 }
 
 async function remoteUploadCloudSave() {
-  if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
+  if (!REMOTE.token) { remoteMsg('请先在联机对战登录账号，再上传云存档', true); return; }
   const raw = localStorage.getItem('bkm_poke_save_v1');
   if (!raw) { remoteMsg('当前还没有单机存档', true); return; }
   let data; try { data = JSON.parse(raw); } catch (e) { remoteMsg('本机存档损坏，无法上传', true); return; }
@@ -343,7 +349,7 @@ async function remoteUploadCloudSave() {
 }
 
 async function remoteDownloadCloudSave() {
-  if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
+  if (!REMOTE.token) { remoteMsg('请先在联机对战登录账号，再下载云存档', true); return; }
   try {
     const data = await remoteApi('GET', '/api/me/save');
     if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');

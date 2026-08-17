@@ -314,7 +314,8 @@ function exportSave() {
       '<textarea id="save-code" class="save-code" readonly>' + code + '</textarea>' +
       '<div id="save-cloud-msg" class="shop-hint"></div>' +
       '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button>' +
-      '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button></div>');
+      '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button>' +
+      '<button class="btn" onclick="remoteOpenLobby()">🔐 去联机登录</button></div>');
   } catch (e) {
     alert('导出失败：' + e.message);
   }
@@ -358,7 +359,8 @@ function showImportSave() {
     '<textarea id="import-code" class="save-code" placeholder="粘贴存档码..."></textarea>' +
     '<div id="save-cloud-msg" class="shop-hint"></div>' +
     '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入存档码</button>' +
-    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button></div>');
+    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button>' +
+    '<button class="btn" onclick="remoteOpenLobby()">🔐 去联机登录</button></div>');
 }
 
 function doImportSave() {
