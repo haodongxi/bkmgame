@@ -1369,7 +1369,7 @@ function showDexDetail(id) {
       const mv = MOVES[mid];
       if (!mv) return;
       movesHtml += '<div class="detail-row"><span>Lv.' + lv + ' ' + mv.name + ' · ' + mv.type + '</span><span>' +
-        (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · PP ' + mv.pp +
+        movePowerLabel(mv) + ' · PP ' + mv.pp +
         (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
     });
   });
@@ -1746,10 +1746,18 @@ function moveEffectText(mv) {
     case 'recharge': return '使用后下回合无法行动';
     case 'dream': return '仅对方睡眠时吸取HP';
     case 'fixed': return '固定造成' + (e.dmg || '?') + '伤害';
+    case 'fixedLevel': return '固定造成等于自身等级的伤害';
     case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
     case 'leaveOneWild': return '对野生宝可梦手下留情，至少保留1HP';
     default: return '';
   }
+}
+
+function movePowerLabel(mv) {
+  if (mv.power > 0) return '威力 ' + mv.power;
+  if (mv.effect && mv.effect.kind === 'fixedLevel') return '固定伤害（等于自身等级）';
+  if (mv.effect && mv.effect.kind === 'fixed') return '固定伤害';
+  return '变化';
 }
 
 function renderBattle() {
@@ -1782,7 +1790,9 @@ function renderBattle() {
   for (let i = 0; i < validMoves.length; i++) {
     const mv = MOVES[validMoves[i]];
     const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
-    if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
+    const fixedDamage = mv.effect && (mv.effect.kind === 'fixed' || mv.effect.kind === 'fixedLevel');
+    if (left > 0 && (mv.power > 0 || fixedDamage) &&
+        (fixedDamage || typeEffectiveness(mv.type, foeTypes) > 0)) usableDamaging = true;
     html += '<button class="btn move-btn" ' + ((left <= 0 || !b.waitingPlayer) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + (mv.category === '物理' ? '物攻' : (mv.category === '特殊' ? '特攻' : '变化')) + ' · ' + mv.type + '</span>' + effHint(mv, foeTypes) +
       (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') +
