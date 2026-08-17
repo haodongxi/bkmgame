@@ -33,14 +33,6 @@ const REMOTE_ITEM_NAMES = {
   'PP回复药': '各招式PP+10', 'PP满回复药': 'PP回满'
 };
 
-// 一键测试队伍（Lv50/60，带专属道具；招式均可在对应等级学习）
-const REMOTE_TEST_TEAM = [
-  { species: 25, level: 50, nature: '胆小', held: '电气球', moves: ['thunderbolt', 'quick_attack', 'thunder_wave', 'slam'] },
-  { species: 6, level: 50, nature: '内敛', held: '不灭之种', moves: ['flamethrower', 'dragon_rage', 'wing_attack', 'sunny_day'] },
-  { species: 9, level: 60, nature: '温和', held: '涡轮喷口', moves: ['surf', 'hydro_pump', 'rain_dance', 'bite'] },
-  { species: 143, level: 60, nature: '固执', held: '剩饭盒', moves: ['body_slam', 'earthquake', 'rest', 'amnesia'] }
-];
-
 // ---------------- 基础 ----------------
 
 function remoteSaveCfg() {
@@ -133,8 +125,6 @@ function remoteRenderLobby() {
   const el = $id('remote-lobby');
   const partyCount = (STATE.party || []).length;
   const logged = !!REMOTE.token;
-  const pageOrigin = (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0)
-    ? location.origin : REMOTE.server;
   el.innerHTML =
     '<div class="remote-panel pixel-frame">' +
     '<div class="sec-title">—— 联机对战 · bkmserver ——</div>' +
@@ -150,7 +140,6 @@ function remoteRenderLobby() {
       '<button class="btn btn-sm" onclick="remoteRegister()">注册</button></div>') +
     '<div class="remote-actions">' +
     '<button class="btn" onclick="remoteUploadTeam()">📤 上传当前队伍（' + partyCount + ' 只）</button>' +
-    '<button class="btn" onclick="remoteMakeTestTeam()">🎁 生成测试队伍</button>' +
     '</div>' +
     '<div class="remote-row" style="margin-top:8px"><span class="remote-label">房间码</span>' +
     '<input id="rb-code" type="text" placeholder="6 位房间码">' +
@@ -160,10 +149,8 @@ function remoteRenderLobby() {
     '<button class="btn" onclick="remoteQuick()">⚡ 快速匹配</button>' +
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
-    '<div class="remote-hint">PvP规则：进入对战后队伍统一为 Lv100，最大HP与初始HP为通常值的 5 倍。</div>' +
-    '<div class="remote-hint">提示：对战前先上传队伍。单服务联机：服务端用 <b>python3 main.py --host 0.0.0.0 --static &lt;bkmgame目录&gt;</b> 启动，' +
-    '当前页面地址：<b>' + esc(pageOrigin) + '/app.html</b>（服务器地址默认已填为 <b>https://bkmapi.duckdns.org:8787</b>，可手动修改）。' +
-    '本机双开测试：登录态按窗口隔离，两个窗口请<b>分别注册/登录不同账号</b>（新标签页打开，勿用“复制标签页”）。</div>' +
+    '<div class="remote-hint">提示：先培养好单机队伍，再点击“上传当前队伍”。</div>' +
+    '<div class="remote-hint">PvP规则：对战时队伍统一为 Lv100，HP×5；单机存档不会被修改。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
 }
@@ -257,26 +244,6 @@ async function remoteUploadTeam() {
     console.error('[remote] 上传队伍失败', e);
     remoteMsg('队伍上传失败：' + e.message, true);
   }
-}
-
-// 没有单机队伍时的快速测试队伍（会写入当前存档，登录后自动上传）
-function remoteMakeTestTeam() {
-  const party = STATE.party || [];
-  const room = Math.max(0, PARTY_LIMIT - party.length);
-  if (room === 0) { remoteMsg('队伍已满（' + PARTY_LIMIT + ' 只），可直接上传', true); return; }
-  REMOTE_TEST_TEAM.slice(0, room).forEach(function (cfg) {
-    const mon = makeMon(cfg.species, cfg.level, { nature: cfg.nature, moves: cfg.moves });
-    mon.held = cfg.held;
-    STATE.party.push(mon);
-  });
-  STATE.bag = STATE.bag || {};
-  ['伤药', '好伤药', '全复药', '万灵药', 'PP回复药'].forEach(function (k) {
-    STATE.bag[k] = (STATE.bag[k] || 0) + (k === '全复药' ? 1 : 3);
-  });
-  save();
-  render();
-  remoteMsg('✅ 已生成测试队伍（' + Math.min(room, REMOTE_TEST_TEAM.length) + ' 只），正在上传……');
-  if (REMOTE.token) remoteUploadTeam();
 }
 
 // ---------------- 房间 / 匹配 ----------------

@@ -88,7 +88,7 @@ async function main() {
   await evaljs("REMOTE.server='" + BASE + "'; (function(){var el=document.getElementById('rb-server'); if(el) el.value=REMOTE.server;})(); remoteSaveCfg();");
   await evaljs("(function(){document.getElementById('rb-name').value='" + nameA + "'; document.getElementById('rb-pass').value='test1234';})()");
   ok(await evaljs("remoteRegister().then(function(){ return REMOTE.token && REMOTE.name==='" + nameA + "'; })"), '浏览器注册并登录');
-  ok(await evaljs("(function(){ var n=(STATE.party||[]).length; remoteMakeTestTeam(); return (STATE.party||[]).length > n; })()"), '一键生成测试队伍');
+  ok(await evaljs("remoteUploadTeam().then(function(){ return !!REMOTE.token; })"), '上传当前单机队伍');
   ok(await waitUntil("document.getElementById('remote-msg').textContent.indexOf('队伍已上传') !== -1", 10000), '浏览器上传队伍成功');
   await evaljs("remoteCreate();");
   ok(await waitUntil("REMOTE.roomId && REMOTE.lastView && REMOTE.lastView.code", 10000), '浏览器创建房间并拿到房间码');
