@@ -222,6 +222,10 @@ async function main() {
   ok(await evaljs("document.querySelector('#battle-foe').textContent.indexOf('波波') !== -1"), '敌方卡片渲染');
   ok(await evaljs("document.querySelector('#battle-player .battle-name .rarity.r-rare') !== null"), '我方战斗卡片显示稀有度词缀');
   ok(await evaljs("document.querySelector('#battle-foe .battle-name .rarity') === null"), '普通敌方不显示稀有度词缀');
+  await evaljs("STATE.battle.player.mons[STATE.battle.player.active].m.status='麻痹'; STATE.battle.foe.mons[STATE.battle.foe.active].m.status='剧毒'; renderBattle();");
+  ok(await evaljs("document.querySelector('#battle-player .battle-status') !== null && document.querySelector('#battle-player .battle-status').textContent.indexOf('麻痹') !== -1"), '我方战斗卡片醒目显示异常状态');
+  ok(await evaljs("document.querySelector('#battle-foe .battle-status') !== null && document.querySelector('#battle-foe .battle-status').textContent.indexOf('剧毒') !== -1 && document.querySelector('#battle-foe .battle-status').className.indexOf('status-badly-poison') !== -1"), '敌方战斗卡片区分显示剧毒状态');
+  await evaljs("STATE.battle.player.mons[STATE.battle.player.active].m.status=null; STATE.battle.foe.mons[STATE.battle.foe.active].m.status=null; renderBattle();");
   ok(await evaljs("effHint({type:'火', power:40}, ['虫']).indexOf('效果拔群') !== -1"), '克制提示：火对虫效果拔群');
   ok(await evaljs("effHint({type:'电', power:40}, ['地面']).indexOf('没有效果') !== -1"), '克制提示：电对地面没有效果');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}return STATE.lastResult;})()");

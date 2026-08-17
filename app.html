@@ -133,6 +133,25 @@
     .hp-text { font-size: 9px; color: var(--text-dim); margin-top: 3px; }
     .party-pp { font-size: 9px; color: var(--text-dim); margin-top: 2px; }
     .status-badge { font-size: 10px; }
+    .battle-status {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      padding: 2px 6px;
+      font-size: 9px;
+      line-height: 1.2;
+      border: 2px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .battle-status.status-poison { background: #4d2a63; border-color: #8a59b4; color: #f0d8ff; }
+    .battle-status.status-badly-poison { background: #6a1f6b; border-color: #d46ad7; color: #ffd5ff; box-shadow: 0 0 8px rgba(212,106,215,0.28); }
+    .battle-status.status-burn { background: #632d20; border-color: #ff8a5b; color: #ffd9c9; }
+    .battle-status.status-paralysis { background: #5d521f; border-color: #f8d030; color: #fff0aa; }
+    .battle-status.status-sleep { background: #27425f; border-color: #78b8ff; color: #d7ebff; }
+    .battle-status.status-freeze { background: #1d5463; border-color: #7ae8ff; color: #d9fbff; }
 
     #action-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
     .travel-btn, .learn-btn, .modal-btns .btn { width: 100%; margin-top: 6px; }
@@ -171,6 +190,8 @@
     .battle-icon { display: flex; align-items: center; }
     .battle-info { flex: 1; }
     .battle-name { font-size: 13px; }
+    .battle-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .battle-head .battle-status { flex: 0 0 auto; }
     .battle-lv { font-size: 10px; color: var(--text-dim); margin: 4px 0; }
     .vs-divider { text-align: center; color: var(--red); font-size: 11px; margin: 2px 0; }
     #battle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }

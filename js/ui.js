@@ -179,6 +179,23 @@ function statusIcon(status) {
   return '<span class="status-badge">' + (map[status] || status) + '</span>';
 }
 
+function statusClass(status) {
+  const map = {
+    '中毒': 'status-poison',
+    '剧毒': 'status-badly-poison',
+    '灼伤': 'status-burn',
+    '麻痹': 'status-paralysis',
+    '睡眠': 'status-sleep',
+    '冰冻': 'status-freeze'
+  };
+  return map[status] || '';
+}
+
+function battleStatusBadge(status) {
+  if (!status) return '';
+  return '<span class="battle-status ' + statusClass(status) + '">' + status + '</span>';
+}
+
 // 稀有度词缀（普通不显示，传说/稀有/少见显示彩色标签）
 function rarityTag(mon) {
   const r = rarityOf(mon);
@@ -1777,7 +1794,7 @@ function battleCard(bm, side, hit) {
   const m = bm.m;
   return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
-    '<div class="battle-info"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + ' ' + statusIcon(m.status) + '</div>' +
+    '<div class="battle-info"><div class="battle-head"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + '</div>' + battleStatusBadge(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + (m.displayLevel || m.level) + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
     '</div></div>';
 }
