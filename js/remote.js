@@ -278,7 +278,7 @@ function remoteLoadDraftFromSingle() {
   const draft = remoteDraftFromSingle();
   if (!draft.length) { remoteMsg('当前单机队伍为空，请先培养宝可梦', true); return; }
   REMOTE.pvpDraft = draft; REMOTE.pvpDraftConfirmed = false;
-  remoteMsg('已读取单机队伍，可在准备广场调整；单机存档未改变'); render();
+  render(); remoteMsg('已读取单机队伍，可在准备广场调整；单机存档未改变');
 }
 
 function remoteMoveDraft(index, direction) {
@@ -324,8 +324,8 @@ async function remoteUploadTeam() {
   try {
     const d = await remoteApi('PUT', '/api/me/team', payload);
     REMOTE.pvpDraftConfirmed = true;
-    remoteMsg('✅ PvP队伍已确认上传：' + d.mons.map(function (m) { return m.name + ' Lv' + m.level; }).join('、'));
     render();
+    remoteMsg('✅ PvP队伍已确认上传：' + d.mons.map(function (m) { return m.name + ' Lv' + m.level; }).join('、'));
   } catch (e) {
     console.error('[remote] 上传队伍失败', e);
     remoteMsg('队伍上传失败：' + e.message, true);
