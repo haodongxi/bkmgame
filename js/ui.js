@@ -602,6 +602,7 @@ function showShopModal() {
 
 const _buyQty = {};
 const _sellQty = {};
+const _bagUseQty = {};
 
 // 商店数量加减：原地更新该行数量与总价，不整表重渲染（避免滚动跳回顶部）
 function shopStep(kind, name, delta) {
@@ -755,11 +756,35 @@ function doBagUse(name, inBattle) {
   }
 }
 
+function bagUseQtyInfo(itemName, monIdx) {
+  const item = ITEMS[itemName];
+  const mon = STATE.party[monIdx];
+  if (!item || !mon) return { qty: 0, max: 0 };
+  if (item.type !== 'candy') return { qty: bagCount(itemName) > 0 ? 1 : 0, max: bagCount(itemName) > 0 ? 1 : 0 };
+  const cb = mon.candyBonus || { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 };
+  const max = Math.max(0, Math.min(
+    bagCount(itemName),
+    15 - (cb[item.stat] || 0),
+    50 - (cb.total || 0)
+  ));
+  const key = itemName + '@' + monIdx;
+  return { qty: max <= 0 ? 0 : Math.min(_bagUseQty[key] || 1, max), max: max };
+}
+
+function partyItemStep(itemName, monIdx, delta) {
+  const info = bagUseQtyInfo(itemName, monIdx);
+  if (info.max <= 0) return;
+  const key = itemName + '@' + monIdx;
+  _bagUseQty[key] = Math.max(1, Math.min(info.max, info.qty + delta));
+  showPartyModal('item', itemName);
+}
+
 function showPartyModal(mode, itemName) {
   let html = '';
   const isSwitch = mode === 'switch';
   const isItem = mode === 'item';
   const isBoxSwap = mode === 'boxswap';
+  const item = isItem ? ITEMS[itemName] : null;
   const activeIdx = (isSwitch && STATE.battle) ? STATE.battle.player.active : -1;
   for (let i = 0; i < STATE.party.length; i++) {
     const m = STATE.party[i];
@@ -770,7 +795,19 @@ function showPartyModal(mode, itemName) {
         (m.hp <= 0 ? '已倒下' : (i === activeIdx ? '在场' : '上场')) + '</button></div>';
     }
     else if (isBoxSwap) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doBoxSwapConfirm(' + i + ')">换入</button></div>';
-    else if (isItem) btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
+    else if (isItem) {
+      if (item && item.type === 'candy') {
+        const q = bagUseQtyInfo(itemName, i);
+        btn = '<div class="row-btns"><span class="shop-qty">' +
+          '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',-1)"' + (q.qty <= 1 ? ' disabled' : '') + '>−</button>' +
+          '<b>' + (q.max <= 0 ? 0 : q.qty) + '</b>' +
+          '<button class="btn btn-sm" onclick="partyItemStep(\'' + itemName + '\',' + i + ',1)"' + (q.max <= 0 || q.qty >= q.max ? ' disabled' : '') + '>+</button>' +
+          '<button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ',' + q.qty + ')"' + (q.max <= 0 ? ' disabled' : '') + '>' + (q.max <= 0 ? '已满' : '喂食（' + q.qty + '颗）') + '</button>' +
+          '</span></div>';
+      } else {
+        btn = '<div class="row-btns"><button class="btn btn-sm" onclick="doItemOnMon(\'' + itemName + '\',' + i + ')">使用</button></div>';
+      }
+    }
     else {
       btn = '<div class="row-btns">';
       if (i === 0) btn += '<span class="lead-tag">首发</span>';
@@ -787,6 +824,9 @@ function showPartyModal(mode, itemName) {
   }
   if (!isSwitch && !isItem && !isBoxSwap) {
     html += '<button class="btn" onclick="showBoxModal()">📦 电脑箱（' + STATE.box.length + '只）</button>';
+  }
+  if (isItem && item && item.type === 'candy') {
+    html = '<div class="shop-hint">糖果支持批量喂食，最多喂到该项 15 点、总和 50 点。</div>' + html;
   }
   openModal(isSwitch ? '更换精灵' : (isItem ? '选择宝可梦' : (isBoxSwap ? '选择要存入箱子的宝可梦' : '精灵队伍')), html);
   for (let i = 0; i < STATE.party.length; i++) {
@@ -880,8 +920,8 @@ function doSetLead(idx) {
   render();
 }
 
-function doItemOnMon(name, idx) {
-  useBagItemOnMon(name, idx);
+function doItemOnMon(name, idx, qty) {
+  useBagItemOnMon(name, idx, qty || 1);
   save();
   closeModal();
   render();

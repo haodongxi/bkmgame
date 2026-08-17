@@ -1924,11 +1924,14 @@ section('MVP11.1：喂养系统');
   T.newGame(4);
   const s = T.getState();
   const mon = s.party[0];
-  s.bag['攻击糖果'] = 2;
+  s.bag['攻击糖果'] = 5;
   const atkBefore = mon.stats.atk;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(mon.candyBonus.atk === 1 && mon.stats.atk === atkBefore + 1, '喂糖果：面板 +1');
-  ok(s.bag['攻击糖果'] === 1, '糖果消耗 1 颗');
+  ok(s.bag['攻击糖果'] === 4, '糖果消耗 1 颗');
+  T.useBagItemOnMon('攻击糖果', 0, 3);
+  ok(mon.candyBonus.atk === 4 && mon.stats.atk === atkBefore + 4, '批量喂糖果：面板按数量提升');
+  ok(s.bag['攻击糖果'] === 1, '批量喂糖果按数量消耗');
   mon.candyBonus.atk = 15;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(s.bag['攻击糖果'] === 1, '单项达到上限后无法继续喂');
@@ -1936,6 +1939,17 @@ section('MVP11.1：喂养系统');
   mon.candyBonus.total = 50;
   T.useBagItemOnMon('攻击糖果', 0);
   ok(s.bag['攻击糖果'] === 1, '总和达到上限后无法继续喂');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  const mon = s.party[0];
+  mon.candyBonus.atk = 14;
+  mon.candyBonus.total = 49;
+  s.bag['攻击糖果'] = 3;
+  T.useBagItemOnMon('攻击糖果', 0, 3);
+  ok(mon.candyBonus.atk === 15 && mon.candyBonus.total === 50, '批量喂糖果遇到上限时只吃到可用数量');
+  ok(s.bag['攻击糖果'] === 2, '批量喂糖果遇上限时保留多余糖果');
 }
 {
   T.newGame(4);
@@ -2339,6 +2353,16 @@ function fightToEnd() {
   s.nodeId = 'tower';
   s.tower = { floor: 1, checkpoint: 0, bestFloor: 0, cleared: false };
   T.startTowerFloor();
+  s.battle.player.mons[0].m.moves = ['thunderbolt'];
+  s.battle.player.mons[0].m.pp = [15];
+  s.battle.player.mons[0].m.stats.spe = 999;
+  s.battle.player.mons[0].m.stats.hp = 99999;
+  s.battle.player.mons[0].m.hp = 99999;
+  s.battle.foe.mons[0].m.moves = ['tackle'];
+  s.battle.foe.mons[0].m.pp = [35];
+  s.battle.foe.mons[0].m.stats.spe = 1;
+  s.battle.foe.mons[0].m.stats.hp = 99999;
+  s.battle.foe.mons[0].m.hp = 99999;
   ok(s.battle.canRun === false, '塔内不可逃跑（速度机制不改变）');
   T.battleRun();
   ok(s.battle && !s.battle.over, '塔内逃跑仍被拦截');

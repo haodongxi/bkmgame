@@ -358,6 +358,11 @@ async function main() {
   await evaljs("showBagModal(false,'misc');");
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('走私的精灵蛋') !== -1;})[0]; var btn=b?b.querySelector('button'):null; if(btn)btn.click();})()");
   ok(await evaljs("STATE.party.some(function(m){return m.species===1||m.species===7;})"), '背包使用精灵蛋孵出未选御三家');
+  await evaljs("STATE.party=[makeMon(4,10,{nature:'勤奋'})]; STATE.bag={'攻击糖果':4}; render(); doMapAction('bag'); showBagModal(false,'misc');");
+  await evaljs("(function(){var row=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('攻击糖果') !== -1;})[0]; var btn=row?row.querySelector('button'):null; if(btn)btn.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .shop-hint') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('批量喂食') !== -1"), '糖果使用界面显示批量喂食提示');
+  await evaljs("(function(){var plus=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-qty button')).filter(function(b){return b.textContent === '+';})[0]; if(plus){ plus.click(); plus.click(); } var feed=Array.prototype.slice.call(document.querySelectorAll('#modal-root .row-btns .btn')).filter(function(b){return b.textContent.indexOf('喂食') !== -1;})[0]; if(feed)feed.click();})()");
+  ok(await evaljs("STATE.party[0].candyBonus.atk === 3 && STATE.bag['攻击糖果'] === 1"), '背包糖果可批量喂食');
   await evaljs("STATE.bag={}; STATE.party=[makeMon(6,50,{nature:'固执'})]; STATE.party[0].moves=['flamethrower','dragon_claw','earthquake','hyper_beam']; STATE.party[0].pp=[15,15,10,5]; STATE.party[0].stats.hp=9999; STATE.party[0].hp=9999; STATE.nodeId='celadon'; STATE.rocketWarehouseDone=false; startRocketWarehouseBattle(); render();");
   ok(await evaljs("STATE.battle && STATE.battle.kind==='rocket_warehouse'"), '火箭队秘密仓库战斗开启');
   await evaljs("(function(){while(STATE.battle&&!STATE.battle.over){var b=STATE.battle;var a=b.player.mons[b.player.active];var idx=-1;for(var i=0;i<a.m.moves.length;i++){var mv=MOVES[a.m.moves[i]];if(mv&&mv.power>0&&(!a.m.pp||a.m.pp[i]>0)&&typeEffectiveness(mv.type,b.foe.mons[b.foe.active].m.speciesData.types)>0){idx=i;break;}}battleMove(idx);}})()");

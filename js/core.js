@@ -2856,9 +2856,10 @@ function useEscapeRope() {
   addLog('你使用穿绳瞬间回到了 ' + MAP_NODES[STATE.lastTown].name + '！', 'info');
 }
 
-function useBagItemOnMon(itemName, partyIdx) {
+function useBagItemOnMon(itemName, partyIdx, qty) {
   const item = ITEMS[itemName];
   const mon = STATE.party[partyIdx];
+  qty = Math.max(1, Math.floor(qty || 1));
   if (!item || !mon) return;
   if (bagCount(itemName) <= 0) { addLog('没有这个道具。', 'info'); return; }
   if (item.type === 'heal') {
@@ -2941,14 +2942,21 @@ function useBagItemOnMon(itemName, partyIdx) {
   }
   if (item.type === 'candy') {
     const stat = item.stat;
-    const cb = mon.candyBonus;
-    if (cb[stat] >= 15) { addLog(mon.name + ' 的该项属性已达极限！', 'info'); return; }
-    if (cb.total >= 50) { addLog(mon.name + ' 已经吃不下任何糖果了！', 'info'); return; }
-    removeItem(itemName, 1);
-    cb[stat]++;
-    cb.total++;
+    const cb = mon.candyBonus || (mon.candyBonus = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 });
+    if ((cb[stat] || 0) >= 15) { addLog(mon.name + ' 的该项属性已达极限！', 'info'); return; }
+    if ((cb.total || 0) >= 50) { addLog(mon.name + ' 已经吃不下任何糖果了！', 'info'); return; }
+    const canUse = Math.min(
+      qty,
+      bagCount(itemName),
+      Math.max(0, 15 - (cb[stat] || 0)),
+      Math.max(0, 50 - (cb.total || 0))
+    );
+    if (canUse <= 0) return;
+    removeItem(itemName, canUse);
+    cb[stat] = (cb[stat] || 0) + canUse;
+    cb.total = (cb.total || 0) + canUse;
     recalcStats(mon);
-    addLog(mon.name + ' 吃下了【' + itemName + '】，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了！', 'good');
+    addLog(mon.name + ' 吃下了【' + itemName + '】×' + canUse + '，' + { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' }[stat] + '提升了 ' + canUse + ' 点！', 'good');
     return;
   }
   if (item.type === 'shiny') {
