@@ -126,6 +126,7 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '道具图鉴列出月亮石');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('电光石') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('雷伊布') !== -1"), '道具图鉴收录专属道具（电光石·绑定雷伊布）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('TM点到为止') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('点到为止') !== -1"), '道具图鉴收录 TM点到为止');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('重生药') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('六项个体值') !== -1"), '道具图鉴收录重生药并显示用途说明');
   await evaljs('closeModal();');
   // 招式图鉴：全量 + 分组 + 搜索 + 类别筛选
@@ -133,6 +134,7 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('全部招式') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf(String(Object.keys(MOVES).length)) !== -1"), '招式图鉴列出全部招式数量');
   ok(await evaljs("document.querySelectorAll('#modal-root .itemdex-cat').length >= 10"), '招式按属性分组');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('喷射火焰') !== -1"), '招式图鉴列出喷射火焰（含威力/PP）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('点到为止') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('至少保留1HP') !== -1"), '招式图鉴列出点到为止及其抓宠说明');
   await evaljs("document.querySelector('#move-dex-search').value = '火'; onMoveDexSearch('火');");
   ok(await evaljs("document.querySelectorAll('#modal-root .shop-row').length > 0 && document.querySelector('#modal-root .modal-body').textContent.indexOf('火') !== -1"), '搜索“火”过滤生效');
   ok(await evaljs("(function(){var el=document.querySelector('#move-dex-search'); el.focus(); el.value='喷射'; onMoveDexSearch('喷射'); return document.querySelector('#move-dex-search') === el;})()"), '搜索输入不重建输入框（中文输入法不断开）');
@@ -229,6 +231,11 @@ async function main() {
   await evaljs("STATE.battle.player.mons[STATE.battle.player.active].m.status=null; STATE.battle.foe.mons[STATE.battle.foe.active].m.status=null; renderBattle();");
   ok(await evaljs("effHint({type:'火', power:40}, ['虫']).indexOf('效果拔群') !== -1"), '克制提示：火对虫效果拔群');
   ok(await evaljs("effHint({type:'电', power:40}, ['地面']).indexOf('没有效果') !== -1"), '克制提示：电对地面没有效果');
+  await evaljs("STATE.party = [makeMon(4, 30, { nature: '勤奋' })]; STATE.party[0].moves=['false_swipe']; STATE.party[0].pp=[40]; startWildBattle(16, 4); STATE.battle.foe.mons[0].m.hp = 1; render();");
+  await evaljs("battleMove(0);");
+  ok(await evaljs("STATE.battle && !STATE.battle.over && STATE.battle.foe.mons[STATE.battle.foe.active].m.hp === 1"), '点到为止在野生战保留对方 1 HP');
+  ok(await evaljs("STATE.log.some(function(t){ return t.indexOf('点到为止') !== -1 && t.indexOf('1 点HP') !== -1; })"), '点到为止触发时显示战斗日志');
+  await evaljs("STATE.battle.player.mons[STATE.battle.player.active].m.moves=['scratch']; STATE.battle.player.mons[STATE.battle.player.active].m.pp=[35];");
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}return STATE.lastResult;})()");
   ok(await evaljs("STATE.lastResult === 'win'"), '战斗胜利结算');
   ok(await evaljs("STATE.log.some(function(l){ return l.indexOf('速度') !== -1 && l.indexOf('先手') !== -1; })"), '战斗首回合显示速度对比与先手提示');
@@ -270,6 +277,9 @@ async function main() {
   ok(await evaljs("(function(){var r=Array.prototype.slice.call(document.querySelectorAll('#modal-root .shop-row')).filter(function(x){return x.textContent.indexOf('大师球')!==-1;})[0]; var bs=r?r.querySelectorAll('button'):[]; return Array.prototype.some.call(bs, b => b.textContent.indexOf('购买') !== -1 && !b.disabled);})()"), '8徽章时大师球购买按钮可用');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('重生药') !== -1 && r.textContent.indexOf('100000金') !== -1; })"), '8徽章商店上架重生药（10万金）');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('求雨符') !== -1; })"), '商店有天气符');
+  await evaljs('closeModal();');
+  await evaljs("STATE.badges = ['灰色徽章','蓝色徽章','橙色徽章','彩虹徽章']; STATE.money = 99999; doMapAction('mart');");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .shop-row'), function(r){ return r.textContent.indexOf('TM点到为止') !== -1 && r.textContent.indexOf('8000金') !== -1; })"), '4徽章商店上架 TM点到为止');
   await evaljs('closeModal();');
   await evaljs("STATE.bag['重生药'] = 1; doMapAction('bag');");
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .bag-tabs .btn')).filter(function(x){return x.textContent.indexOf('道具') !== -1;})[0]; if(b)b.click();})()");

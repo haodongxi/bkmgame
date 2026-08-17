@@ -1519,6 +1519,13 @@ function useMove(user, target, move, log, kinds) {
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
   t.hp -= totalDmg;
+  if (t.hp <= 0 &&
+      move.effect && move.effect.kind === 'leaveOneWild' &&
+      STATE.battle && STATE.battle.kind === 'wild' &&
+      user.side === 'player' && target.side === 'foe') {
+    t.hp = 1;
+    L(move.name + ' 手下留情，' + t.name + ' 留下了 1 点HP！', 'good');
+  }
   if (user.firstStrike) L(m.name + ' 先发制人，气势如虹！', 'info');
   L(critMsg + ' 造成了 ' + totalDmg + ' 点伤害！' + effMsg, side);
   // 羁绊阶段四：20% 毅力锁血（每场最多一次）

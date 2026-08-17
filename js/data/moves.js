@@ -17,6 +17,7 @@ const MOVES = {
   body_slam: { id: 'body_slam', name: '泰山压顶', type: '普通', category: '物理', power: 85, acc: 100, pp: 15, effect: { kind: 'status', status: '麻痹', chance: 0.3 } },
   take_down: { id: 'take_down', name: '猛撞', type: '普通', category: '物理', power: 90, acc: 85, pp: 20, effect: { kind: 'recoil', ratio: 0.25 } },
   double_edge: { id: 'double_edge', name: '舍身冲撞', type: '普通', category: '物理', power: 120, acc: 100, pp: 15, effect: { kind: 'recoil', ratio: 0.33 } },
+  false_swipe: { id: 'false_swipe', name: '点到为止', type: '普通', category: '物理', power: 40, acc: 100, pp: 40, effect: { kind: 'leaveOneWild' } },
   hyper_beam: { id: 'hyper_beam', name: '破坏光线', type: '普通', category: '特殊', power: 150, acc: 90, pp: 5, effect: { kind: 'recharge' } },
   swords_dance: { id: 'swords_dance', name: '剑舞', type: '普通', category: '变化', power: 0, acc: 0, pp: 20, effect: { kind: 'stat', target: 'self', stat: 'atk', stage: 2, chance: 1 } },
   harden: { id: 'harden', name: '变硬', type: '普通', category: '变化', power: 0, acc: 0, pp: 30, effect: { kind: 'stat', target: 'self', stat: 'def', stage: 1, chance: 1 } },

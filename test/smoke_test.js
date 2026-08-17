@@ -653,7 +653,7 @@ section('MVP4 支线与技能表扩充');
     return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
   });
   ok(bad.length === 0, '全部技能字段完整');
-  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1 };
+  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1, leaveOneWild: 1 };
   const badEff = moveIds.filter(function (id) {
     const e = T.MOVES[id].effect;
     return e && !effKinds[e.kind];
@@ -914,6 +914,22 @@ ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4
 {
   T.newGame(4);
   const s = T.getState();
+  s.badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章'];
+  ok(T.getMartStock().indexOf('TM点到为止') !== -1, '4 徽章解锁 TM点到为止');
+  s.money = 8000;
+  T.buyItem('TM点到为止', 1);
+  ok(s.money === 0 && s.bag['TM点到为止'] === 1, '购买 TM点到为止花费 8000 金币');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.bag['TM点到为止'] = 1;
+  T.useBagItemOnMon('TM点到为止', 0);
+  ok(s.party[0].moves.indexOf('false_swipe') !== -1, 'TM点到为止可学会招式点到为止');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
   s.badges = ['灰色徽章', '蓝色徽章', '橙色徽章', '彩虹徽章', '粉红徽章', '金色徽章', '深红徽章', '绿色徽章'];
   ok(T.getMartStock().indexOf('重生药') !== -1, '8 徽章解锁重生药');
   s.money = 100000;
@@ -923,6 +939,30 @@ ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4
 
 // ---------- 12. 2026-08-13 bug 修复回归 ----------
 section('bug 修复回归（双灭 / 捕获残留 / 战斗道具 / 电脑箱 / 学招存档）');
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['false_swipe'];
+  s.party[0].pp = [40];
+  T.startWildBattle(16, 4);
+  s.battle.foe.mons[0].m.hp = 1;
+  T.battleMove(0);
+  ok(s.battle && !s.battle.over, '点到为止命中野生宝可梦后战斗继续');
+  ok(s.battle.foe.mons[0].m.hp === 1, '点到为止对野生宝可梦触发留 1 HP');
+  ok(s.log.some(function (t) { return t.indexOf('点到为止 手下留情') !== -1 || t.indexOf('点到为止手下留情') !== -1; }), '点到为止触发时写入提示日志');
+}
+{
+  T.newGame(4);
+  const s = T.getState();
+  s.party = [T.makeMon(4, 30, { nature: '勤奋' })];
+  s.party[0].moves = ['false_swipe'];
+  s.party[0].pp = [40];
+  T.startTrainerBattle({ id: 'fs_test', title: '短裤小子', name: '阿测', text: '来吧！', prize: 100, party: [{ id: 16, level: 2, moves: ['tackle'] }] });
+  s.battle.foe.mons[0].m.hp = 1;
+  T.battleMove(0);
+  ok(s.lastResult === 'win', '点到为止在训练家战不会保留 1 HP');
+}
 {
   // 双灭：最后一只宝可梦与敌方同回合倒下 → 判负并回城恢复，不会留下全灭队伍
   T.newGame(4);

@@ -1741,6 +1741,7 @@ function moveEffectText(mv) {
     case 'dream': return '仅对方睡眠时吸取HP';
     case 'fixed': return '固定造成' + (e.dmg || '?') + '伤害';
     case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
+    case 'leaveOneWild': return '对野生宝可梦手下留情，至少保留1HP';
     default: return '';
   }
 }
