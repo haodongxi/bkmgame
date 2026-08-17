@@ -21,7 +21,8 @@ const REMOTE = {
   timer: null,
   busy: false,
   battleOpen: false,
-  prevScreen: 'title'
+  prevScreen: 'title',
+  switchPromptKey: ''
 };
 
 // 对战可用道具（与 bkmserver engine/items.py 对齐）
@@ -93,6 +94,7 @@ function remoteOpenLobby() {
 
 function remoteClose() {
   remoteStopPoll();
+  remoteCloseSwitchPrompt();
   REMOTE.roomId = null;
   REMOTE.battleOpen = false;
   STATE.screen = REMOTE.prevScreen === 'battle' ? 'map' : REMOTE.prevScreen;
@@ -102,6 +104,7 @@ function remoteClose() {
 
 function remoteBackToLobby() {
   remoteStopPoll();
+  remoteCloseSwitchPrompt();
   REMOTE.roomId = null;
   REMOTE.seen = 0;
   REMOTE.lastView = null;
@@ -394,6 +397,7 @@ function remoteRenderView(view) {
     }
     remoteRenderBattle(view);
   } else {
+    remoteCloseSwitchPrompt();
     battle.dataset.built = '';
     remoteRenderWaiting(view);
   }
@@ -472,11 +476,13 @@ function remoteRenderBattle(view) {
   });
 
   $id('rb-actions').innerHTML = remoteActions(view, my, foe);
+  remoteSyncSwitchPrompt(view, my);
   if (b.over) {
     $id('rb-status').textContent = (view.winner ? (names[view.winner] ? names[view.winner].name : view.winner) + ' 获胜' : '平局') + '（' + view.result + '）';
     $id('rb-actions').innerHTML =
       '<div class="turn-hint">对局结束</div>' +
       '<div class="remote-actions" style="grid-column:1/-1"><button class="btn" onclick="remoteBackToLobby()">← 返回大厅</button></div>';
+    remoteCloseSwitchPrompt();
   }
 }
 
@@ -486,12 +492,11 @@ function remoteActions(view, my, foe) {
   const foeTypes = (POKEDEX[b.actives[foe].species] || {}).types || [];
   let html = '';
   if ((b.pending_switch || []).indexOf(my) !== -1) {
-    html += '<div class="turn-hint">✦ ' + esc(myMon.name) + ' 倒下了，请选择下一只宝可梦</div>';
-    (b.parties[my] || []).forEach(function (m, i) {
-      if (m.hp <= 0 || m.uid === myMon.uid) return;
-      html += '<button class="btn" onclick="remoteSwitchTo(' + i + ')">' + esc(m.name) + ' Lv' + m.level + '（' + m.hp + '/' + m.max + '）</button>';
-    });
-    html += '<button class="btn" onclick="remoteForfeit()">🏳️ 认输</button>';
+    if (b.actions_submitted[my]) {
+      html += '<div class="turn-hint">已提交换人，等待对方……</div>';
+    } else {
+      html += '<div class="turn-hint">✦ ' + esc(myMon.name) + ' 倒下了，请在弹框中选择下一只出战宝可梦</div>';
+    }
     return html;
   }
   const canAct = b.phase === 'action' && !b.actions_submitted[my];
@@ -562,6 +567,7 @@ function remoteShowSwitch() {
 
 function remoteSwitchTo(idx) {
   closeModal();
+  REMOTE.switchPromptKey = '';
   remoteSubmit({ type: 'switch', index: idx });
 }
 
@@ -572,6 +578,7 @@ function remoteForfeit() {
 }
 
 function remoteForfeitYes() {
+  REMOTE.switchPromptKey = '';
   closeModal();
   remoteSubmit({ type: 'forfeit' });
 }
@@ -586,4 +593,56 @@ async function remoteSubmit(action) {
   } catch (e) {
     remoteMsg('指令失败：' + e.message, true);
   }
+}
+
+function remoteSwitchCandidates(view, side) {
+  const b = view && view.battle;
+  if (!b || !b.actives || !b.parties) return [];
+  const myMon = b.actives[side];
+  return (b.parties[side] || []).map(function (m, i) {
+    return { index: i, mon: m };
+  }).filter(function (entry) {
+    return entry.mon.hp > 0 && (!myMon || entry.mon.uid !== myMon.uid);
+  });
+}
+
+function remoteOpenSwitchPrompt(view, side) {
+  const b = view.battle;
+  const myMon = b.actives[side];
+  const picks = remoteSwitchCandidates(view, side);
+  const body = '<div class="shop-hint">✦ ' + esc(myMon.name) + ' 已倒下，请选择下一只出战宝可梦。</div>' +
+    picks.map(function (entry) {
+      const m = entry.mon;
+      return '<button class="btn" onclick="remoteSwitchTo(' + entry.index + ')">' +
+        esc(m.name) + ' Lv' + m.level + '（' + m.hp + '/' + m.max + '）</button>';
+    }).join('') +
+    '<div class="modal-btns"><button class="btn btn-danger" onclick="remoteForfeitYes()">认输</button></div>';
+  const root = $id('modal-root');
+  root.innerHTML = '<div class="overlay" id="modal-overlay"><div class="modal pixel-frame">' +
+    '<div class="modal-header"><span>选择下一只出战宝可梦</span></div>' +
+    '<div class="modal-body">' + body + '</div></div></div>';
+}
+
+function remoteCloseSwitchPrompt() {
+  if (!REMOTE.switchPromptKey) return;
+  REMOTE.switchPromptKey = '';
+  closeModal();
+}
+
+function remoteSyncSwitchPrompt(view, side) {
+  const b = view && view.battle;
+  if (!b || b.over || (b.pending_switch || []).indexOf(side) === -1 || b.actions_submitted[side]) {
+    remoteCloseSwitchPrompt();
+    return;
+  }
+  const picks = remoteSwitchCandidates(view, side);
+  if (picks.length === 0) {
+    remoteCloseSwitchPrompt();
+    return;
+  }
+  const myMon = b.actives[side];
+  const key = [view.id, b.turn, side, myMon ? myMon.uid : 'none', picks.map(function (entry) { return entry.mon.uid; }).join(',')].join(':');
+  if (REMOTE.switchPromptKey === key && $id('modal-root').innerHTML) return;
+  REMOTE.switchPromptKey = key;
+  remoteOpenSwitchPrompt(view, side);
 }
