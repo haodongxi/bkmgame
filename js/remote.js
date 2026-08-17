@@ -24,7 +24,8 @@ const REMOTE = {
   prevScreen: 'title',
   switchPromptKey: '',
   pvpDraft: null,
-  pvpDraftConfirmed: false
+  pvpDraftConfirmed: false,
+  pendingCloudAction: null
 };
 
 // 对战可用道具（与 bkmserver engine/items.py 对齐）
@@ -76,6 +77,34 @@ function remoteMsg(text, isErr) {
   if (el) {
     el.textContent = text;
     el.className = 'remote-msg' + (isErr ? ' err' : '');
+  }
+}
+
+function remoteOpenAuthModal(action) {
+  REMOTE.pendingCloudAction = action || null;
+  openModal('云存档账号',
+    '<div class="shop-hint">登录或注册账号后，云存档会按账号保存。单机存档不会被自动修改。</div>' +
+    '<input id="cloud-auth-name" class="save-code" maxlength="12" placeholder="昵称（2-12 字符）" value="' + esc(REMOTE.name || '') + '">' +
+    '<input id="cloud-auth-pass" class="save-code" type="password" placeholder="密码（至少 4 位）" style="margin-top:8px">' +
+    '<div id="cloud-auth-msg" class="shop-hint"></div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="remoteAuthSubmit(\'login\')">登录并继续</button>' +
+    '<button class="btn" onclick="remoteAuthSubmit(\'register\')">注册并继续</button></div>');
+}
+
+async function remoteAuthSubmit(mode) {
+  const name = ($id('cloud-auth-name') || {}).value || '';
+  const password = ($id('cloud-auth-pass') || {}).value || '';
+  const msg = $id('cloud-auth-msg');
+  if (!name.trim() || !password) { if (msg) msg.textContent = '请填写昵称和密码'; return; }
+  try {
+    const d = await remoteApi('POST', mode === 'register' ? '/api/register' : '/api/login', { name: name.trim(), password: password });
+    REMOTE.token = d.token; REMOTE.name = d.player.name; remoteSaveCfg();
+    const action = REMOTE.pendingCloudAction; REMOTE.pendingCloudAction = null;
+    closeModal();
+    if (action === 'upload') { exportSave(); remoteUploadCloudSave(); }
+    else if (action === 'download') { showImportSave(); remoteDownloadCloudSave(); }
+  } catch (e) {
+    if (msg) msg.textContent = (mode === 'register' ? '注册失败：' : '登录失败：') + e.message;
   }
 }
 
@@ -339,7 +368,7 @@ async function remoteUploadTeam() {
 }
 
 async function remoteUploadCloudSave() {
-  if (!REMOTE.token) { remoteMsg('请先在联机对战登录账号，再上传云存档', true); return; }
+  if (!REMOTE.token) { remoteOpenAuthModal('upload'); return; }
   const raw = localStorage.getItem('bkm_poke_save_v1');
   if (!raw) { remoteMsg('当前还没有单机存档', true); return; }
   let data; try { data = JSON.parse(raw); } catch (e) { remoteMsg('本机存档损坏，无法上传', true); return; }
@@ -349,7 +378,7 @@ async function remoteUploadCloudSave() {
 }
 
 async function remoteDownloadCloudSave() {
-  if (!REMOTE.token) { remoteMsg('请先在联机对战登录账号，再下载云存档', true); return; }
+  if (!REMOTE.token) { remoteOpenAuthModal('download'); return; }
   try {
     const data = await remoteApi('GET', '/api/me/save');
     if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');
