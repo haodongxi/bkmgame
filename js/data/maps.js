@@ -21,7 +21,7 @@ const ITEMS = {
   '万灵药': { id: 'fullheal', name: '万灵药', type: 'cure', cure: 'all', price: 1000, minBadges: 2, desc: '治愈宝可梦身上的任意异常状态' },
   'PP回复药': { id: 'ether', name: 'PP回复药', type: 'pp', pp: 10, price: 800, minBadges: 2, desc: '回复一只宝可梦全部招式各 10 点PP' },
   'PP满回复药': { id: 'maxether', name: 'PP满回复药', type: 'pp', pp: 'full', price: 3200, minBadges: 6, desc: '回复一只宝可梦全部招式满PP' },
-  '重生药': { id: 'rebirth_potion', name: '重生药', type: 'retalent', price: 100000, minBadges: 8, desc: '重置并随机一只宝可梦的六项个体值（天赋）' },
+  '重生药': { id: 'rebirth_potion', name: '重生药', type: 'retalent', price: 500000, minBadges: 8, desc: '重置并随机一只宝可梦的六项个体值（天赋）' },
   '喷雾剂': { id: 'repel', name: '喷雾剂', type: 'repel', price: 800, minBadges: 4, desc: '使用后接下来 10 次探索不会遇到野生宝可梦' },
   '求雨符': { id: 'rain_talisman', name: '求雨符', type: 'weather', weather: '雨', price: 1200, minBadges: 4, desc: '使用后 10 次探索内，雨天出现概率大幅提升' },
   '大晴符': { id: 'sunny_talisman', name: '大晴符', type: 'weather', weather: '晴', price: 800, minBadges: 4, desc: '使用后 10 次探索内，晴天出现概率大幅提升' },
