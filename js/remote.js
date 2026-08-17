@@ -201,7 +201,7 @@ function remoteDraftHtml(draft) {
   let rows = draft.map(function (m, i) {
     const name = POKEDEX[m.species] ? POKEDEX[m.species].name : ('No.' + m.species);
     const moves = (m.moves || []).map(function (id) { return MOVES[id] ? MOVES[id].name : id; }).join('、') || '无';
-    return '<div class="remote-draft-row"><span>' + (i === 0 ? '⭐ ' : '') + esc(name) + ' Lv' + m.level + (i === 0 ? '（首发）' : '') + '</span>' +
+    return '<div class="remote-draft-row"><span>' + (i === 0 ? '⭐ ' : '') + esc(name) + ' 单机 Lv' + m.level + ' → PvP Lv100' + (i === 0 ? '（首发）' : '') + '</span>' +
       '<small>技能：' + esc(moves) + '　携带：' + esc(m.held || '无') + '</small>' +
       '<span><button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',-1)">↑</button>' +
       '<button class="btn btn-sm" onclick="remoteMoveDraft(' + i + ',1)">↓</button>' +
@@ -209,7 +209,7 @@ function remoteDraftHtml(draft) {
       '<button class="btn btn-sm" onclick="remoteEditDraftHeld(' + i + ')">携带物</button></span></div>';
   }).join('');
   return '<div class="remote-prep pixel-frame"><div class="sec-title">—— PvP 准备广场 ——</div>' +
-    '<div class="remote-hint">调整完成后确认上传；对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
+    '<div class="remote-hint">调整完成后确认上传；对战属性按 Lv100 计算，HP×5。对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
     '<div class="remote-actions"><button class="btn btn-primary" onclick="remoteUploadTeam()">' + (REMOTE.pvpDraftConfirmed ? '✅ 已确认上传（可重新上传）' : '📤 确认上传 PvP 队伍') + '</button>' +
     '<button class="btn" onclick="remoteLoadDraftFromSingle()">重新读取单机队伍</button></div></div>';
 }
