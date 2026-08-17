@@ -263,7 +263,7 @@ function scrollLogToBottom() {
 }
 
 function render() {
-  const screens = ['title', 'starter', 'map', 'battle'];
+  const screens = ['title', 'starter', 'map', 'battle', 'remote'];
   for (let i = 0; i < screens.length; i++) {
     const el = $id('screen-' + screens[i]);
     if (el) el.classList.toggle('active', STATE.screen === screens[i]);
@@ -274,6 +274,7 @@ function render() {
   if (STATE.screen === 'starter') renderStarter();
   if (STATE.screen === 'map') renderMap();
   if (STATE.screen === 'battle') renderBattle();
+  if (STATE.screen === 'remote') renderRemote();
   if (STATE.screen === 'map' || STATE.screen === 'battle') {
     if (STATE.pendingLearn.length > 0) showLearnModal();
     else if (STATE.rocketSell) showRocketSellModal();
@@ -311,7 +312,9 @@ function exportSave() {
     const code = btoa(unescape(encodeURIComponent(raw)));
     openModal('导出存档', '<div class="shop-hint">复制下面的存档码，粘贴到另一台设备即可导入：</div>' +
       '<textarea id="save-code" class="save-code" readonly>' + code + '</textarea>' +
-      '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button></div>');
+      '<div id="save-cloud-msg" class="shop-hint"></div>' +
+      '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button>' +
+      '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button></div>');
   } catch (e) {
     alert('导出失败：' + e.message);
   }
@@ -353,7 +356,9 @@ function copySaveCode() {
 function showImportSave() {
   openModal('导入存档', '<div class="shop-hint">粘贴存档码后点击导入（会覆盖当前存档）：</div>' +
     '<textarea id="import-code" class="save-code" placeholder="粘贴存档码..."></textarea>' +
-    '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入</button></div>');
+    '<div id="save-cloud-msg" class="shop-hint"></div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="doImportSave()">导入存档码</button>' +
+    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button></div>');
 }
 
 function doImportSave() {
@@ -469,6 +474,7 @@ function renderMap() {
     html += '<button class="btn" onclick="doMapAction(\'box\')">📦 电脑箱（' + STATE.box.length + '只）</button>';
     html += '<button class="btn" onclick="doMapAction(\'dex\')">📚 图鉴合集</button>';
     html += '<button class="btn" onclick="doMapAction(\'map\')">🗺️ 地图</button>';
+    html += '<button class="btn" onclick="remoteOpenLobby()">🛰️ 联机对战</button>';
     if (node.gym && STATE.badges.indexOf(node.gym.badge) === -1) {
       if (node.gym.requireBadges && STATE.badges.length < node.gym.requireBadges) {
         html += '<button class="btn" disabled>🏟️ 常磐道馆（需要 ' + node.gym.requireBadges + ' 枚徽章）</button>';
@@ -1363,7 +1369,7 @@ function showDexDetail(id) {
       const mv = MOVES[mid];
       if (!mv) return;
       movesHtml += '<div class="detail-row"><span>Lv.' + lv + ' ' + mv.name + ' · ' + mv.type + '</span><span>' +
-        (mv.power > 0 ? '威力 ' + mv.power : '变化') + ' · PP ' + mv.pp +
+        movePowerLabel(mv) + ' · PP ' + mv.pp +
         (moveEffectText(mv) ? '<br><small class="move-effect">' + moveEffectText(mv) + '</small>' : '') + '</span></div>';
     });
   });
@@ -1740,10 +1746,18 @@ function moveEffectText(mv) {
     case 'recharge': return '使用后下回合无法行动';
     case 'dream': return '仅对方睡眠时吸取HP';
     case 'fixed': return '固定造成' + (e.dmg || '?') + '伤害';
+    case 'fixedLevel': return '固定造成等于自身等级的伤害';
     case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
     case 'leaveOneWild': return '对野生宝可梦手下留情，至少保留1HP';
     default: return '';
   }
+}
+
+function movePowerLabel(mv) {
+  if (mv.power > 0) return '威力 ' + mv.power;
+  if (mv.effect && mv.effect.kind === 'fixedLevel') return '固定伤害（等于自身等级）';
+  if (mv.effect && mv.effect.kind === 'fixed') return '固定伤害';
+  return '变化';
 }
 
 function renderBattle() {
@@ -1776,7 +1790,9 @@ function renderBattle() {
   for (let i = 0; i < validMoves.length; i++) {
     const mv = MOVES[validMoves[i]];
     const left = (pm.m.pp && pm.m.pp[i] !== undefined) ? pm.m.pp[i] : mv.pp;
-    if (left > 0 && mv.power > 0 && typeEffectiveness(mv.type, foeTypes) > 0) usableDamaging = true;
+    const fixedDamage = mv.effect && (mv.effect.kind === 'fixed' || mv.effect.kind === 'fixedLevel');
+    if (left > 0 && (mv.power > 0 || fixedDamage) &&
+        (fixedDamage || typeEffectiveness(mv.type, foeTypes) > 0)) usableDamaging = true;
     html += '<button class="btn move-btn" ' + ((left <= 0 || !b.waitingPlayer) ? 'disabled ' : '') + 'style="--tc:' + typeColor(mv.type) + '" onclick="doBattleMove(' + i + ')">' +
       mv.name + '<span class="move-type">' + (mv.category === '物理' ? '物攻' : (mv.category === '特殊' ? '特攻' : '变化')) + ' · ' + mv.type + '</span>' + effHint(mv, foeTypes) +
       (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') +

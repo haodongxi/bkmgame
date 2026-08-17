@@ -297,6 +297,32 @@
       background: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px);
       opacity: 0.28;
     }
+
+    /* ---------- 联机对战（bkmserver） ---------- */
+    #screen-remote { padding: 12px 12px 18px; flex-direction: column; height: 100dvh; overflow-y: auto; }
+    #screen-remote.active { display: flex !important; }
+    .remote-panel { max-width: 460px; width: 100%; margin: 0 auto; }
+    .remote-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+    .remote-row input { flex: 1; min-width: 0; }
+    .remote-label { font-size: 10px; color: var(--text-dim); flex: 0 0 auto; }
+    .remote-msg { font-size: 10px; color: var(--green); line-height: 1.7; margin: 8px 0; word-break: break-all; }
+    .remote-msg.err { color: var(--red); }
+    .remote-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .remote-actions .btn { width: 100%; }
+    .remote-prep { margin: 10px 0; padding: 8px; }
+    .remote-draft-row { display: grid; grid-template-columns: 1fr; gap: 3px; padding: 7px 0; border-bottom: 1px solid #394052; }
+    .remote-draft-row small { color: #aeb6c8; }
+    .remote-draft-row > span:last-child { display: flex; gap: 4px; }
+    .remote-hint { font-size: 9px; color: var(--text-dim); line-height: 1.8; margin-top: 10px; word-break: break-all; }
+    #remote-lobby input[type="text"], #remote-lobby input[type="password"] {
+      background: #10131a; color: var(--text); border: 3px solid var(--border);
+      font-family: var(--font); font-size: 11px; padding: 7px;
+    }
+    #rb-status { font-size: 10px; color: var(--gold); margin-bottom: 6px; padding-right: 0; }
+    #rb-log { height: 150px; }
+    #rb-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+    #rb-actions .turn-hint { grid-column: 1 / -1; }
+    .rb-item-desc { display: block; font-size: 9px; color: var(--text-dim); margin-top: 3px; }
   </style>
 </head>
 <body>
@@ -345,6 +371,12 @@
       <div id="battle-log" class="log-box small"></div>
       <div id="battle-actions"></div>
     </div>
+
+    <!-- 联机对战（对接 bkmserver） -->
+    <div id="screen-remote" class="screen">
+      <div id="remote-lobby"></div>
+      <div id="remote-battle" style="display:none"></div>
+    </div>
   </div>
 
   <div class="scanlines" aria-hidden="true"></div>
@@ -358,5 +390,6 @@
   <script src="./js/data/maps.js"></script>
   <script src="./js/core.js"></script>
   <script src="./js/ui.js"></script>
+  <script src="./js/remote.js"></script>
 </body>
 </html>

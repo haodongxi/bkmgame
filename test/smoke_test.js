@@ -699,6 +699,11 @@ section('平衡性回归');
 }
 {
   // 平衡：小火龙线/卡比兽不再过早拿到超模招式
+  const gengarMoves = Object.keys(T.POKEDEX[94].learnset).reduce(function (all, lv) {
+    return all.concat(T.POKEDEX[94].learnset[lv]);
+  }, []);
+  ok(gengarMoves.indexOf('hypnosis') !== -1 && gengarMoves.indexOf('dream_eater') !== -1, '耿鬼具备催眠术→食梦特色连段');
+  ok(gengarMoves.indexOf('shadow_ball') !== -1 && gengarMoves.indexOf('sludge_bomb') !== -1 && gengarMoves.indexOf('shadow_punch') !== -1 && gengarMoves.indexOf('psychic') === -1, '耿鬼以幽灵/毒本系为主，保留暗影拳备用');
   ok(!T.POKEDEX[4].learnset[34] || T.POKEDEX[4].learnset[34].indexOf('flamethrower') === -1, '小火龙 Lv34 不再学喷射火焰');
   ok(T.POKEDEX[4].learnset[40].indexOf('flamethrower') !== -1, '喷射火焰延后到 Lv40');
   ok(T.POKEDEX[143].learnset[50].indexOf('hyper_beam') === -1 && T.POKEDEX[143].learnset[40].indexOf('double_edge') === -1, '卡比兽不再学破坏光线/舍身冲撞');
