@@ -25,6 +25,7 @@ const REMOTE = {
   switchPromptKey: '',
   pvpDraft: null,
   pvpDraftConfirmed: false,
+  pvpMoveSlot: 0,
   pendingCloudAction: null
 };
 
@@ -271,7 +272,7 @@ function remoteLogout() {
 // ---------------- 队伍导出 ----------------
 
 function remoteBuildTeam() {
-  const party = STATE.party || [];
+  const party = (STATE.party || []).slice(0, 4);
   if (party.length === 0) return null;
   const team = party.map(function (m) {
     const e = {
@@ -292,7 +293,7 @@ function remoteBuildTeam() {
 }
 
 function remoteDraftFromSingle() {
-  return (STATE.party || []).map(function (m, i) {
+  return (STATE.party || []).slice(0, 4).map(function (m, i) {
     return { sourceUid: m.uid || null, sourceIndex: i, species: m.species, level: m.level,
       nature: m.nature, ivs: m.ivs || undefined, moves: (m.moves || []).slice(0, 4), held: m.held || null };
   });
@@ -327,17 +328,37 @@ function remoteEditDraftMoves(index) {
   const m = REMOTE.pvpDraft && REMOTE.pvpDraft[index]; if (!m) return;
   const source = (STATE.party || []).find(function (x) { return m.sourceUid && x.uid === m.sourceUid; }) || STATE.party[m.sourceIndex];
   const ids = (m.moves || []).concat(source ? learnableMoves(source) : []).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
-  const html = '<div class="remote-hint">选择后立即替换对应栏位，修改只作用于 PvP 临时队伍。</div>' + [0, 1, 2, 3].map(function (slot) {
-    return '<div class="remote-row"><span>第' + (slot + 1) + '格</span><select id="remote-move-' + slot + '">' + ids.map(function (id) { return '<option value="' + esc(id) + '" ' + (m.moves[slot] === id ? 'selected' : '') + '>' + esc(MOVES[id].name) + '</option>'; }).join('') + '</select><button class="btn btn-sm" onclick="remoteSetDraftMove(' + index + ',' + slot + ')">确定</button></div>';
+  if (REMOTE.pvpMoveSlot >= Math.max(1, m.moves.length)) REMOTE.pvpMoveSlot = 0;
+  const slots = [0, 1, 2, 3].map(function (slot) {
+    const mv = MOVES[m.moves[slot]];
+    return '<button class="btn btn-sm slot-btn' + (REMOTE.pvpMoveSlot === slot ? ' active' : '') + '" onclick="remotePickMoveSlot(' + index + ',' + slot + ')">' +
+      '<span class="slot-no">' + (slot + 1) + '. </span><span class="mv-name" style="--mv-tc:' + (mv ? typeColor(mv.type) : 'inherit') + '">' +
+      (mv ? esc(mv.name) : '空栏') + '</span></button>';
   }).join('');
-  openModal('调整招式', html);
+  const candidates = ids.map(function (id) {
+    const mv = MOVES[id];
+    return '<button class="btn btn-sm move-btn" style="--tc:' + typeColor(mv.type) + '" onclick="remoteSetDraftMove(' + index + ',' + REMOTE.pvpMoveSlot + ',\'' + esc(id) + '\')">' +
+      '<span class="tag-learn">' + (m.moves.indexOf(id) !== -1 ? '已学会' : '可调整') + '</span>' + esc(mv.name) +
+      '<span class="move-type">' + (mv.category === '物理' ? '物攻' : (mv.category === '特殊' ? '特攻' : '变化')) + ' · ' + esc(mv.type) + '</span>' +
+      '<span class="move-eff">' + mv.category + (mv.power > 0 ? ' · 威力 ' + mv.power : '') + ' · ' + (mv.acc === 0 ? '必中' : '命中 ' + mv.acc) + ' · PP ' + mv.pp + '</span>' +
+      (moveEffectText(mv) ? '<span class="move-effect">' + moveEffectText(mv) + '</span>' : '') + '</button>';
+  }).join('');
+  openModal('调整招式 · ' + (POKEDEX[m.species] ? POKEDEX[m.species].name : '?'),
+    '<div class="remote-hint">选择上方栏位，再点击下方技能。PvP调整免费，只作用于临时队伍。</div>' +
+    '<div class="bag-tabs">' + slots + '</div>' +
+    '<div class="shop-hint">—— 可用招式（当前等级及以下） ——</div>' + (candidates || '<div class="shop-hint">没有可用招式</div>'));
 }
 
-function remoteSetDraftMove(index, slot) {
-  const m = REMOTE.pvpDraft[index]; const el = $id('remote-move-' + slot);
-  if (!m || !el) return;
-  if (m.moves.indexOf(el.value) !== -1 && m.moves[slot] !== el.value) { remoteMsg('同一只宝可梦不能重复携带同一招式', true); return; }
-  m.moves[slot] = el.value; REMOTE.pvpDraftConfirmed = false; closeModal(); render();
+function remotePickMoveSlot(index, slot) {
+  REMOTE.pvpMoveSlot = slot;
+  remoteEditDraftMoves(index);
+}
+
+function remoteSetDraftMove(index, slot, moveId) {
+  const m = REMOTE.pvpDraft[index];
+  if (!m || !MOVES[moveId]) return;
+  if (m.moves.indexOf(moveId) !== -1 && m.moves[slot] !== moveId) { remoteMsg('同一只宝可梦不能重复携带同一招式', true); return; }
+  m.moves[slot] = moveId; REMOTE.pvpDraftConfirmed = false; closeModal(); render();
 }
 
 function remoteEditDraftHeld(index) {
