@@ -234,11 +234,12 @@ function remoteShowDraftDetail(index) {
   stats.hp = (baseStats.hp + (candy.hp || 0)) * 5;
   let statsHtml = '';
   Object.keys(statNames).forEach(function (k) {
-    const parts = [];
-    if (candy[k]) parts.push('糖果 +' + candy[k]);
-    if (titleBonus[k]) parts.push('称号 +' + titleBonus[k]);
-    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] + (k === 'hp' ? '（PvP HP×5）' : '') +
-      (parts.length ? '<br><small class="move-effect">基础 ' + baseStats[k] + ' · ' + parts.join(' · ') + '</small>' : '') + '</span></div>';
+    const candyMax = candy[k] >= 15 || (candy.total || 0) >= 50;
+    const candyHtml = candy[k] ? ' <span class="candy-bonus">(+' + candy[k] + ')</span>' : '';
+    const titleHtml = titleBonus[k] ? ' <small class="move-effect">（称号 +' + titleBonus[k] + '）</small>' : '';
+    statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] +
+      '（个体 ' + (ivs[k] === undefined ? '?' : ivs[k]) + '）' + candyHtml + titleHtml + (candyMax ? ' <span class="candy-max">[MAX]</span>' : '') +
+      (k === 'hp' ? ' <small class="move-effect">PvP HP×5</small>' : '') + '</span></div>';
   });
   let movesHtml = '';
   (m.moves || []).forEach(function (id) {
