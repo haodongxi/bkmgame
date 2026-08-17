@@ -120,6 +120,36 @@ function remoteOpenLobby() {
   REMOTE.battleOpen = false;
   STATE.screen = 'remote';
   render();
+  if (REMOTE.token) remoteRecoverMatch();
+}
+
+function remoteEnterRoom(roomId) {
+  REMOTE.roomId = roomId;
+  REMOTE.seen = 0;
+  REMOTE.side = null;
+  REMOTE.battleOpen = false;
+  REMOTE.mode = 'room';
+  remoteStartPoll();
+}
+
+async function remoteRecoverMatch() {
+  try {
+    const d = await remoteApi('GET', '/api/queue/status');
+    if (d.room_id) {
+      remoteEnterRoom(d.room_id);
+      remoteMsg('✅ 已恢复进行中的对战');
+      return true;
+    }
+    if (d.queued) {
+      REMOTE.mode = 'queue';
+      remoteMsg('已恢复匹配队列，等待对手……');
+      remoteStartPoll();
+      return true;
+    }
+  } catch (e) {
+    console.warn('[remote] 恢复对战状态失败', e);
+  }
+  return false;
 }
 
 function remoteClose() {
@@ -463,11 +493,8 @@ async function remoteCreate() {
   if (!REMOTE.token) { remoteMsg('请先登录', true); return; }
   try {
     const d = await remoteApi('POST', '/api/rooms', {});
-    REMOTE.roomId = d.id;
-    REMOTE.seen = 0;
     REMOTE.lastView = d;
-    REMOTE.mode = 'room';
-    remoteStartPoll();
+    remoteEnterRoom(d.id);
   } catch (e) {
     remoteMsg('建房失败：' + e.message, true);
   }
@@ -479,11 +506,8 @@ async function remoteJoin() {
   if (!code) { remoteMsg('请输入房间码', true); return; }
   try {
     const d = await remoteApi('POST', '/api/rooms/join', { code: code });
-    REMOTE.roomId = d.id;
-    REMOTE.seen = 0;
     REMOTE.lastView = d;
-    REMOTE.mode = 'room';
-    remoteStartPoll();
+    remoteEnterRoom(d.id);
   } catch (e) {
     remoteMsg('加入失败：' + e.message, true);
   }
@@ -507,6 +531,8 @@ async function remoteQuick() {
     const m = e.message || '';
     if (m.indexOf('已在匹配队列') !== -1) {
       remoteMsg('同一账号不能和自己匹配：请用另一个账号（新开一个标签页/窗口注册）作为对手', true);
+    } else if (m.indexOf('对局进行中') !== -1) {
+      if (!(await remoteRecoverMatch())) remoteMsg('检测到已有对局，但暂时无法恢复，请刷新页面后重试', true);
     } else {
       remoteMsg('匹配失败：' + m, true);
     }
@@ -532,9 +558,7 @@ async function remoteTick() {
     if (REMOTE.mode === 'queue') {
       const d = await remoteApi('GET', '/api/queue/status');
       if (d.room_id) {
-        REMOTE.mode = 'room';
-        REMOTE.roomId = d.room_id;
-        REMOTE.seen = 0;
+        remoteEnterRoom(d.room_id);
         remoteMsg('✅ 匹配成功，对战开始！');
       } else if (d.queued) {
         remoteMsg('匹配中……（队列第 ' + (d.position || '?') + ' 位）');
