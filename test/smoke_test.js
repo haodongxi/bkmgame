@@ -772,7 +772,7 @@ section('MVP7：招式 PP');
 // ---------- 10.6 MVP8：商店提价与探索金币事件 ----------
 section('MVP8：商店提价与探索金币事件');
 {
-  ok(T.ITEMS['高级球'].price === 4000 && T.ITEMS['大师球'].price === 50000, '后期道具价格已上调');
+  ok(T.ITEMS['高级球'].price === 3000 && T.ITEMS['大师球'].price === 50000, '后期道具价格已上调');
   ok(T.ITEMS['雷之石'].price === 5000 && T.ITEMS['幸运蛋'].price === 20000, '进化石/持有道具价格上调');
   T.newGame(4);
   ok(T.getMartStock().indexOf('大师球') === -1, '0徽章商店无大师球');
@@ -894,18 +894,18 @@ ok(T.getMartStock().indexOf('好伤药') !== -1, '2 徽章解锁好伤药');
 T.buyItem('好伤药');
 ok(T.getState().bag['好伤药'] === 1 && T.getState().money === 5000 - 700, '购买成功');
 T.sellItem('精灵球');
-ok(T.getState().money === 5000 - 700 + 100 && T.getState().bag['精灵球'] === 4, '半价出售成功');
+ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4, '半价出售成功');
 {
   // 批量购买/出售
   T.newGame(4);
   const s = T.getState();
   s.money = 5000;
   T.buyItem('精灵球', 3);
-  ok(s.bag['精灵球'] === 8 && s.money === 5000 - 600, '批量购买 3 个精灵球扣 600 金');
+  ok(s.bag['精灵球'] === 8 && s.money === 5000 - 300, '批量购买 3 个精灵球扣 300 金');
   T.sellItem('精灵球', 2);
-  ok(s.bag['精灵球'] === 6 && s.money === 5000 - 600 + 200, '批量出售 2 个精灵球得 200 金');
+  ok(s.bag['精灵球'] === 6 && s.money === 5000 - 300 + 100, '批量出售 2 个精灵球得 100 金');
   const moneyBefore = s.money;
-  T.buyItem('高级球', 10); // 4000*10 远超余额
+  T.buyItem('高级球', 10); // 3000*10 远超余额
   ok(s.money === moneyBefore && (s.bag['高级球'] || 0) === 0, '批量购买超出余额时被拦截');
   const cntBefore = s.bag['精灵球'];
   T.sellItem('精灵球', 99);

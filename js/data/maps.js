@@ -11,9 +11,9 @@ const WEATHER = {
 };
 
 const ITEMS = {
-  '精灵球': { id: 'pokeball', name: '精灵球', type: 'ball', ballMult: 1,    price: 200,  desc: '捕捉野生宝可梦' },
-  '超级球': { id: 'greatball', name: '超级球', type: 'ball', ballMult: 1.5,  price: 2000, minBadges: 4, desc: '比精灵球更容易捕捉' },
-  '高级球': { id: 'ultraball', name: '高级球', type: 'ball', ballMult: 2,    price: 4000, minBadges: 6, desc: '效果极佳的精灵球' },
+  '精灵球': { id: 'pokeball', name: '精灵球', type: 'ball', ballMult: 1,    price: 100,  desc: '捕捉野生宝可梦' },
+  '超级球': { id: 'greatball', name: '超级球', type: 'ball', ballMult: 1.5,  price: 1200, minBadges: 4, desc: '比精灵球更容易捕捉' },
+  '高级球': { id: 'ultraball', name: '高级球', type: 'ball', ballMult: 2,    price: 3000, minBadges: 6, desc: '效果极佳的精灵球' },
   '大师球': { id: 'masterball', name: '大师球', type: 'ball', master: true, price: 50000, minBadges: 8, desc: '必定能捕捉野生宝可梦的最强精灵球' },
   '伤药':   { id: 'potion', name: '伤药', type: 'heal', heal: 20,  price: 300,  desc: '恢复宝可梦20点HP' },
   '好伤药': { id: 'superpotion', name: '好伤药', type: 'heal', heal: 60,  price: 700,  minBadges: 2, desc: '恢复宝可梦60点HP' },
