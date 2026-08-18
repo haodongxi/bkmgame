@@ -545,7 +545,8 @@ function remoteEditDraftMoves(index) {
     return all;
   }, []) : [];
   const ids = (m.moves || []).concat(pvpLearnable).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
-  if (REMOTE.pvpMoveSlot >= Math.max(1, m.moves.length)) REMOTE.pvpMoveSlot = 0;
+  // 空栏也必须可以选中，方便 PvP 广场把不足 4 招的队伍补齐。
+  if (REMOTE.pvpMoveSlot < 0 || REMOTE.pvpMoveSlot > 3) REMOTE.pvpMoveSlot = 0;
   const slots = [0, 1, 2, 3].map(function (slot) {
     const mv = MOVES[m.moves[slot]];
     return '<button class="btn btn-sm slot-btn' + (REMOTE.pvpMoveSlot === slot ? ' active' : '') + '" onclick="remotePickMoveSlot(' + index + ',' + slot + ')">' +
