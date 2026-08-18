@@ -25,6 +25,7 @@ const REMOTE = {
   switchPromptKey: '',
   pvpDraft: null,
   pvpDraftConfirmed: false,
+  pvpDraftSourceFingerprint: '',
   pvpMoveSlot: 0,
   pendingCloudAction: null,
   handshakeRequestId: '',
@@ -140,9 +141,48 @@ function remoteOpenLobby() {
   REMOTE.lastView = null;
   REMOTE.battleOpen = false;
   STATE.screen = 'remote';
+  remoteRestoreDraftLocal();
   render();
   if (REMOTE.token) remoteRecoverMatch();
-  if (REMOTE.token) remoteRestoreServerTeam();
+}
+
+function remoteSourceFingerprint() {
+  const party = (STATE.party || []).slice(0, 4).map(function (m) {
+    return { uid: m.uid, species: m.species, level: m.level, nature: m.nature, ivs: m.ivs,
+      moves: m.moves, held: m.held || null, candyBonus: m.candyBonus || {} };
+  });
+  return JSON.stringify({ party: party, equippedTitle: STATE.equippedTitle || null });
+}
+
+function remoteSaveDraftLocal() {
+  if (!REMOTE.pvpDraft) return;
+  localStorage.setItem('bkm_pvp_draft_v1', JSON.stringify({
+    draft: REMOTE.pvpDraft, confirmed: REMOTE.pvpDraftConfirmed,
+    sourceFingerprint: REMOTE.pvpDraftSourceFingerprint || remoteSourceFingerprint()
+  }));
+}
+
+function remoteRestoreDraftLocal() {
+  try {
+    const raw = localStorage.getItem('bkm_pvp_draft_v1');
+    const saved = raw ? JSON.parse(raw) : null;
+    if (!saved || !Array.isArray(saved.draft) || !saved.draft.length) return false;
+    if (saved.sourceFingerprint && saved.sourceFingerprint !== remoteSourceFingerprint()) {
+      const draft = remoteDraftFromSingle();
+      REMOTE.pvpDraft = draft.length ? draft : null;
+      REMOTE.pvpDraftConfirmed = false;
+      REMOTE.pvpDraftSourceFingerprint = draft.length ? remoteSourceFingerprint() : '';
+      remoteSaveDraftLocal();
+    } else {
+      REMOTE.pvpDraft = saved.draft.slice(0, 4);
+      REMOTE.pvpDraftConfirmed = !!saved.confirmed;
+      REMOTE.pvpDraftSourceFingerprint = saved.sourceFingerprint || remoteSourceFingerprint();
+    }
+    return !!REMOTE.pvpDraft;
+  } catch (e) {
+    console.warn('[remote] 恢复本地 PvP 配置失败', e);
+    return false;
+  }
 }
 
 function remoteEnterRoom(roomId, handshake) {
@@ -175,31 +215,6 @@ async function remoteRecoverMatch() {
     }
   } catch (e) {
     console.warn('[remote] 恢复对战状态失败', e);
-  }
-  return false;
-}
-
-async function remoteRestoreServerTeam() {
-  try {
-    const data = await remoteApi('GET', '/api/me');
-    if (REMOTE.pvpDraft || !data.team || !data.team.length) return false;
-    const used = {};
-    REMOTE.pvpDraft = data.team.slice(0, 4).map(function (m, i) {
-      let sourceIndex = i;
-      for (let j = 0; j < (STATE.party || []).length; j++) {
-        if (!used[j] && STATE.party[j].species === m.species) { sourceIndex = j; used[j] = true; break; }
-      }
-      const source = STATE.party[sourceIndex];
-      return { sourceUid: source ? source.uid : null, sourceIndex: sourceIndex, species: m.species,
-        level: m.level, nature: m.nature, ivs: m.ivs || {}, candyBonus: m.candyBonus || {},
-        moves: (m.moves || []).slice(0, 4), held: m.held || null };
-    });
-    REMOTE.pvpDraftConfirmed = true;
-    render();
-    remoteMsg('✅ 已恢复上次上传的 PvP 队伍');
-    return true;
-  } catch (e) {
-    console.warn('[remote] 恢复已上传队伍失败', e);
   }
   return false;
 }
@@ -476,15 +491,26 @@ function remoteDraftPayload() {
 function remoteLoadDraftFromSingle() {
   const draft = remoteDraftFromSingle();
   if (!draft.length) { remoteMsg('当前单机队伍为空，请先培养宝可梦', true); return; }
-  REMOTE.pvpDraft = draft; REMOTE.pvpDraftConfirmed = false;
-  render(); remoteMsg('已读取单机队伍，可在准备广场调整；单机存档未改变');
+  const currentFingerprint = remoteSourceFingerprint();
+  const savedDraft = REMOTE.pvpDraft;
+  const savedFingerprint = REMOTE.pvpDraftSourceFingerprint;
+  if (savedDraft && savedDraft.length && savedFingerprint === currentFingerprint) {
+    REMOTE.pvpDraft = savedDraft.slice(0, 4);
+    REMOTE.pvpDraftSourceFingerprint = currentFingerprint;
+  } else {
+    REMOTE.pvpDraft = draft;
+    REMOTE.pvpDraftConfirmed = false;
+    REMOTE.pvpDraftSourceFingerprint = currentFingerprint;
+  }
+  remoteSaveDraftLocal();
+  render(); remoteMsg(savedDraft && savedFingerprint === currentFingerprint ? '单机队伍未变化，已保留 PvP 技能与首发顺序；单机存档未改变' : '单机队伍已变化，已载入当前前四只；单机存档未改变');
 }
 
 function remoteMoveDraft(index, direction) {
   const next = index + direction;
   if (!REMOTE.pvpDraft || next < 0 || next >= REMOTE.pvpDraft.length) return;
   const tmp = REMOTE.pvpDraft[index]; REMOTE.pvpDraft[index] = REMOTE.pvpDraft[next]; REMOTE.pvpDraft[next] = tmp;
-  REMOTE.pvpDraftConfirmed = false; render();
+  REMOTE.pvpDraftConfirmed = false; remoteSaveDraftLocal(); render();
 }
 
 function remoteEditDraftMoves(index) {
@@ -526,7 +552,7 @@ function remoteSetDraftMove(index, slot, moveId) {
   const m = REMOTE.pvpDraft[index];
   if (!m || !MOVES[moveId]) return;
   if (m.moves.indexOf(moveId) !== -1 && m.moves[slot] !== moveId) { remoteMsg('同一只宝可梦不能重复携带同一招式', true); return; }
-  m.moves[slot] = moveId; REMOTE.pvpDraftConfirmed = false; closeModal(); render();
+  m.moves[slot] = moveId; REMOTE.pvpDraftConfirmed = false; remoteSaveDraftLocal(); closeModal(); render();
 }
 
 function remoteEditDraftHeld(index) {
@@ -537,7 +563,7 @@ function remoteEditDraftHeld(index) {
 
 function remoteSetDraftHeld(index, held) {
   if (REMOTE.pvpDraft[index]) REMOTE.pvpDraft[index].held = held || null;
-  REMOTE.pvpDraftConfirmed = false; closeModal(); render();
+  REMOTE.pvpDraftConfirmed = false; remoteSaveDraftLocal(); closeModal(); render();
 }
 
 async function remoteUploadTeam() {
@@ -548,6 +574,8 @@ async function remoteUploadTeam() {
   try {
     const d = await remoteApi('PUT', '/api/me/team', payload);
     REMOTE.pvpDraftConfirmed = true;
+    REMOTE.pvpDraftSourceFingerprint = remoteSourceFingerprint();
+    remoteSaveDraftLocal();
     render();
     remoteMsg('✅ PvP队伍已确认上传：' + d.mons.map(function (m) { return m.name + ' Lv' + m.level; }).join('、'));
   } catch (e) {
