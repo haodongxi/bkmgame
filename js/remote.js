@@ -142,6 +142,7 @@ function remoteOpenLobby() {
   STATE.screen = 'remote';
   render();
   if (REMOTE.token) remoteRecoverMatch();
+  if (REMOTE.token) remoteRestoreServerTeam();
 }
 
 function remoteEnterRoom(roomId, handshake) {
@@ -174,6 +175,31 @@ async function remoteRecoverMatch() {
     }
   } catch (e) {
     console.warn('[remote] 恢复对战状态失败', e);
+  }
+  return false;
+}
+
+async function remoteRestoreServerTeam() {
+  try {
+    const data = await remoteApi('GET', '/api/me');
+    if (REMOTE.pvpDraft || !data.team || !data.team.length) return false;
+    const used = {};
+    REMOTE.pvpDraft = data.team.slice(0, 4).map(function (m, i) {
+      let sourceIndex = i;
+      for (let j = 0; j < (STATE.party || []).length; j++) {
+        if (!used[j] && STATE.party[j].species === m.species) { sourceIndex = j; used[j] = true; break; }
+      }
+      const source = STATE.party[sourceIndex];
+      return { sourceUid: source ? source.uid : null, sourceIndex: sourceIndex, species: m.species,
+        level: m.level, nature: m.nature, ivs: m.ivs || {}, candyBonus: m.candyBonus || {},
+        moves: (m.moves || []).slice(0, 4), held: m.held || null };
+    });
+    REMOTE.pvpDraftConfirmed = true;
+    render();
+    remoteMsg('✅ 已恢复上次上传的 PvP 队伍');
+    return true;
+  } catch (e) {
+    console.warn('[remote] 恢复已上传队伍失败', e);
   }
   return false;
 }
@@ -464,8 +490,9 @@ function remoteMoveDraft(index, direction) {
 function remoteEditDraftMoves(index) {
   const m = REMOTE.pvpDraft && REMOTE.pvpDraft[index]; if (!m) return;
   const source = (STATE.party || []).find(function (x) { return m.sourceUid && x.uid === m.sourceUid; }) || STATE.party[m.sourceIndex];
-  const pvpLearnable = source && source.speciesData ? Object.keys(source.speciesData.learnset || {}).reduce(function (all, lv) {
-    if (+lv <= 100) all.push.apply(all, source.speciesData.learnset[lv] || []);
+  const speciesData = POKEDEX[m.species] || (source && source.speciesData);
+  const pvpLearnable = speciesData ? Object.keys(speciesData.learnset || {}).reduce(function (all, lv) {
+    if (+lv <= 100) all.push.apply(all, speciesData.learnset[lv] || []);
     return all;
   }, []) : [];
   const ids = (m.moves || []).concat(pvpLearnable).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
