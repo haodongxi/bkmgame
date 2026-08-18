@@ -32,7 +32,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
+  '  transferMon: transferMon, transferMons: transferMons, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -1923,6 +1923,23 @@ section('MVP11：经验继承');
   ok(s.party[0].held === '幸运蛋' && s.bag['吃剩的东西'] === 1, '新携带物保留，旧携带物退回背包');
   ok(s.money === 5000 - fee && s.expPool === 0, '按旧成员等级收费且不额外产出万能经验');
   ok(s.pendingLearn.length >= 0, '多级继承完成且学招队列保持可处理');
+}
+{
+  // 批量传送：锁定校验、总费用原子校验、携带物全部退回背包
+  T.newGame(4);
+  const s = T.getState();
+  const a = T.makeMon(16, 5); a.held = '电气球';
+  const b = T.makeMon(19, 10); b.held = '吃剩的东西'; b.locked = true;
+  const c = T.makeMon(25, 8); c.held = '吃剩的东西';
+  s.box = [a, b, c]; s.money = 100000;
+  const moneyBefore = s.money;
+  const heldBefore = { electric: s.bag['电气球'] || 0, leftovers: s.bag['吃剩的东西'] || 0 };
+  ok(!T.transferMons([0, 1]) && s.box.length === 3 && s.money === moneyBefore, '批量传送选中锁定成员时整体拦截');
+  ok(T.transferMons([0, 2]) && s.box.length === 1 && s.box[0] === b, '批量传送成功且保留锁定成员');
+  ok(s.bag['电气球'] === heldBefore.electric + 1 && s.bag['吃剩的东西'] === heldBefore.leftovers + 1, '批量传送携带物全部退回背包');
+  const d = T.makeMon(4, 30);
+  s.box = [d]; s.money = 0;
+  ok(!T.transferMons([0]) && s.box[0] === d && s.money === 0, '批量传送金币不足时无副作用');
 }
 {
   // 经验继承失败边界：任何失败都不扣钱、不移除宝可梦、不动携带物

@@ -349,6 +349,7 @@ async function main() {
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn'), function(b){ return b.textContent.indexOf('详情') !== -1; })"), '箱子弹窗有详情按钮');
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .detail-name') !== null && document.querySelector('#modal-root .modal-body').textContent.indexOf('个体') !== -1"), '箱内宝可梦可查看详情（含个体值）');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .btn'), function(b){ return b.textContent === '传送' && !b.disabled; })"), '箱内详情有可用传送按钮');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('更换招式') === -1"), '箱内详情不显示队伍专属的更换招式');
   ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '箱内详情有返回电脑箱按钮');
   await evaljs('closeModal();');
@@ -356,6 +357,9 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .box-lock-corner') !== null"), '箱子弹窗有锁角标');
   await evaljs("document.querySelector('#modal-root .box-lock-corner').click()");
   ok(await evaljs("STATE.box[0].locked === true && document.querySelectorAll('#modal-root .box-actions .btn[disabled]').length === 2 && Array.prototype.some.call(document.querySelectorAll('#modal-root .box-actions .btn[disabled]'), function(b){ return b.textContent.indexOf('继承经验') !== -1; })"), '上锁后传送与经验继承禁用（取回可点）');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('详情') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#modal-root .btn'), function(b){ return b.textContent.indexOf('传送') === 0 && b.disabled; })"), '上锁宝可梦详情页传送按钮禁用');
+  await evaljs('closeModal(); doMapAction(\'box\');');
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent === '取回';})[0]; if(b) b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('选择要存入箱子的宝可梦') !== -1"), '上锁宝可梦仍可取回（打开选择弹窗）');
   await evaljs('closeModal(); doMapAction(\'box\');');
@@ -371,7 +375,11 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-header').textContent.indexOf('电脑箱（1只）') !== -1"), '传送后箱子弹窗同步为 1 只');
   await evaljs('closeModal();');
   // 详情返回滚动位置保留（独立场景：箱子塞满 25 只保证可滚动）
-  await evaljs("STATE.box = []; for (var i = 0; i < 25; i++) STATE.box.push(makeMon(16, 5, { nature: '勤奋' })); doMapAction('box');");
+  await evaljs("STATE.box = []; for (var i = 0; i < 25; i++) STATE.box.push(makeMon(16, 5, { nature: '勤奋' })); STATE.box[0].locked = true; STATE.money = 999999; doMapAction('box');");
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-btns .btn')).filter(function(x){return x.textContent.indexOf('批量传送') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .box-batch-check').length === 25 && document.querySelectorAll('#modal-root .box-batch-check:disabled').length === 1"), '批量传送只允许选择未锁定成员');
+  await evaljs("document.querySelectorAll('#modal-root .box-batch-check')[1].checked = true; document.querySelectorAll('#modal-root .box-batch-check')[2].checked = true; document.querySelector('#modal-root .btn-primary').click();");
+  ok(await evaljs("STATE.box.length === 23 && STATE.box.some(function(m){return m.locked;})"), '批量传送成功且保留锁定成员');
   await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; document.querySelector('#modal-root .box-actions .btn').click();})()");
   ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '详情返回按钮（滚动场景）');
   await evaljs("document.querySelector('#modal-root .modal-btns .btn').click()");

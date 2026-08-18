@@ -897,6 +897,9 @@ function showBoxModal() {
   let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送；「继承经验」会让队伍旧成员退役</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
+  } else {
+    const canBatch = STATE.box.some(function (m) { return !m.locked; });
+    html += '<div class="modal-btns"><button class="btn btn-sm" onclick="showBatchTransferModal()"' + (canBatch ? '' : ' disabled') + '>批量传送</button></div>';
   }
   for (let i = 0; i < STATE.box.length; i++) {
     const m = STATE.box[i];
@@ -941,6 +944,37 @@ function showInheritExpModal(boxIdx) {
   openModal('继承经验 · ' + target.name, html);
 }
 
+// 批量传送选择：锁定宝可梦保留展示，但不可勾选。
+function showBatchTransferModal() {
+  rememberBoxScroll();
+  let html = '<div class="shop-hint">请选择要传送的宝可梦。锁定成员不可选择，确认后会一次性检查总费用。</div>';
+  for (let i = 0; i < STATE.box.length; i++) {
+    const m = STATE.box[i];
+    html += '<label class="box-batch-row"><input class="box-batch-check" type="checkbox" data-box-idx="' + i + '"' + (m.locked ? ' disabled' : '') + '> ' +
+      rarityTag(m) + m.name + ' Lv.' + m.level + (m.locked ? '（已锁定）' : ' · ' + boxTransferFee(m) + ' 金') + '</label>';
+  }
+  html += '<div class="modal-btns"><button class="btn btn-primary" onclick="doBatchTransfer()">确认传送</button>' +
+    '<button class="btn" onclick="closeModal();showBoxModal()">取消</button></div>';
+  openModal('批量传送', html);
+}
+
+function doBatchTransfer() {
+  const selected = Array.prototype.map.call(document.querySelectorAll('#modal-root .box-batch-check:checked'), function (input) {
+    return Number(input.getAttribute('data-box-idx'));
+  });
+  if (selected.length === 0) {
+    addLog('请至少选择一只未锁定的宝可梦。', 'info');
+    return;
+  }
+  const totalFee = selected.reduce(function (sum, idx) { return sum + boxTransferFee(STATE.box[idx]); }, 0);
+  if (!confirm('确定传送选中的 ' + selected.length + ' 只宝可梦吗？\n总费用 ' + totalFee + ' 金币，传送后不可恢复。携带物会退回背包。')) return;
+  if (!transferMons(selected)) return;
+  save();
+  closeModal();
+  renderMap();
+  showBoxModal();
+}
+
 function doInheritExp(boxIdx, partyIdx) {
   const target = STATE.box[boxIdx];
   const old = STATE.party[partyIdx];
@@ -964,11 +998,11 @@ function toggleBoxLock(boxIdx) {
 }
 
 // 传送（删除操作，需确认）：转化为万能经验 + 属性糖果
-function doTransfer(idx) {
+function doTransfer(idx, fromDetail) {
   const mon = STATE.box[idx];
   if (!mon) return;
   if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 ' + boxTransferFee(mon) + ' 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
-    rememberBoxScroll();
+    if (!fromDetail) rememberBoxScroll();
     transferMon(idx);
     save();
     // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
@@ -1027,10 +1061,10 @@ function showBoxMonDetail(boxIdx) {
   if (!mon) return;
   // 记录电脑箱列表滚动位置，返回时恢复（避免回到最顶部）
   rememberBoxScroll();
-  openMonDetailModal(mon, false);
+  openMonDetailModal(mon, false, boxIdx);
 }
 
-function openMonDetailModal(mon, inParty) {
+function openMonDetailModal(mon, inParty, boxIdx) {
   const d = mon.speciesData;
   const statNames = { hp: 'HP', atk: '攻击', def: '防御', spa: '特攻', spd: '特防', spe: '速度' };
   let statsHtml = '';
@@ -1062,6 +1096,8 @@ function openMonDetailModal(mon, inParty) {
   const learnable = inParty ? learnableMoves(mon) : [];
   const moveReplaceBtn = inParty && learnable.length > 0 ?
     '<button class="btn btn-sm" onclick="showMoveReplaceModal(' + STATE.party.indexOf(mon) + ')">🔄 更换招式（' + moveReplaceCost(mon) + '金/次）</button>' : '';
+  const boxTransferBtn = !inParty && Number.isInteger(boxIdx) ?
+    '<button class="btn btn-sm btn-danger" onclick="doTransfer(' + boxIdx + ',true)"' + (mon.locked ? ' disabled' : '') + '>传送' + (mon.locked ? '（已锁定）' : '') + '</button>' : '';
   const backBtn = inParty ? '' :
     '<div class="modal-btns"><button class="btn" onclick="showBoxModal()">← 返回电脑箱</button></div>';
   const html = '<div class="detail-head"><div class="detail-icon" id="detail-icon"></div>' +
@@ -1075,6 +1111,7 @@ function openMonDetailModal(mon, inParty) {
     '<div class="shop-hint">升级还需 ' + expToNext(mon) + ' 经验 · ' + evoHtml + '</div>' +
     expPoolBtn +
     moveReplaceBtn +
+    boxTransferBtn +
     '<div class="shop-hint">—— 能力值（括号内为个体值） ——</div>' + statsHtml +
     '<div class="shop-hint">—— 招式 ——</div>' + movesHtml + backBtn;
   openModal(mon.name, html);

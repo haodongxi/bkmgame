@@ -2255,6 +2255,36 @@ function transferMon(boxIdx) {
   addLog('万能经验 +' + exp + '，获得了【' + candy + '】×1！', 'good');
 }
 
+// 批量传送：先统一校验锁定状态与总费用，再按倒序删除，避免部分传送。
+function transferMons(boxIndices) {
+  if (!Array.isArray(boxIndices) || boxIndices.length === 0) {
+    addLog('请至少选择一只宝可梦。', 'info');
+    return false;
+  }
+  const unique = [];
+  boxIndices.forEach(function (idx) {
+    idx = Number(idx);
+    if (Number.isInteger(idx) && unique.indexOf(idx) === -1) unique.push(idx);
+  });
+  if (unique.some(function (idx) { return !STATE.box[idx]; })) {
+    addLog('选择的宝可梦不存在。', 'warn');
+    return false;
+  }
+  if (unique.some(function (idx) { return STATE.box[idx].locked; })) {
+    addLog('上锁的宝可梦无法批量传送。', 'warn');
+    return false;
+  }
+  const totalFee = unique.reduce(function (sum, idx) { return sum + boxTransferFee(STATE.box[idx]); }, 0);
+  if (STATE.money < totalFee) {
+    addLog('批量传送需要 ' + totalFee + ' 金币，你的钱不够！', 'warn');
+    return false;
+  }
+  unique.sort(function (a, b) { return b - a; });
+  unique.forEach(function (idx) { transferMon(idx); });
+  addLog('批量传送完成，共传送 ' + unique.length + ' 只宝可梦。', 'good');
+  return true;
+}
+
 // 经验继承：队伍旧成员退役，把培养进度交给电脑箱中的新成员，不复制经验
 function inheritExpFromBox(boxIdx, partyIdx) {
   const newMon = STATE.box[boxIdx];
@@ -3344,7 +3374,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
+    transferMon: transferMon, transferMons: transferMons, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
     HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,
     FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,
     addBond: addBond,

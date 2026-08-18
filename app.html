@@ -239,6 +239,9 @@
     .box-lock-corner.on { border-color: var(--gold); opacity: 1; }
     .box-actions { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
     .box-actions .btn { min-width: 46px; }
+    .box-batch-row { display: block; padding: 7px 8px; margin: 4px 0; border: 2px solid var(--border); background: var(--bg-panel); cursor: pointer; }
+    .box-batch-row input { width: 16px; height: 16px; vertical-align: middle; accent-color: var(--gold); }
+    .box-batch-row:has(input:disabled) { opacity: 0.55; cursor: not-allowed; }
     .lead-tag { font-size: 10px; color: var(--gold); border: 2px solid var(--gold); padding: 3px 7px; }
     .rarity { font-size: 9px; margin-right: 4px; white-space: nowrap; }
     .rarity.r-legendary { color: var(--gold); text-shadow: 0 0 6px rgba(248,200,79,0.55); }
