@@ -376,6 +376,8 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '详情返回按钮（滚动场景）');
   await evaljs("document.querySelector('#modal-root .modal-btns .btn').click()");
   ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m.scrollTop > m.scrollHeight - 600;})()"), '详情返回后保留电脑箱列表滚动位置');
+  await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; var bs=document.querySelectorAll('#modal-root .box-actions .btn-danger'); if(bs[20])bs[20].click();})()");
+  ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m && m.scrollTop > 0;})()"), '传送后保留电脑箱列表滚动位置');
   await evaljs('closeModal();');
   // 火箭队秘密仓库与精灵蛋
   await evaljs("STATE.caughtDex={4:true}; STATE.party=[makeMon(6,50,{nature:'固执'})]; STATE.bag={'走私的精灵蛋':1}; render(); doMapAction('bag');");

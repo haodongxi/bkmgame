@@ -888,6 +888,11 @@ function showPartyModal(mode, itemName) {
 
 let _boxRestoreScroll = null; // 电脑箱列表滚动位置（详情返回时恢复）
 
+function rememberBoxScroll() {
+  const sc = document.querySelector('#modal-root .modal');
+  if (sc) _boxRestoreScroll = sc.scrollTop;
+}
+
 function showBoxModal() {
   let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送；「继承经验」会让队伍旧成员退役</div>';
   if (STATE.box.length === 0) {
@@ -924,6 +929,7 @@ function showBoxModal() {
 function showInheritExpModal(boxIdx) {
   const target = STATE.box[boxIdx];
   if (!target || target.locked) return;
+  rememberBoxScroll();
   let html = '<div class="shop-hint">' + target.name + ' 将替换队伍成员；旧成员会被传送，携带物退回背包。费用按旧成员等级计算。</div>';
   for (let i = 0; i < STATE.party.length; i++) {
     const old = STATE.party[i];
@@ -951,6 +957,7 @@ function doInheritExp(boxIdx, partyIdx) {
 function toggleBoxLock(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) return;
+  rememberBoxScroll();
   mon.locked = !mon.locked;
   save();
   showBoxModal();
@@ -961,6 +968,7 @@ function doTransfer(idx) {
   const mon = STATE.box[idx];
   if (!mon) return;
   if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 ' + boxTransferFee(mon) + ' 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
+    rememberBoxScroll();
     transferMon(idx);
     save();
     // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
@@ -1018,8 +1026,7 @@ function showBoxMonDetail(boxIdx) {
   const mon = STATE.box[boxIdx];
   if (!mon) return;
   // 记录电脑箱列表滚动位置，返回时恢复（避免回到最顶部）
-  const sc = document.querySelector('#modal-root .modal');
-  if (sc) _boxRestoreScroll = sc.scrollTop;
+  rememberBoxScroll();
   openMonDetailModal(mon, false);
 }
 
