@@ -464,7 +464,11 @@ function remoteMoveDraft(index, direction) {
 function remoteEditDraftMoves(index) {
   const m = REMOTE.pvpDraft && REMOTE.pvpDraft[index]; if (!m) return;
   const source = (STATE.party || []).find(function (x) { return m.sourceUid && x.uid === m.sourceUid; }) || STATE.party[m.sourceIndex];
-  const ids = (m.moves || []).concat(source ? learnableMoves(source) : []).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
+  const pvpLearnable = source && source.speciesData ? Object.keys(source.speciesData.learnset || {}).reduce(function (all, lv) {
+    if (+lv <= 100) all.push.apply(all, source.speciesData.learnset[lv] || []);
+    return all;
+  }, []) : [];
+  const ids = (m.moves || []).concat(pvpLearnable).filter(function (id, i, a) { return MOVES[id] && a.indexOf(id) === i; });
   if (REMOTE.pvpMoveSlot >= Math.max(1, m.moves.length)) REMOTE.pvpMoveSlot = 0;
   const slots = [0, 1, 2, 3].map(function (slot) {
     const mv = MOVES[m.moves[slot]];
@@ -483,7 +487,7 @@ function remoteEditDraftMoves(index) {
   openModal('调整招式 · ' + (POKEDEX[m.species] ? POKEDEX[m.species].name : '?'),
     '<div class="remote-hint">选择上方栏位，再点击下方技能。PvP调整免费，只作用于临时队伍。</div>' +
     '<div class="bag-tabs">' + slots + '</div>' +
-    '<div class="shop-hint">—— 可用招式（当前等级及以下） ——</div>' + (candidates || '<div class="shop-hint">没有可用招式</div>'));
+    '<div class="shop-hint">—— PvP Lv100 可用招式（不受单机当前等级限制） ——</div>' + (candidates || '<div class="shop-hint">没有可用招式</div>'));
 }
 
 function remotePickMoveSlot(index, slot) {
