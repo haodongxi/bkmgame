@@ -1406,6 +1406,12 @@ function itemdexBodyHtml() {
         (item.sell ? ' · 可卖' + item.sell + '金' : '') +
         (owned > 0 ? ' · 持有×' + owned : '') + '</span></div>' +
         '<div class="shop-desc">' + itemDesc(item) + '</div>';
+      if (item.type === 'held' && item.onlySpecies && typeof heldAcquisitionPaths === 'function') {
+        const paths = heldAcquisitionPaths(names[i]);
+        html += '<div class="shop-desc item-acquisition"><span class="move-effect">获取途径：</span>' +
+          (paths.length ? paths.map(function (p) { return '· ' + p; }).join('<br>') : '暂无获取途径（数据缺失）') +
+          '</div>';
+      }
     }
   }
   return html;

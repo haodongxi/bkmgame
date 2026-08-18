@@ -126,6 +126,7 @@ async function main() {
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('月亮石') !== -1"), '道具图鉴列出月亮石');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('皮皮') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('皮可西') !== -1"), '月亮石说明写明具体进化对象（皮皮→皮可西）');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('电光石') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('雷伊布') !== -1"), '道具图鉴收录专属道具（电光石·绑定雷伊布）');
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('华蓝市垃圾桶寻宝') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('隐藏点：') !== -1"), '专属道具图鉴显示获取途径');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('TM点到为止') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('点到为止') !== -1"), '道具图鉴收录 TM点到为止');
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('重生药') !== -1 && document.querySelector('#modal-root .modal-body').textContent.indexOf('六项个体值') !== -1"), '道具图鉴收录重生药并显示用途说明');
   await evaljs('closeModal();');

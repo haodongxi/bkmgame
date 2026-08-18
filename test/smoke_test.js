@@ -16,7 +16,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,\n' +
   '  FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,\n' +
   '  typeEffectiveness: typeEffectiveness, calcDamage: calcDamage, makeMon: makeMon, rarityOf: rarityOf, stoneTargets: stoneTargets,\n' +
-  '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove, acquisitionPaths: acquisitionPaths,\n' +
+  '  learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove, acquisitionPaths: acquisitionPaths, heldAcquisitionPaths: heldAcquisitionPaths,\n' +
   '  grantExp: grantExp, tryLearnMove: tryLearnMove, resolvePendingLearn: resolvePendingLearn,\n' +
   '  tryStoneEvolution: tryStoneEvolution, expForLevel: expForLevel,\n' +
   '  newGame: newGame, gotoNode: gotoNode, explore: explore, save: save, load: load, hasSave: hasSave, resetGame: resetGame,\n' +

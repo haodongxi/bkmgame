@@ -2737,6 +2737,31 @@ const TOWER_HELD_POOL = ['电光石', '诅咒符', '力量腰带', '快龙之鳞
 const FISH_HELD_DROPS = ['秘传之眼', '涡轮喷口'];
 const ROCKET_HELD_DROP = '诅咒符'; // 火箭队胜利后 0.1% 掉落
 
+// 专属携带物获取途径：道具图鉴与测试共用，避免产出渠道和展示文案分叉
+function heldAcquisitionPaths(itemName) {
+  const paths = [];
+  const spots = HIDDEN_HELD_SPOTS.filter(function (s) { return s.item === itemName; });
+  spots.forEach(function (s) {
+    const node = MAP_NODES[s.nodeId];
+    paths.push('隐藏点：' + (node ? node.name : s.nodeId) + '（0.1%，每处一次）');
+  });
+  if (itemName === '电气球') {
+    paths.push('华蓝市垃圾桶寻宝（25%，每档一次）');
+  }
+  const merchant = HELD_MERCHANT.find(function (m) { return m.name === itemName; });
+  if (merchant) paths.push('神秘商人稀有货（0.1%，售价 ' + merchant.price + ' 金）');
+  if (TOWER_HELD_POOL.indexOf(itemName) !== -1) {
+    paths.push('无尽之塔每 5 层奖励（0.1%）');
+  }
+  if (FISH_HELD_DROPS.indexOf(itemName) !== -1) {
+    paths.push('水域钓鱼（0.1%）');
+  }
+  if (ROCKET_HELD_DROP === itemName) {
+    paths.push('火箭队抢劫/解救战胜利（0.1%）');
+  }
+  return paths;
+}
+
 // 专属道具隐藏点：当前节点未领取的每处独立 0.1% 概率（城镇闲逛/野外探索均可触发，翻出的永久记录）
 function tryHiddenHeld() {
   const spotsHere = HIDDEN_HELD_SPOTS.filter(function (s) {
@@ -3291,6 +3316,7 @@ if (typeof module !== 'undefined' && module.exports) {
     rarityOf: rarityOf,
     stoneTargets: stoneTargets,
     acquisitionPaths: acquisitionPaths,
+    heldAcquisitionPaths: heldAcquisitionPaths,
     learnableMoves: learnableMoves, moveReplaceCost: moveReplaceCost, replaceMove: replaceMove,
     expForLevel: expForLevel, getBattleWeather: getBattleWeather, endBattle: endBattle,
     rollWeather: rollWeather, refreshWeather: refreshWeather,
