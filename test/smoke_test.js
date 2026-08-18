@@ -32,7 +32,7 @@ src += '\n;\nglobalThis.__T = {\n' +
   '  exchangeTitle: exchangeTitle, equippedTitleBonus: equippedTitleBonus, titleBonusMap: titleBonusMap, effStat: effStat,\n' +
   '  startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,\n' +
   '  setLeadMon: setLeadMon, boxSwap: boxSwap, startSSAnne: startSSAnne, resolveMagikarpOffer: resolveMagikarpOffer,\n' +
-  '  transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
+  '  transferMon: transferMon, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,\n' +
   '  addBond: addBond,\n' +
   '  useRepel: useRepel, useEscapeRope: useEscapeRope, startMerchantOffer: startMerchantOffer, resolveMerchantOffer: resolveMerchantOffer,\n' +
   '  startBanditEvent: startBanditEvent, resolveBandit: resolveBandit,\n' +
@@ -1899,7 +1899,50 @@ section('MVP14：全图鉴投放');
   ok(T.acquisitionPaths(37).length > 0 && T.acquisitionPaths(1).length > 0, '已见宝可梦都有可展示途径');
 }
 
-// ---------- 14. MVP11.1：喂养系统 ----------
+// ---------- 14. MVP11：经验继承 ----------
+section('MVP11：经验继承');
+{
+  T.newGame(4);
+  const s = T.getState();
+  const oldMon = T.makeMon(25, 16, { nature: '勤奋' });
+  oldMon.exp += Math.floor((T.expForLevel(oldMon.speciesData.growth, 17) - oldMon.exp) / 2);
+  oldMon.held = '吃剩的东西';
+  oldMon.bond = 80;
+  const newMon = T.makeMon(4, 5, { nature: '胆小' });
+  newMon.held = '幸运蛋';
+  const ivBefore = newMon.ivs.hp;
+  s.party = [oldMon];
+  s.box = [newMon];
+  s.money = 5000;
+  const fee = T.boxTransferFee(oldMon);
+  ok(T.inheritExpFromBox(0, 0), '经验继承成功');
+  ok(s.party[0] === newMon && s.box.length === 0, '新宝可梦替换队伍，旧宝可梦退役');
+  ok(s.party[0].level === 16, '新宝可梦继承旧宝可梦等级');
+  ok(s.party[0].species === 5, '继承过程中按新宝可梦自身进化链进化');
+  ok(s.party[0].ivs.hp === ivBefore && s.party[0].nature === '胆小', '个体值与性格保持新宝可梦自身数据');
+  ok(s.party[0].held === '幸运蛋' && s.bag['吃剩的东西'] === 1, '新携带物保留，旧携带物退回背包');
+  ok(s.money === 5000 - fee && s.expPool === 0, '按旧成员等级收费且不额外产出万能经验');
+  ok(s.pendingLearn.length >= 0, '多级继承完成且学招队列保持可处理');
+}
+{
+  // 经验继承失败边界：任何失败都不扣钱、不移除宝可梦、不动携带物
+  T.newGame(4);
+  const s = T.getState();
+  const oldMon = T.makeMon(25, 20);
+  oldMon.held = '吃剩的东西';
+  const target = T.makeMon(7, 5);
+  target.held = '幸运蛋';
+  s.party = [oldMon]; s.box = [target]; s.money = 100;
+  ok(!T.inheritExpFromBox(0, 0) && s.party[0] === oldMon && s.box[0] === target && s.money === 100, '金币不足时经验继承无副作用');
+  s.money = 5000;
+  target.locked = true;
+  ok(!T.inheritExpFromBox(0, 0) && s.party[0] === oldMon && s.box[0] === target && s.bag['吃剩的东西'] !== 1, '目标上锁时经验继承无副作用');
+  target.locked = false;
+  target.level = 25;
+  ok(!T.inheritExpFromBox(0, 0) && s.party[0] === oldMon && s.box[0] === target && s.money === 5000, '目标等级不低于旧成员时不继承');
+}
+
+// ---------- 15. MVP11.1：喂养系统 ----------
 section('MVP11.1：喂养系统');
 {
   T.newGame(4);

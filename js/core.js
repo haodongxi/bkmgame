@@ -304,11 +304,14 @@ function rerollMonIvs(mon) {
 
 // ---------------- 等级 / 学习 / 进化 ----------------
 
-function grantExp(mon, amount, log, kinds) {
+function grantExp(mon, amount, log, kinds, opts) {
+  opts = opts || {};
   let mult = 1;
-  if (mon.tradeBonus) mult *= 1.5;
-  if (mon.held === '幸运蛋') mult *= 1.5;
-  if ((mon.bond || 0) >= 30) mult *= 1.1; // 羁绊阶段二：心意相通经验加成
+  if (!opts.raw) {
+    if (mon.tradeBonus) mult *= 1.5;
+    if (mon.held === '幸运蛋') mult *= 1.5;
+    if ((mon.bond || 0) >= 30) mult *= 1.1; // 羁绊阶段二：心意相通经验加成
+  }
   let remain = Math.floor(amount * mult);
   const L = function (text) {
     log.push(text);
@@ -2252,6 +2255,41 @@ function transferMon(boxIdx) {
   addLog('万能经验 +' + exp + '，获得了【' + candy + '】×1！', 'good');
 }
 
+// 经验继承：队伍旧成员退役，把培养进度交给电脑箱中的新成员，不复制经验
+function inheritExpFromBox(boxIdx, partyIdx) {
+  const newMon = STATE.box[boxIdx];
+  const oldMon = STATE.party[partyIdx];
+  if (!newMon || !oldMon) { addLog('宝可梦不存在。', 'info'); return false; }
+  if (newMon.locked) { addLog(newMon.name + ' 已上锁，无法继承经验。', 'warn'); return false; }
+  if (newMon.level >= oldMon.level) { addLog(newMon.name + ' 的等级不低于 ' + oldMon.name + '，无需继承经验。', 'info'); return false; }
+  const fee = boxTransferFee(oldMon);
+  if (STATE.money < fee) { addLog('经验继承需要 ' + fee + ' 金币，你的钱不够！', 'warn'); return false; }
+
+  // 按旧成员当前等级内的进度换算到新成员成长曲线，避免直接复制累计经验数值。
+  const oldBase = expForLevel(oldMon.speciesData.growth, oldMon.level);
+  const oldProgress = Math.max(0, oldMon.exp - oldBase);
+  const targetBase = expForLevel(newMon.speciesData.growth, oldMon.level);
+  const targetNext = oldMon.level < 100 ? expForLevel(newMon.speciesData.growth, oldMon.level + 1) : targetBase;
+  const targetProgress = Math.min(oldProgress, Math.max(0, targetNext - targetBase - 1));
+  const amount = Math.max(0, targetBase + targetProgress - newMon.exp);
+  const log = [];
+  const kinds = [];
+  STATE.money -= fee;
+  if (amount > 0) grantExp(newMon, amount, log, kinds, { raw: true });
+  log.forEach(function (t, i) { addLog(t, kinds[i]); });
+
+  // 旧成员退役，携带物安全回到背包；新成员自己的携带物保持不变。
+  if (oldMon.held) {
+    addItem(oldMon.held, 1);
+    addLog('你把 ' + oldMon.name + ' 身上的【' + oldMon.held + '】放回了背包。', 'good');
+  }
+  STATE.party[partyIdx] = newMon;
+  STATE.box.splice(boxIdx, 1);
+  addLog('你花了 ' + fee + ' 金，让 ' + newMon.name + ' 继承了 ' + oldMon.name + ' 的培养经验。', 'good');
+  addLog(oldMon.name + ' 被传送给了大木博士，安心地开始新的生活……', 'info');
+  return true;
+}
+
 // 从万能经验池分配经验给队伍宝可梦：mode = 'next'（升 1 级）/ 'all'（全部分配）
 function allocateExp(partyIdx, mode) {
   const mon = STATE.party[partyIdx];
@@ -3306,7 +3344,7 @@ if (typeof module !== 'undefined' && module.exports) {
     startRivalBattle: startRivalBattle, getRivalStarter: getRivalStarter,
     setLeadMon: setLeadMon,
     boxSwap: boxSwap,
-    transferMon: transferMon, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
+    transferMon: transferMon, inheritExpFromBox: inheritExpFromBox, boxTransferFee: boxTransferFee, tryHiddenHeld: tryHiddenHeld, allocateExp: allocateExp, candyForSpecies: candyForSpecies, rerollMonIvs: rerollMonIvs,
     HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,
     FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,
     addBond: addBond,

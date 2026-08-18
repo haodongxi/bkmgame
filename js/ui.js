@@ -889,7 +889,7 @@ function showPartyModal(mode, itemName) {
 let _boxRestoreScroll = null; // 电脑箱列表滚动位置（详情返回时恢复）
 
 function showBoxModal() {
-  let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送</div>';
+  let html = '<div class="shop-hint">💡 传送费用 = 等级²（最低 1000 金）· 锁定的宝可梦不可传送；「继承经验」会让队伍旧成员退役</div>';
   if (STATE.box.length === 0) {
     html = '<div class="shop-hint">电脑箱空空如也</div>';
   }
@@ -905,6 +905,7 @@ function showBoxModal() {
       '<div class="box-actions">' +
       '<button class="btn btn-xs" onclick="showBoxMonDetail(' + i + ')">详情</button>' +
       '<button class="btn btn-xs" onclick="doBoxSwap(' + i + ')">取回</button>' +
+      '<button class="btn btn-xs" onclick="showInheritExpModal(' + i + ')"' + (m.locked || STATE.party.length === 0 ? ' disabled' : '') + '>继承经验</button>' +
       '<button class="btn btn-xs btn-danger" onclick="doTransfer(' + i + ')"' + (m.locked ? ' disabled' : '') + '>传送</button></div></div>';
   }
   openModal('电脑箱（' + STATE.box.length + '只）', html);
@@ -917,6 +918,33 @@ function showBoxModal() {
     if (_boxRestoreScroll > 0) sc.scrollTop = _boxRestoreScroll;
     _boxRestoreScroll = null;
   }
+}
+
+// 选择要退役、把培养经验交给电脑箱宝可梦的队伍成员
+function showInheritExpModal(boxIdx) {
+  const target = STATE.box[boxIdx];
+  if (!target || target.locked) return;
+  let html = '<div class="shop-hint">' + target.name + ' 将替换队伍成员；旧成员会被传送，携带物退回背包。费用按旧成员等级计算。</div>';
+  for (let i = 0; i < STATE.party.length; i++) {
+    const old = STATE.party[i];
+    const disabled = target.level >= old.level;
+    html += '<button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="doInheritExp(' + boxIdx + ',' + i + ')' + (disabled ? ' disabled' : '') + '>' +
+      old.name + ' Lv.' + old.level + ' → ' + target.name + ' Lv.' + target.level + (disabled ? '（等级不低于旧成员）' : ' · 费用 ' + boxTransferFee(old) + ' 金') + '</button>';
+  }
+  html += '<div class="modal-btns"><button class="btn" onclick="closeModal();showBoxModal()">取消</button></div>';
+  openModal('继承经验 · ' + target.name, html);
+}
+
+function doInheritExp(boxIdx, partyIdx) {
+  const target = STATE.box[boxIdx];
+  const old = STATE.party[partyIdx];
+  if (!target || !old) return;
+  if (!confirm('确定让 ' + target.name + ' 继承 ' + old.name + ' 的培养经验吗？\n' + old.name + ' 会被传送且无法恢复；携带物会退回背包。')) return;
+  if (!inheritExpFromBox(boxIdx, partyIdx)) return;
+  save();
+  closeModal();
+  renderMap();
+  showBoxModal();
 }
 
 // 电脑箱锁定切换：上锁后不可取出/传送（默认不上锁）
