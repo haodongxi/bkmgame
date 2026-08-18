@@ -13,6 +13,7 @@ const REMOTE = {
   // 登录态按窗口隔离（sessionStorage）：本机双开两个窗口可以各登各的账号
   token: sessionStorage.getItem('bkm_remote_token') || null,
   name: sessionStorage.getItem('bkm_remote_name') || '',
+  guest: sessionStorage.getItem('bkm_remote_guest') === '1',
   roomId: null,
   side: null,
   seen: 0,
@@ -49,6 +50,8 @@ function remoteSaveCfg() {
   else sessionStorage.removeItem('bkm_remote_token');
   if (REMOTE.name) sessionStorage.setItem('bkm_remote_name', REMOTE.name);
   else sessionStorage.removeItem('bkm_remote_name');
+  if (REMOTE.guest) sessionStorage.setItem('bkm_remote_guest', '1');
+  else sessionStorage.removeItem('bkm_remote_guest');
 }
 
 async function remoteApi(method, path, body, timeoutMs) {
@@ -77,6 +80,7 @@ async function remoteApi(method, path, body, timeoutMs) {
     if (resp.status === 401) {
       REMOTE.token = null;
       REMOTE.name = '';
+      REMOTE.guest = false;
       remoteSaveCfg();
       msg = '登录已过期，请先在联机对战重新登录';
     }
@@ -294,6 +298,7 @@ function remoteRenderLobby() {
   const el = $id('remote-lobby');
   const partyCount = (STATE.party || []).length;
   const logged = !!REMOTE.token;
+  const guest = logged && REMOTE.guest;
   const draft = REMOTE.pvpDraft || [];
   const draftHtml = logged ? remoteDraftHtml(draft) : '';
   el.innerHTML =
@@ -303,15 +308,14 @@ function remoteRenderLobby() {
     '<input id="rb-server" type="text" value="' + esc(REMOTE.server) + '" oninput="REMOTE.server=this.value.trim();remoteSaveCfg()">' +
     '<button class="btn btn-sm" onclick="remoteTest()">测试</button></div>' +
     (logged ?
-      '<div class="remote-row"><span class="remote-label">玩家</span><span>' + esc(REMOTE.name) + '（已登录）</span>' +
+      '<div class="remote-row"><span class="remote-label">玩家</span><span>' + esc(REMOTE.name) + (guest ? '（PvP游客）' : '（已登录）') + '</span>' +
       '<button class="btn btn-sm" onclick="remoteLogout()">退出</button></div>' :
-      '<div class="remote-row"><span class="remote-label">昵称</span><input id="rb-name" type="text" maxlength="12" placeholder="2-12 字符"></div>' +
-      '<div class="remote-row"><span class="remote-label">密码</span><input id="rb-pass" type="password" placeholder="至少 4 位">' +
-      '<button class="btn btn-sm" onclick="remoteLogin()">登录</button>' +
-      '<button class="btn btn-sm" onclick="remoteRegister()">注册</button></div>') +
+      '<div class="remote-row"><span class="remote-label">昵称</span><input id="rb-name" type="text" maxlength="12" placeholder="2-12 字符" value="' + esc(REMOTE.name || '') + '">' +
+      '<button class="btn btn-primary" onclick="remoteGuestEnter()">进入 PvP 广场</button></div>' +
+      '<div class="remote-hint">PvP 无需注册和密码，昵称就是你的对战 UID。</div>') +
     (logged ? '<div class="remote-actions"><button class="btn" onclick="remoteLoadDraftFromSingle()">🧳 读取单机队伍</button>' +
-    '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button>' +
-    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button></div>' : '') +
+    (guest ? '' : '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button>' +
+    '<button class="btn" onclick="remoteDownloadCloudSave()">☁️ 下载云存档</button>') + '</div>' : '') +
     draftHtml +
     '<div class="remote-row" style="margin-top:8px"><span class="remote-label">房间码</span>' +
     '<input id="rb-code" type="text" placeholder="6 位房间码">' +
@@ -415,6 +419,7 @@ async function remoteLogin() {
     const d = await remoteApi('POST', '/api/login', { name: c.name, password: c.password });
     REMOTE.token = d.token;
     REMOTE.name = d.player.name;
+    REMOTE.guest = !!d.player.guest;
     remoteSaveCfg();
     remoteMsg('✅ 登录成功：' + REMOTE.name + '（评分 ' + d.player.rating + '，战绩 ' + d.player.wins + '胜 ' + d.player.losses + '负）');
     render();
@@ -430,6 +435,7 @@ async function remoteRegister() {
     const d = await remoteApi('POST', '/api/register', { name: c.name, password: c.password });
     REMOTE.token = d.token;
     REMOTE.name = d.player.name;
+    REMOTE.guest = !!d.player.guest;
     remoteSaveCfg();
     remoteMsg('✅ 注册成功：' + REMOTE.name + '，已自动登录');
     render();
@@ -441,8 +447,25 @@ async function remoteRegister() {
 function remoteLogout() {
   REMOTE.token = null;
   REMOTE.name = '';
+  REMOTE.guest = false;
   remoteSaveCfg();
   render();
+}
+
+async function remoteGuestEnter() {
+  const name = (($id('rb-name') || {}).value || '').trim();
+  if (!name) { remoteMsg('请输入昵称', true); return; }
+  try {
+    const d = await remoteApi('POST', '/api/guest', { name: name });
+    REMOTE.token = d.token;
+    REMOTE.name = d.player.name;
+    REMOTE.guest = true;
+    remoteSaveCfg();
+    render();
+    remoteMsg('✅ 已进入 PvP 广场：' + REMOTE.name);
+  } catch (e) {
+    remoteMsg('进入 PvP 广场失败：' + e.message, true);
+  }
 }
 
 // ---------------- 队伍导出 ----------------
