@@ -928,7 +928,7 @@ function showInheritExpModal(boxIdx) {
   for (let i = 0; i < STATE.party.length; i++) {
     const old = STATE.party[i];
     const disabled = target.level >= old.level;
-    html += '<button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="doInheritExp(' + boxIdx + ',' + i + ')' + (disabled ? ' disabled' : '') + '>' +
+    html += '<button class="btn btn-sm" style="width:100%;margin-top:6px" onclick="doInheritExp(' + boxIdx + ',' + i + ')"' + (disabled ? ' disabled' : '') + '>' +
       old.name + ' Lv.' + old.level + ' → ' + target.name + ' Lv.' + target.level + (disabled ? '（等级不低于旧成员）' : ' · 费用 ' + boxTransferFee(old) + ' 金') + '</button>';
   }
   html += '<div class="modal-btns"><button class="btn" onclick="closeModal();showBoxModal()">取消</button></div>';

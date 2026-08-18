@@ -361,6 +361,9 @@ async function main() {
   await evaljs('closeModal(); doMapAction(\'box\');');
   await evaljs("document.querySelector('#modal-root .box-lock-corner').click()");
   ok(await evaljs("STATE.box[0].locked === false && document.querySelectorAll('#modal-root .box-actions .btn[disabled]').length === 0"), '解锁后按钮恢复可点');
+  await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('继承经验') !== -1;})[0]; if(b)b.click();})()");
+  ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('→') !== -1 && document.querySelectorAll('#modal-root .modal-body button').length >= 2"), '经验继承弹窗显示队伍选择项');
+  await evaljs('closeModal(); doMapAction(\'box\');');
   await evaljs("document.querySelector('#modal-root .btn-danger').click()");
   ok(await evaljs("STATE.box.length === 1 && STATE.expPool > 0"), '传送后箱子剩 1 只且获得万能经验');
   ok(await evaljs("STATE.bag['电气球'] === 1"), '传送后携带物退回背包');
