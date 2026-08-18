@@ -283,7 +283,7 @@ function remoteRenderLobby() {
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：先培养好单机队伍，再点击“上传当前队伍”。</div>' +
-    '<div class="remote-hint">PvP规则：对战时队伍统一为 Lv100，HP×5；单机存档不会被修改。</div>' +
+    '<div class="remote-hint">PvP规则：对战时队伍统一为 Lv100，HP×2；单机存档不会被修改。</div>' +
     '<div class="remote-actions"><button class="btn" onclick="remoteClose()">← 返回</button></div>' +
     '</div>';
 }
@@ -302,7 +302,7 @@ function remoteDraftHtml(draft) {
       '<button class="btn btn-sm" onclick="remoteEditDraftHeld(' + i + ')">携带物</button></span></div>';
   }).join('');
   return '<div class="remote-prep pixel-frame"><div class="sec-title">—— PvP 准备广场 ——</div>' +
-    '<div class="remote-hint">调整完成后确认上传；对战属性按 Lv100 计算，HP×5。对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
+    '<div class="remote-hint">调整完成后确认上传；对战属性按 Lv100 计算，HP×2。对战只使用这份临时队伍，不写入单机存档。</div>' + rows +
     '<div class="remote-actions"><button class="btn btn-primary" onclick="remoteUploadTeam()">' + (REMOTE.pvpDraftConfirmed ? '✅ 已确认上传（可重新上传）' : '📤 确认上传 PvP 队伍') + '</button>' +
     '<button class="btn" onclick="remoteLoadDraftFromSingle()">重新读取单机队伍</button></div></div>';
 }
@@ -331,7 +331,7 @@ function remoteShowDraftDetail(index) {
     const titleHtml = titleBonus[k] ? ' <small class="move-effect">（称号 +' + titleBonus[k] + '）</small>' : '';
     statsHtml += '<div class="detail-row"><span>' + statNames[k] + '</span><span>' + stats[k] +
       '（个体 ' + (ivs[k] === undefined ? '?' : ivs[k]) + '）' + candyHtml + titleHtml + (candyMax ? ' <span class="candy-max">[MAX]</span>' : '') +
-      (k === 'hp' ? ' <small class="move-effect">PvP HP×5</small>' : '') + '</span></div>';
+      (k === 'hp' ? ' <small class="move-effect">PvP HP×2</small>' : '') + '</span></div>';
   });
   let movesHtml = '';
   (m.moves || []).forEach(function (id) {
