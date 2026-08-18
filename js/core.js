@@ -457,7 +457,10 @@ function acquisitionPaths(id) {
   // 6) 鲤鱼王大叔
   if (n === 129) out.push('华蓝市鲤鱼王大叔（500金）');
   // 7) 御三家
-  if (n === 1 || n === 4 || n === 7) out.push('初始选择');
+  if (n === 1 || n === 4 || n === 7) {
+    out.push('初始选择');
+    out.push('彩虹市火箭队秘密仓库：走私的精灵蛋孵化未选御三家');
+  }
   // 8) 进化来源
   Object.keys(POKEDEX).forEach(function (sid) {
     const d = POKEDEX[sid];
