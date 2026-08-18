@@ -811,7 +811,9 @@ function battleHpSnapshot() {
   const f = b.foe.mons[b.foe.active];
   return {
     player: p ? p.m.hp : 0, playerMax: p ? p.m.stats.hp : 1,
-    foe: f ? f.m.hp : 0, foeMax: f ? f.m.stats.hp : 1
+    foe: f ? f.m.hp : 0, foeMax: f ? f.m.stats.hp : 1,
+    playerUid: p && p.m ? p.m.uid : 0,
+    foeUid: f && f.m ? f.m.uid : 0
   };
 }
 

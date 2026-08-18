@@ -784,11 +784,44 @@ function remoteRenderWaiting(view) {
 function remoteCard(side, data) {
   const d = POKEDEX[data.species] || {};
   const fake = { hp: data.hp, stats: { hp: data.max }, species: data.species };
-  return '<div class="battle-card ' + side + ' pixel-frame">' +
+  return '<div class="battle-card ' + side + ' pixel-frame" data-battle-uid="' + esc(data.uid || '') + '" data-battle-status="' + esc(data.status || '') + '">' +
     '<div class="battle-icon" id="rb-icon-' + side + '"></div>' +
     '<div class="battle-info"><div class="battle-name">' + rarityTag(fake) + esc(data.name) + ' ' + statusIcon(data.status) + '</div>' +
     '<div class="battle-lv">Lv.' + data.level + ' · ' + (d.types || []).join('/') + (data.held ? ' · &lt;' + esc(data.held) + '&gt;' : '') + '</div>' +
     hpBar(fake) + '</div></div>';
+}
+
+// PvP 轮询每 900ms 刷新一次：同一只宝可梦只更新 HP，UID 变化才替换整张卡片。
+// 这样伤害/回复走 CSS 缓动，死亡换人时不会把旧血量套到新宝可梦。
+function remoteUpdateCard(side, data) {
+  const host = $id('rb-' + side);
+  if (!host || !data) return;
+  const old = host.querySelector('.battle-card');
+  const uid = String(data.uid || '');
+  if (!old || old.getAttribute('data-battle-uid') !== uid) {
+    host.innerHTML = remoteCard(side, data);
+    const icon = $id('rb-icon-' + side);
+    if (icon) icon.appendChild(monIcon(data.species, 48, false));
+    return;
+  }
+  if (old.getAttribute('data-battle-status') !== String(data.status || '')) {
+    const d = POKEDEX[data.species] || {};
+    const fake = { hp: data.hp, stats: { hp: data.max }, species: data.species };
+    const name = old.querySelector('.battle-name');
+    if (name) name.innerHTML = rarityTag(fake) + esc(data.name) + ' ' + statusIcon(data.status);
+    old.setAttribute('data-battle-status', data.status || '');
+  }
+  const fill = host.querySelector('.hpbar-fill');
+  const text = host.querySelector('.hp-text');
+  const max = Math.max(1, data.max || 1);
+  const hp = Math.max(0, data.hp || 0);
+  const pct = Math.max(0, Math.round(hp / max * 100));
+  if (fill) {
+    fill.style.transitionDuration = '700ms';
+    fill.style.width = pct + '%';
+    fill.style.background = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
+  }
+  if (text) text.textContent = 'HP ' + hp + '/' + max;
 }
 
 function remoteRenderBattle(view) {
@@ -802,12 +835,8 @@ function remoteRenderBattle(view) {
   $id('rb-status').textContent = '天气 ' + weather + ' · ' +
     (names[foe] ? names[foe].name : '对手') + '（' + foe + '） vs ' +
     (names[my] ? names[my].name : '你') + '（' + my + '）';
-  $id('rb-foe').innerHTML = remoteCard('foe', b.actives[foe]);
-  $id('rb-player').innerHTML = remoteCard('player', b.actives[my]);
-  const fi = $id('rb-icon-foe');
-  if (fi) fi.appendChild(monIcon(b.actives[foe].species, 48, false));
-  const pi = $id('rb-icon-player');
-  if (pi) pi.appendChild(monIcon(b.actives[my].species, 48, false));
+  remoteUpdateCard('foe', b.actives[foe]);
+  remoteUpdateCard('player', b.actives[my]);
 
   // 事件日志（增量追加）
   const log = $id('rb-log');

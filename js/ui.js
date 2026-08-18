@@ -20,19 +20,37 @@ function logLineHtml(text, i) {
   return '<div class="log-line' + (kind ? ' log-' + kind : '') + '">' + text + '</div>';
 }
 
-// 按 HP 快照更新一侧血条（配合 CSS 过渡产生平滑动画，不做整页重绘）
-function applyHpSnapshot(snap) {
+// 只刷新战斗卡片本身，切换/倒下时避免把旧宝可梦的血量套到新上场的宝可梦身上
+function refreshBattleCard(side) {
+  const b = STATE.battle;
+  if (!b) return;
+  const group = side === 'foe' ? b.foe : b.player;
+  const bm = group.mons[group.active];
+  const host = $id('battle-' + side);
+  if (!bm || !host) return;
+  host.innerHTML = battleCard(bm, side, false);
+  const icon = $id('battle-icon-' + side);
+  if (icon) icon.appendChild(monIcon(bm.m.species, 48, bm.m.shiny));
+}
+
+// 按 HP 快照更新一侧血条。快照带 uid，确保死亡/换人时不会串血条。
+function applyHpSnapshot(snap, duration) {
   if (!snap) return;
   const setBar = function (el, hp, max) {
     if (!el) return;
+    const card = el.querySelector('.battle-card');
+    const expectedUid = el.id === 'battle-foe' ? snap.foeUid : snap.playerUid;
+    if (expectedUid && card && card.getAttribute('data-battle-uid') !== String(expectedUid)) return false;
     const pct = Math.max(0, Math.round(hp / max * 100));
     const fill = el.querySelector('.hpbar-fill');
     const text = el.querySelector('.hp-text');
     if (fill) {
+      fill.style.transitionDuration = Math.max(180, duration || 360) + 'ms';
       fill.style.width = pct + '%';
       fill.style.background = pct > 50 ? 'var(--hp)' : (pct > 20 ? 'var(--gold)' : 'var(--red)');
     }
     if (text) text.textContent = 'HP ' + Math.max(0, hp) + '/' + max;
+    return true;
   };
   setBar($id('battle-foe'), snap.foe, snap.foeMax);
   setBar($id('battle-player'), snap.player, snap.playerMax);
@@ -56,7 +74,9 @@ function playBattleResult(from, battleRef) {
     if (hint) hint.textContent = '……结算中……';
   }
   const n = total - from;
-  const interval = n > 12 ? 200 : (n > 6 ? 300 : 380);
+  // 血条过渡略短于日志节拍，保证连续伤害/天气伤害不会一格一格跳动。
+  const interval = n > 12 ? 260 : (n > 6 ? 360 : 460);
+  const hpDuration = Math.max(220, Math.floor(interval * 0.82));
   let i = 0;
   (function tick() {
     if (i >= n) {
@@ -68,7 +88,13 @@ function playBattleResult(from, battleRef) {
     const line = STATE.log[from + i];
     const kind = STATE.logKinds[from + i];
     const snap = hpSteps[from + i - hpOffset];
-    if (snap) applyHpSnapshot(snap);
+    if (snap) {
+      const foeCard = document.querySelector('#battle-foe .battle-card');
+      const playerCard = document.querySelector('#battle-player .battle-card');
+      if (snap.foeUid && foeCard && foeCard.getAttribute('data-battle-uid') !== String(snap.foeUid)) refreshBattleCard('foe');
+      if (snap.playerUid && playerCard && playerCard.getAttribute('data-battle-uid') !== String(snap.playerUid)) refreshBattleCard('player');
+      applyHpSnapshot(snap, hpDuration);
+    }
     const div = document.createElement('div');
     div.className = 'log-line' + (kind ? ' log-' + kind : '');
     div.textContent = line;
@@ -1815,7 +1841,7 @@ function renderBattle() {
 
 function battleCard(bm, side, hit) {
   const m = bm.m;
-  return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame">' +
+  return '<div class="battle-card ' + side + (hit ? ' hit' : '') + ' pixel-frame" data-battle-uid="' + (m.uid || '') + '">' +
     '<div class="battle-icon" id="battle-icon-' + side + '"></div>' +
     '<div class="battle-info"><div class="battle-head"><div class="battle-name">' + rarityTag(m) + m.name + (m.shiny ? ' ✨' : '') + '</div>' + battleStatusBadge(m.status) + '</div>' +
     '<div class="battle-lv">Lv.' + (m.displayLevel || m.level) + ' · ' + m.speciesData.types.join('/') + '</div>' + hpBar(m) +
