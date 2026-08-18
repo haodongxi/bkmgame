@@ -16,7 +16,7 @@ const REMOTE = {
   roomId: null,
   side: null,
   seen: 0,
-  mode: 'room',        // room | queue
+  mode: 'room',        // room | queue | handshake
   lastView: null,
   timer: null,
   busy: false,
@@ -26,7 +26,10 @@ const REMOTE = {
   pvpDraft: null,
   pvpDraftConfirmed: false,
   pvpMoveSlot: 0,
-  pendingCloudAction: null
+  pendingCloudAction: null,
+  handshakeRequestId: '',
+  handshakeSentRoomId: '',
+  matchingFailures: 0
 };
 
 // 对战可用道具（与 bkmserver engine/items.py 对齐）
@@ -115,6 +118,10 @@ function remoteOpenLobby() {
   remoteStopPoll();
   REMOTE.prevScreen = (STATE.screen === 'map' || STATE.screen === 'battle') ? STATE.screen : 'title';
   REMOTE.roomId = null;
+  REMOTE.mode = 'room';
+  REMOTE.handshakeRequestId = '';
+  REMOTE.handshakeSentRoomId = '';
+  REMOTE.matchingFailures = 0;
   REMOTE.seen = 0;
   REMOTE.lastView = null;
   REMOTE.battleOpen = false;
@@ -123,12 +130,15 @@ function remoteOpenLobby() {
   if (REMOTE.token) remoteRecoverMatch();
 }
 
-function remoteEnterRoom(roomId) {
+function remoteEnterRoom(roomId, handshake) {
   REMOTE.roomId = roomId;
   REMOTE.seen = 0;
   REMOTE.side = null;
   REMOTE.battleOpen = false;
-  REMOTE.mode = 'room';
+  REMOTE.mode = handshake ? 'handshake' : 'room';
+  REMOTE.handshakeRequestId = '';
+  REMOTE.handshakeSentRoomId = '';
+  REMOTE.matchingFailures = 0;
   remoteStartPoll();
 }
 
@@ -136,13 +146,15 @@ async function remoteRecoverMatch() {
   try {
     const d = await remoteApi('GET', '/api/queue/status');
     if (d.room_id) {
-      remoteEnterRoom(d.room_id);
-      remoteMsg('✅ 已恢复进行中的对战');
+      remoteEnterRoom(d.room_id, !!d.handshake);
+      remoteMsg(d.handshake ? '正在恢复匹配连接……' : '✅ 已恢复进行中的对战');
       return true;
     }
     if (d.queued) {
       REMOTE.mode = 'queue';
+      REMOTE.matchingFailures = 0;
       remoteMsg('已恢复匹配队列，等待对手……');
+      render();
       remoteStartPoll();
       return true;
     }
@@ -153,6 +165,15 @@ async function remoteRecoverMatch() {
 }
 
 function remoteClose() {
+  if (REMOTE.mode === 'queue' || REMOTE.mode === 'handshake') {
+    remoteCancelMatching(false).then(function () {
+      remoteCloseSwitchPrompt();
+      STATE.screen = REMOTE.prevScreen === 'battle' ? 'map' : REMOTE.prevScreen;
+      if (STATE.screen === 'map' && STATE.battle) STATE.screen = 'battle';
+      render();
+    });
+    return;
+  }
   remoteStopPoll();
   remoteCloseSwitchPrompt();
   REMOTE.roomId = null;
@@ -170,6 +191,31 @@ function remoteBackToLobby() {
   REMOTE.lastView = null;
   REMOTE.battleOpen = false;
   render();
+}
+
+async function remoteCancelMatching(returnToLobby) {
+  const mode = REMOTE.mode;
+  const roomId = REMOTE.roomId;
+  remoteStopPoll();
+  try {
+    if (mode === 'handshake' && roomId) {
+      await remoteApi('POST', '/api/rooms/' + roomId + '/leave', {});
+    } else if (mode === 'queue') {
+      await remoteApi('POST', '/api/queue/leave', {});
+    }
+  } catch (e) {
+    // 服务器已清理握手房间时，客户端仍应回到可重新匹配状态。
+    console.warn('[remote] 取消匹配清理失败', e);
+  }
+  REMOTE.mode = 'room';
+  REMOTE.roomId = null;
+  REMOTE.seen = 0;
+  REMOTE.handshakeRequestId = '';
+  REMOTE.handshakeSentRoomId = '';
+  REMOTE.battleOpen = false;
+  if (returnToLobby === false) return;
+  render();
+  remoteMsg('已取消匹配');
 }
 
 function renderRemote() {
@@ -216,8 +262,10 @@ function remoteRenderLobby() {
     '<input id="rb-code" type="text" placeholder="6 位房间码">' +
     '<button class="btn btn-sm" onclick="remoteJoin()">加入</button></div>' +
     '<div class="remote-actions">' +
-    '<button class="btn btn-primary" onclick="remoteCreate()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>🏠 创建房间</button>' +
-    '<button class="btn" onclick="remoteQuick()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>⚡ 快速匹配</button>' +
+    ((REMOTE.mode === 'queue' || REMOTE.mode === 'handshake') ?
+      '<button class="btn btn-primary" onclick="remoteCancelMatching()">✖ 取消匹配</button>' :
+      '<button class="btn btn-primary" onclick="remoteCreate()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>🏠 创建房间</button>' +
+      '<button class="btn" onclick="remoteQuick()" ' + (REMOTE.pvpDraftConfirmed ? '' : 'disabled') + '>⚡ 快速匹配</button>') +
     '</div>' +
     '<div id="remote-msg" class="remote-msg"></div>' +
     '<div class="remote-hint">提示：先培养好单机队伍，再点击“上传当前队伍”。</div>' +
@@ -519,13 +567,14 @@ async function remoteQuick() {
     const d = await remoteApi('POST', '/api/queue/join', {});
     if (d.queued) {
       REMOTE.mode = 'queue';
+      REMOTE.matchingFailures = 0;
       remoteMsg('已进入匹配队列（第 ' + d.position + ' 位），等待对手……');
+      render();
       remoteStartPoll();
     } else {
-      REMOTE.roomId = d.room_id;
-      REMOTE.seen = 0;
-      REMOTE.mode = 'room';
-      remoteStartPoll();
+      remoteEnterRoom(d.room_id, !!d.handshake);
+      remoteMsg(d.handshake ? '已找到对手，正在确认连接……' : '✅ 匹配成功，对战开始！');
+      render();
     }
   } catch (e) {
     const m = e.message || '';
@@ -558,8 +607,8 @@ async function remoteTick() {
     if (REMOTE.mode === 'queue') {
       const d = await remoteApi('GET', '/api/queue/status');
       if (d.room_id) {
-        remoteEnterRoom(d.room_id);
-        remoteMsg('✅ 匹配成功，对战开始！');
+        remoteEnterRoom(d.room_id, !!d.handshake);
+        remoteMsg(d.handshake ? '已找到对手，正在确认连接……' : '✅ 匹配成功，对战开始！');
       } else if (d.queued) {
         remoteMsg('匹配中……（队列第 ' + (d.position || '?') + ' 位）');
         return;
@@ -573,6 +622,24 @@ async function remoteTick() {
     const view = await remoteApi('GET', '/api/rooms/' + REMOTE.roomId + '?after=' + REMOTE.seen);
     REMOTE.lastView = view;
     if (!REMOTE.side) REMOTE.side = view.you;
+    if (view.state === 'pending_handshake') {
+      await remoteSendHandshake(view);
+      if (REMOTE.lastView && REMOTE.lastView.state === 'battle') {
+        REMOTE.battleOpen = true;
+        render();
+      } else if (!REMOTE.battleOpen) {
+        REMOTE.battleOpen = true;
+        render();
+      } else {
+        remoteRenderHandshake(view);
+      }
+      return;
+    }
+    if (view.state === 'battle') {
+      REMOTE.mode = 'room';
+      REMOTE.handshakeRequestId = '';
+      REMOTE.handshakeSentRoomId = '';
+    }
     if (!REMOTE.battleOpen) {
       REMOTE.battleOpen = true;
       render();
@@ -581,10 +648,51 @@ async function remoteTick() {
     }
     if (view.battle && view.battle.over) remoteStopPoll();
   } catch (e) {
-    remoteMsg('连接出错：' + e.message, true);
-    remoteStopPoll();
+    if (REMOTE.mode === 'handshake') {
+      REMOTE.matchingFailures++;
+      if (REMOTE.matchingFailures >= 3) {
+        remoteStopPoll();
+        REMOTE.mode = 'room';
+        REMOTE.roomId = null;
+        render();
+        remoteMsg('多次连接对手失败，请检查网络后重试', true);
+      } else if (await remoteRecoverMatch()) {
+        remoteMsg('对手连接超时，正在重新匹配……');
+      } else {
+        remoteStopPoll();
+        REMOTE.mode = 'room';
+        REMOTE.roomId = null;
+        render();
+        remoteMsg('对手连接超时，请重新点击「快速匹配」', true);
+      }
+    } else {
+      remoteMsg('连接出错：' + e.message, true);
+      remoteStopPoll();
+    }
   } finally {
     REMOTE.busy = false;
+  }
+}
+
+async function remoteSendHandshake(view) {
+  const handshake = view && view.handshake;
+  if (!handshake || !handshake.request_id) return;
+  REMOTE.handshakeRequestId = handshake.request_id;
+  if (REMOTE.handshakeSentRoomId === view.id) return;
+  REMOTE.handshakeSentRoomId = view.id;
+  remoteMsg('正在连接对手……');
+  try {
+    const readyView = await remoteApi('POST', '/api/rooms/' + view.id + '/ready', {
+      request_id: handshake.request_id,
+      status: 'online'
+    });
+    if (readyView && readyView.state === 'battle') {
+      REMOTE.mode = 'room';
+      REMOTE.lastView = readyView;
+    }
+  } catch (e) {
+    REMOTE.handshakeSentRoomId = '';
+    throw e;
   }
 }
 
@@ -593,6 +701,10 @@ async function remoteTick() {
 function remoteRenderView(view) {
   if (!view || !view.id) return;
   const battle = $id('remote-battle');
+  if (view.state === 'pending_handshake') {
+    remoteRenderHandshake(view);
+    return;
+  }
   if (view.battle) {
     if (!battle.dataset.built) {
       remoteBattleShell();
@@ -604,6 +716,20 @@ function remoteRenderView(view) {
     battle.dataset.built = '';
     remoteRenderWaiting(view);
   }
+}
+
+function remoteRenderHandshake(view) {
+  const el = $id('remote-battle');
+  if (!el) return;
+  const expires = view.handshake && view.handshake.expires_at;
+  const remain = expires ? Math.max(0, Math.ceil(expires - Date.now() / 1000)) : 15;
+  el.innerHTML =
+    '<div class="remote-panel pixel-frame">' +
+    '<div class="sec-title">—— 正在连接对手 ——</div>' +
+    '<div class="remote-msg">已找到对手，正在确认双方在线……</div>' +
+    '<div class="remote-hint">握手窗口剩余约 ' + remain + ' 秒；无需手动确认。</div>' +
+    '<div class="remote-actions"><button class="btn btn-primary" onclick="remoteCancelMatching()">✖ 取消匹配</button></div>' +
+    '</div>';
 }
 
 function remoteBattleShell() {

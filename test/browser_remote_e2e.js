@@ -77,7 +77,7 @@ async function main() {
   }
   // 清掉上次运行的登录态，保证大厅显示登录表单
   await evaljs("sessionStorage.removeItem('bkm_remote_token'); sessionStorage.removeItem('bkm_remote_name'); REMOTE.token=null; REMOTE.name='';");
-  await evaljs("resetGame(); render();");
+  await evaljs("resetGame(); newGame(4); render();");
 
   const suffix = String(Date.now() % 100000);
   const nameA = 'brA' + suffix;
@@ -89,7 +89,7 @@ async function main() {
   await evaljs("(function(){document.getElementById('rb-name').value='" + nameA + "'; document.getElementById('rb-pass').value='test1234';})()");
   ok(await evaljs("remoteRegister().then(function(){ return REMOTE.token && REMOTE.name==='" + nameA + "'; })"), '浏览器注册并登录');
   ok(await evaljs("remoteUploadTeam().then(function(){ return !!REMOTE.token; })"), '上传当前单机队伍');
-  ok(await waitUntil("document.getElementById('remote-msg').textContent.indexOf('队伍已上传') !== -1", 10000), '浏览器上传队伍成功');
+  ok(await waitUntil("document.getElementById('remote-msg').textContent.indexOf('已确认上传') !== -1", 10000), '浏览器上传队伍成功');
   await evaljs("remoteCreate();");
   ok(await waitUntil("REMOTE.roomId && REMOTE.lastView && REMOTE.lastView.code", 10000), '浏览器创建房间并拿到房间码');
   const code = await evaljs("REMOTE.lastView.code");
@@ -117,8 +117,14 @@ async function main() {
   ok(await waitUntil("REMOTE.lastView && REMOTE.lastView.battle && REMOTE.lastView.battle.over", 12000), '浏览器端收到对局结束');
   ok(await evaljs("document.getElementById('rb-status').textContent.indexOf('获胜') !== -1"), '浏览器端显示胜负结果');
 
+  // 取消匹配：匹配池中显示按钮，取消后不残留队列状态
+  await evaljs("remoteBackToLobby(); remoteQuick();");
+  ok(await waitUntil("REMOTE.mode === 'queue'", 5000), '取消测试进入匹配队列');
+  ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#remote-lobby .btn'), function(b){ return b.textContent.indexOf('取消匹配') !== -1; })"), '匹配中显示取消匹配按钮');
+  await evaljs("remoteCancelMatching();");
+  ok(await waitUntil("REMOTE.mode === 'room' && !REMOTE.roomId", 5000), '取消匹配后清理客户端状态');
+
   // ---- 随机匹配：排队一方必须能通过队列状态发现房间并进入对战 ----
-  await evaljs("remoteBackToLobby();");
   await evaljs("remoteQuick();");
   ok(await waitUntil("REMOTE.mode === 'queue'", 5000), '浏览器进入匹配队列');
   const nameB2 = 'qbB' + suffix;
@@ -129,6 +135,13 @@ async function main() {
   }, tokenB2);
   const q = await serverApi('POST', '/api/queue/join', {}, tokenB2);
   ok(!q.queued && q.room_id, 'HTTP 方入队并撮合成功');
+  const qView = await serverApi('GET', '/api/rooms/' + q.room_id, undefined, tokenB2);
+  if (qView.state === 'pending_handshake') {
+    await serverApi('POST', '/api/rooms/' + q.room_id + '/ready', {
+      request_id: qView.handshake.request_id,
+      status: 'online'
+    }, tokenB2);
+  }
   ok(await waitUntil(
     "REMOTE.battleOpen && REMOTE.lastView && REMOTE.lastView.battle && !REMOTE.lastView.battle.over",
     15000
