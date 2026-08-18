@@ -934,6 +934,39 @@ function remoteUpdateCard(side, data) {
   if (text) text.textContent = 'HP ' + hp + '/' + max;
 }
 
+// PvP 日志专用：把涉及宝可梦的名字标成「玩家(宝可梦)」。单机日志不经过这里。
+function remoteFormatEventText(view, event) {
+  let text = String(event && event.text || '');
+  const b = view && view.battle || {};
+  const players = view && view.players || {};
+  const labels = {};
+  const parties = b.parties || {};
+
+  Object.keys(parties).forEach(function (side) {
+    const player = players[side] && players[side].name;
+    if (!player) return;
+    (parties[side] || []).forEach(function (mon) {
+      if (mon && mon.name) labels[mon.name] = player + '(' + mon.name + ')';
+    });
+  });
+
+  // 服务端的出招日志使用玩家名，结合事件归属补上当前出战宝可梦。
+  const actorSide = event && event.kind === 'a' ? 'A' : (event && event.kind === 'b' ? 'B' : '');
+  const actor = actorSide && b.actives && b.actives[actorSide];
+  const actorPlayer = actorSide && players[actorSide] && players[actorSide].name;
+  if (actor && actorPlayer && text.indexOf(actorPlayer) === 0 && text.indexOf('使用了【') !== -1) {
+    text = actorPlayer + '(' + actor.name + ')' + text.slice(actorPlayer.length);
+  }
+
+  // 先替换宝可梦名，避免把刚生成的「玩家(宝可梦)」再次套一层。
+  Object.keys(labels).sort(function (a, b) { return b.length - a.length; }).forEach(function (monName) {
+    const label = labels[monName];
+    if (text.indexOf(monName) === -1 || text.indexOf(label) !== -1) return;
+    text = text.split(monName).join(label);
+  });
+  return text;
+}
+
 function remoteRenderBattle(view) {
   const b = view.battle;
   const my = REMOTE.side || view.you;
@@ -957,7 +990,7 @@ function remoteRenderBattle(view) {
       (e.kind === 'b' ? (my === 'B' ? 'player' : 'foe') : e.kind);
     const div = document.createElement('div');
     div.className = 'log-line' + (kind ? ' log-' + kind : '');
-    div.textContent = e.text;
+    div.textContent = remoteFormatEventText(view, e);
     log.appendChild(div);
     remotePlayMoveFx(e.text, kind);
     log.scrollTop = log.scrollHeight;
