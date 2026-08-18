@@ -757,9 +757,10 @@ function remoteBattleShell() {
     '<div class="remote-panel pixel-frame" style="width:100%">' +
     '<div class="sec-title" id="rb-title">—— 联机对战 ——</div>' +
     '<div id="rb-status" class="meta-line"></div>' +
+    '<div class="rb-arena"><div id="rb-fx-layer" class="rb-fx-layer" aria-hidden="true"></div>' +
     '<div id="rb-foe"></div>' +
     '<div class="vs-divider">▼ 对战 ▼</div>' +
-    '<div id="rb-player"></div>' +
+    '<div id="rb-player"></div></div>' +
     '<div id="rb-log" class="log-box small"></div>' +
     '<div id="rb-msg" class="remote-msg"></div>' +
     '<div id="rb-actions"></div>' +
@@ -768,6 +769,32 @@ function remoteBattleShell() {
     '<button class="btn btn-sm" onclick="remoteBackToLobby()">← 返回大厅</button>' +
     '</div>' +
     '</div>';
+}
+
+// PvP 专用招式反馈；单机战斗的日志播放不调用这里。
+function remotePlayMoveFx(line, kind) {
+  const match = String(line || '').match(/使用了【([^】]+)】/);
+  if (!match) return;
+  const ids = Object.keys(MOVES);
+  let move = null;
+  for (let i = 0; i < ids.length; i++) {
+    if (MOVES[ids[i]] && MOVES[ids[i]].name === match[1]) { move = MOVES[ids[i]]; break; }
+  }
+  const layer = $id('rb-fx-layer');
+  if (!move || !layer) return;
+  const attacker = kind === 'foe' ? 'foe' : 'player';
+  const target = attacker === 'foe' ? 'player' : 'foe';
+  const fx = document.createElement('div');
+  fx.className = 'rb-fx type-' + move.type + ' target-' + target;
+  layer.appendChild(fx);
+  const host = $id('rb-' + target);
+  const card = host && host.querySelector('.battle-card');
+  if (card) {
+    card.classList.remove('rb-card-fx-hit');
+    void card.offsetWidth;
+    card.classList.add('rb-card-fx-hit');
+  }
+  setTimeout(function () { if (fx.parentNode) fx.parentNode.removeChild(fx); }, 500);
 }
 
 function remoteRenderWaiting(view) {
@@ -849,6 +876,7 @@ function remoteRenderBattle(view) {
     div.className = 'log-line' + (kind ? ' log-' + kind : '');
     div.textContent = e.text;
     log.appendChild(div);
+    remotePlayMoveFx(e.text, kind);
     log.scrollTop = log.scrollHeight;
   });
 
