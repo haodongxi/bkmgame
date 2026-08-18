@@ -75,19 +75,22 @@ async function main() {
     if (await evaljs("typeof remoteOpenLobby === 'function'")) break;
     await sleep(100);
   }
-  // 清掉上次运行的登录态，保证大厅显示登录表单
-  await evaljs("sessionStorage.removeItem('bkm_remote_token'); sessionStorage.removeItem('bkm_remote_name'); REMOTE.token=null; REMOTE.name='';");
+  // 清掉上次运行的登录态，保证大厅显示昵称直入表单
+  await evaljs("sessionStorage.removeItem('bkm_remote_token'); sessionStorage.removeItem('bkm_remote_name'); sessionStorage.removeItem('bkm_remote_guest'); REMOTE.token=null; REMOTE.name=''; REMOTE.guest=false;");
   await evaljs("resetGame(); newGame(4); render();");
 
   const suffix = String(Date.now() % 100000);
   const nameA = 'brA' + suffix;
   const nameB = 'brB' + suffix;
 
-  // 浏览器客户端：设置服务器 → 注册 → 上传队伍 → 建房
+  // 浏览器客户端：设置服务器 → 输入昵称直入 → 上传队伍 → 建房
   await evaljs("remoteOpenLobby();");
   await evaljs("REMOTE.server='" + BASE + "'; (function(){var el=document.getElementById('rb-server'); if(el) el.value=REMOTE.server;})(); remoteSaveCfg();");
-  await evaljs("(function(){document.getElementById('rb-name').value='" + nameA + "'; document.getElementById('rb-pass').value='test1234';})()");
-  ok(await evaljs("remoteRegister().then(function(){ return REMOTE.token && REMOTE.name==='" + nameA + "'; })"), '浏览器注册并登录');
+  await evaljs("(function(){document.getElementById('rb-name').value='" + nameA + "';})()");
+  ok(await evaljs("remoteGuestEnter().then(function(){ return REMOTE.token && REMOTE.name==='" + nameA + "' && REMOTE.guest; })"), '浏览器昵称直入 PvP 广场');
+  await evaljs("(function(){var i=REMOTE.pvpDraft.findIndex(function(m){return (m.moves||[]).length<4;}); if(i<0) throw new Error('测试队伍没有空技能栏'); remoteEditDraftMoves(i); remotePickMoveSlot(i,2);})()");
+  ok(await evaljs("document.querySelectorAll('#modal-root .slot-btn')[2].classList.contains('active')"), '空技能栏可以选中');
+  ok(await evaljs("(function(){var b=Array.prototype.find.call(document.querySelectorAll('#modal-root .move-btn'),function(x){return x.textContent.indexOf('可调整')!==-1;}); if(!b) return false; eval(b.getAttribute('onclick')); return true;})()"), '空技能栏可以填入新技能');
   ok(await evaljs("remoteUploadTeam().then(function(){ return !!REMOTE.token; })"), '上传当前单机队伍');
   ok(await waitUntil("document.getElementById('remote-msg').textContent.indexOf('已确认上传') !== -1", 10000), '浏览器上传队伍成功');
   await evaljs("remoteCreate();");
