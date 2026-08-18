@@ -50,11 +50,25 @@ function remoteSaveCfg() {
   else sessionStorage.removeItem('bkm_remote_name');
 }
 
-async function remoteApi(method, path, body) {
+async function remoteApi(method, path, body, timeoutMs) {
   const opt = { method: method, headers: { 'Content-Type': 'application/json' } };
   if (REMOTE.token) opt.headers['Authorization'] = 'Bearer ' + REMOTE.token;
   if (body !== undefined) opt.body = JSON.stringify(body);
-  const resp = await fetch(REMOTE.server + path, opt);
+  let timer = null;
+  if (timeoutMs && typeof AbortController !== 'undefined') {
+    const controller = new AbortController();
+    opt.signal = controller.signal;
+    timer = setTimeout(function () { controller.abort(); }, timeoutMs);
+  }
+  let resp;
+  try {
+    resp = await fetch(REMOTE.server + path, opt);
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw new Error('请求超时，请检查网络后重试');
+    throw e;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   let j = null;
   try { j = await resp.json(); } catch (e) { /* 非 JSON 响应 */ }
   if (!resp.ok) {
@@ -517,14 +531,19 @@ async function remoteUploadCloudSave() {
   if (!raw) { remoteMsg('当前还没有单机存档', true); return; }
   let data; try { data = JSON.parse(raw); } catch (e) { remoteMsg('本机存档损坏，无法上传', true); return; }
   if (!data || data.version !== GAME_VERSION) { remoteMsg('本机存档版本不匹配，请先在游戏内加载存档', true); return; }
-  try { const meta = await remoteApi('PUT', '/api/me/save', { save: data }); remoteMsg('✅ 云存档上传成功（' + meta.size + ' 字节）'); }
+  try {
+    remoteMsg('☁️ 正在上传云存档，请勿关闭页面（大存档最多等待 120 秒）');
+    const meta = await remoteApi('PUT', '/api/me/save', { save: data }, 120000);
+    remoteMsg('✅ 云存档上传成功（' + meta.size + ' 字节）');
+  }
   catch (e) { remoteMsg('云存档上传失败：' + e.message, true); }
 }
 
 async function remoteDownloadCloudSave() {
   if (!REMOTE.token) { remoteOpenAuthModal('download'); return; }
   try {
-    const data = await remoteApi('GET', '/api/me/save');
+    remoteMsg('☁️ 正在下载云存档，请勿关闭页面（大存档最多等待 120 秒）');
+    const data = await remoteApi('GET', '/api/me/save', undefined, 120000);
     if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');
     if (!confirm('下载云存档会覆盖当前浏览器里的单机存档，确定继续吗？')) return;
     const fromSaveModal = !!$id('save-cloud-msg');
