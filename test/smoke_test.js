@@ -12,6 +12,7 @@ let src = files.map(function (f) {
 src += '\n;\nglobalThis.__T = {\n' +
   '  getState: function(){ return STATE; },\n' +
   '  POKEDEX: POKEDEX, MOVES: MOVES, MAP_NODES: MAP_NODES, ITEMS: ITEMS, WEATHER: WEATHER,\n' +
+  '  HELD_TYPE_BONUS: HELD_TYPE_BONUS,\n' +
   '  FISH_POOLS: FISH_POOLS, FISH_POOL_FALLBACK: FISH_POOL_FALLBACK,\n' +
   '  HIDDEN_HELD_SPOTS: HIDDEN_HELD_SPOTS, HELD_MERCHANT: HELD_MERCHANT, TOWER_HELD_POOL: TOWER_HELD_POOL,\n' +
   '  FISH_HELD_DROPS: FISH_HELD_DROPS, ROCKET_HELD_DROP: ROCKET_HELD_DROP,\n' +
@@ -3008,6 +3009,31 @@ function fightToEnd() {
   const missing = heldItems.filter(function (k) { return !sources[k]; });
   ok(missing.length === 0, '所有专属道具都有产出渠道' + (missing.length ? '（缺：' + missing.join(',') + '）' : ''));
   ok(T.HIDDEN_HELD_SPOTS.length >= 17, '隐藏点数量完整（17 处）');
+}
+{
+  // 专属属性道具必须让绑定宝可梦至少拥有三招对应属性的技能。
+  const broken = Object.keys(T.HELD_TYPE_BONUS).filter(function (item) {
+    const cfg = T.HELD_TYPE_BONUS[item];
+    return cfg.species.some(function (speciesId) {
+      const mon = T.POKEDEX[speciesId];
+      const ids = Object.keys(mon.learnset || {}).reduce(function (all, lv) {
+        return all.concat(mon.learnset[lv]);
+      }, []);
+      return ids.filter(function (moveId) { return T.MOVES[moveId] && T.MOVES[moveId].type === cfg.type; }).length < 3;
+    });
+  });
+  ok(broken.length === 0, '所有属性型专属道具都有至少3个对应属性技能（' + (broken.length ? broken.join(',') : '完整') + '）');
+  const bindingErrors = Object.keys(T.ITEMS).filter(function (item) {
+    const def = T.ITEMS[item];
+    if (def.type !== 'held' || !def.onlySpecies) return false;
+    const ids = Array.isArray(def.onlySpecies) ? def.onlySpecies : [def.onlySpecies];
+    const typeCfg = T.HELD_TYPE_BONUS[item];
+    return def.held !== item || ids.some(function (id) { return !T.POKEDEX[id]; }) ||
+      (typeCfg && (typeCfg.species.length !== ids.length || typeCfg.species.some(function (id) { return ids.indexOf(id) === -1; })));
+  });
+  ok(bindingErrors.length === 0, '所有专属道具绑定对象与效果配置一致（' + (bindingErrors.length ? bindingErrors.join(',') : '完整') + '）');
+  ok(T.POKEDEX[142].learnset[45].indexOf('wing_attack') !== -1, '化石翼龙获得飞行系输出技能');
+  ok(T.POKEDEX[91].learnset[40].indexOf('ice_beam') !== -1, '刺甲贝获得冰系输出技能');
 }
 
 console.log('\n========== 结果：' + passed + ' 通过 / ' + failed + ' 失败 ==========');

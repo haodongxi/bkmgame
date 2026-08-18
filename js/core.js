@@ -629,8 +629,8 @@ function effStat(bm, key) {
 }
 
 // 专属道具：属性系招式威力 +50%（仅绑定宝可梦生效，其他宝可梦携带无效果）
-function heldTypeBonus(bm, move) {
-  const HELD_TYPE_BONUS = {
+// 绑定表单独暴露，供回归测试核对“道具确实有对应属性招式”。
+const HELD_TYPE_BONUS = {
     '电光石': { type: '电', species: [135] },
     '诅咒符': { type: '幽灵', species: [92, 93, 94] },
     '不灭之种': { type: '火', species: [6] },
@@ -645,7 +645,9 @@ function heldTypeBonus(bm, move) {
     '愤怒之角': { type: '普通', species: [128] },
     '远古之翼': { type: '飞行', species: [142] },
     '阳光花环': { type: '草', species: [3] }
-  };
+};
+
+function heldTypeBonus(bm, move) {
   const cfg = HELD_TYPE_BONUS[bm.m.held];
   if (!cfg || cfg.species.indexOf(bm.m.species) === -1) return 1;
   return move.type === cfg.type ? 1.5 : 1;
