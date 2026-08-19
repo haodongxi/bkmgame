@@ -654,12 +654,16 @@ section('MVP4 支线与技能表扩充');
     return !mv || !mv.name || !mv.type || !mv.category || mv.power === undefined || mv.acc === undefined || !mv.pp;
   });
   ok(bad.length === 0, '全部技能字段完整');
-  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1, leaveOneWild: 1 };
+  const effKinds = { stat: 1, status: 1, confuse: 1, protect: 1, weather: 1, leech: 1, heal: 1, rest: 1, priority: 1, multi: 1, flinch: 1, recoil: 1, recharge: 1, fixed: 1, fixedLevel: 1, dream: 1, selfConfuse: 1, trap: 1, leaveOneWild: 1, barrier: 1, safeguard: 1, substitute: 1, yawn: 1, wish: 1, clearStages: 1, clearAllStages: 1, taunt: 1, trapSwitch: 1, perishSong: 1, cureParty: 1, hazard: 1, bellyDrum: 1 };
   const badEff = moveIds.filter(function (id) {
     const e = T.MOVES[id].effect;
     return e && !effKinds[e.kind];
   });
   ok(badEff.length === 0, '全部技能效果类型合法');
+  ok(T.POKEDEX[130].learnset[30].indexOf('dragon_dance') !== -1, '暴鲤龙 Lv30 学会龙之舞');
+  ok(T.POKEDEX[143].learnset[35].indexOf('yawn') !== -1, '卡比兽 Lv35 学会哈欠');
+  ok(T.POKEDEX[113].learnset[40].indexOf('light_screen') !== -1, '吉利蛋 Lv40 学会光墙');
+  ok(T.POKEDEX[91].learnset[35].indexOf('spikes') !== -1, '刺甲贝 Lv35 学会撒菱');
 }
 
 // ---------- 9.9.7 平衡性回归 ----------

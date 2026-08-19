@@ -109,6 +109,50 @@ for (const genId in POKEDEX_GEN) {
   if (!POKEDEX[genId]) POKEDEX[genId] = POKEDEX_GEN[genId];
 }
 
+// 对战价值高且已实现的辅助技能学习路径（Created by haodongsheng）
+// [图鉴编号]: [[等级, 招式ID...], ...]；等级到达后进入正常升级学招流程。
+const SUPPORT_LEARNSET_PATHS = {
+  24: [[42, 'mean_look'], [50, 'roar']],
+  36: [[30, 'light_screen'], [40, 'wish'], [50, 'safeguard']],
+  42: [[35, 'mean_look'], [45, 'haze']],
+  45: [[40, 'moonlight'], [50, 'aromatherapy']],
+  53: [[30, 'taunt'], [45, 'roar']],
+  57: [[35, 'bulk_up']],
+  59: [[35, 'roar']],
+  62: [[35, 'belly_drum']],
+  68: [[35, 'bulk_up']],
+  73: [[35, 'spikes']],
+  91: [[35, 'spikes'], [45, 'haze']],
+  94: [[35, 'mean_look'], [45, 'perish_song'], [55, 'substitute']],
+  110: [[35, 'haze'], [45, 'toxic']],
+  113: [[30, 'soft_boiled'], [40, 'light_screen'], [50, 'aromatherapy']],
+  121: [[35, 'light_screen'], [45, 'reflect']],
+  122: [[30, 'reflect'], [40, 'light_screen'], [50, 'safeguard']],
+  124: [[40, 'perish_song']],
+  130: [[30, 'dragon_dance'], [45, 'roar']],
+  131: [[35, 'perish_song'], [45, 'heal_bell'], [55, 'wish']],
+  133: [[30, 'wish'], [40, 'substitute']],
+  134: [[35, 'wish'], [45, 'substitute']],
+  139: [[35, 'spikes']],
+  143: [[35, 'yawn'], [40, 'belly_drum'], [50, 'substitute']],
+  144: [[45, 'haze'], [55, 'reflect']],
+  149: [[45, 'dragon_dance'], [55, 'safeguard']],
+  150: [[35, 'light_screen'], [45, 'reflect'], [55, 'substitute']],
+  151: [[30, 'calm_mind'], [40, 'wish'], [50, 'substitute'], [60, 'heal_bell']]
+};
+Object.keys(SUPPORT_LEARNSET_PATHS).forEach(function (sid) {
+  const mon = POKEDEX[sid];
+  if (!mon) return;
+  SUPPORT_LEARNSET_PATHS[sid].forEach(function (entry) {
+    const level = entry[0];
+    const moves = entry.slice(1);
+    if (!mon.learnset[level]) mon.learnset[level] = [];
+    moves.forEach(function (moveId) {
+      if (mon.learnset[level].indexOf(moveId) === -1) mon.learnset[level].push(moveId);
+    });
+  });
+});
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = { POKEDEX: POKEDEX, POKEDEX_GEN: POKEDEX_GEN };
 }

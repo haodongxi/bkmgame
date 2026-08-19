@@ -682,6 +682,8 @@ function calcDamage(attacker, defender, move, weather) {
     if (attacker.m.held === '阳光花环' && attacker.m.species === 3 && move.type === '草') mod *= 1.5; // 阳光花环：晴天草系再 +50%
   }
   if (attacker.m.status === '灼伤' && move.category === '物理') mod *= 0.5;
+  if (move.category === '物理' && defender.barrierPhysical > 0) mod *= 0.5;
+  if (move.category === '特殊' && defender.barrierSpecial > 0) mod *= 0.5;
   let crit = false;
   // 羁绊阶段三：暴击率 1/16 → 1/8
   let critChance = (attacker.m.bond || 0) >= 60 ? 1 / 8 : 1 / 16;
@@ -710,6 +712,11 @@ function statusMoveImmune(moveType, status, target) {
 
 function applyStatus(bm, status, log, moveType, kinds) {
   if (bm.m.status) return;
+  if (bm.safeguardTurns > 0) {
+    log.push(bm.m.name + ' 受到神秘守护保护，没有陷入异常！');
+    if (kinds) kinds.push(bm.side || '');
+    return;
+  }
   if (statusMoveImmune(moveType || '变化', status, bm)) return;
   bm.m.status = status;
   bm.m.statusTurns = 0;
@@ -729,9 +736,20 @@ function makeBattleMon(mon) {
     recharge: false,
     confuseTurns: 0,
     trapTurns: 0,
+    switchTrapped: false,
     leech: false,
     poisonTurns: 0,
     sleepTurns: 0,
+    yawnTurns: 0,
+    tauntTurns: 0,
+    perishTurns: 0,
+    substituteHp: 0,
+    barrierPhysical: 0,
+    barrierSpecial: 0,
+    safeguardTurns: 0,
+    wishTurns: 0,
+    wishHeal: 0,
+    hazard: 0,
     enduredThisBattle: false
   };
 }
@@ -1428,6 +1446,11 @@ function useMove(user, target, move, log, kinds) {
   L(m.name + ' 使用了【' + move.name + '】！', side);
 
   if (move.category === '变化') {
+    if (user.tauntTurns > 0) {
+      L(m.name + ' 被挑衅影响，无法使用变化类招式！', side);
+      afterMove(user);
+      return;
+    }
     if (move.effect && move.effect.kind === 'protect') {
       user.protect = true;
       L(m.name + ' 摆出了守住的架势！', side);
@@ -1461,6 +1484,67 @@ function useMove(user, target, move, log, kinds) {
         user.sleepTurns = randInt(1, 3);
         L(m.name + ' 美美地睡了一觉，HP完全恢复了！', 'good');
         L(m.name + ' 睡着了……', 'info');
+      }
+    } else if (move.effect && move.effect.kind === 'barrier') {
+      if (move.effect.barrier === 'physical') user.barrierPhysical = 5;
+      else user.barrierSpecial = 5;
+      L(m.name + ' 展开了' + move.name + '，持续 5 回合！', 'good');
+    } else if (move.effect && move.effect.kind === 'safeguard') {
+      user.safeguardTurns = 5;
+      L(m.name + ' 的队伍受到神秘守护保护，5 回合内不会陷入异常！', 'good');
+    } else if (move.effect && move.effect.kind === 'substitute') {
+      const cost = Math.max(1, Math.floor(m.stats.hp / 4));
+      if (user.substituteHp > 0 || m.hp <= cost) {
+        L(m.name + ' 无法制造替身！', 'info');
+      } else {
+        m.hp -= cost;
+        user.substituteHp = cost;
+        L(m.name + ' 消耗 ' + cost + ' 点HP制造了替身！', 'good');
+      }
+    } else if (move.effect && move.effect.kind === 'yawn') {
+      if (target.m.status || target.safeguardTurns > 0) {
+        L('但是没有效果……', 'info');
+      } else {
+        target.yawnTurns = 1;
+        L(target.m.name + ' 开始打哈欠了！', target.side || '');
+      }
+    } else if (move.effect && move.effect.kind === 'wish') {
+      user.wishTurns = 1;
+      user.wishHeal = Math.max(1, Math.floor(m.stats.hp / 2));
+      L(m.name + ' 许下了愿望！下回合末会回复HP。', 'good');
+    } else if (move.effect && move.effect.kind === 'clearStages') {
+      target.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 };
+      L(target.m.name + ' 的能力变化被清除了！', 'info');
+    } else if (move.effect && move.effect.kind === 'clearAllStages') {
+      user.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 };
+      target.stages = { atk: 0, def: 0, spa: 0, spd: 0, spe: 0, acc: 0, eva: 0 };
+      L('场上所有宝可梦的能力变化都被清除了！', 'info');
+    } else if (move.effect && move.effect.kind === 'taunt') {
+      target.tauntTurns = 3;
+      L(target.m.name + ' 受到挑衅，3 回合内不能使用变化类招式！', target.side || '');
+    } else if (move.effect && move.effect.kind === 'trapSwitch') {
+      target.switchTrapped = true;
+      L(target.m.name + ' 被黑色目光锁定，无法主动替换！', target.side || '');
+    } else if (move.effect && move.effect.kind === 'perishSong') {
+      user.perishTurns = 3;
+      target.perishTurns = 3;
+      L('灭亡之歌响起了！双方将在 3 回合后倒下！', 'info');
+    } else if (move.effect && move.effect.kind === 'cureParty') {
+      const sideMons = user.side === 'player' ? STATE.battle.player.mons : STATE.battle.foe.mons;
+      let count = 0;
+      sideMons.forEach(function (bm) { if (bm.m.status) { bm.m.status = null; bm.m.statusTurns = 0; count++; } });
+      L(m.name + ' 的' + move.name + '治愈了 ' + (count || '所有') + ' 个异常状态！', 'good');
+    } else if (move.effect && move.effect.kind === 'hazard') {
+      const enemy = user.side === 'player' ? STATE.battle.foe : STATE.battle.player;
+      enemy.hazard = Math.min(3, (enemy.hazard || 0) + 1);
+      L('对方场地撒下了菱，最多叠加 3 层！', 'info');
+    } else if (move.effect && move.effect.kind === 'bellyDrum') {
+      if (m.hp <= Math.floor(m.stats.hp / 2) || user.stages.atk >= 6) {
+        L(m.name + ' 无法使用腹鼓！', 'info');
+      } else {
+        m.hp -= Math.floor(m.stats.hp / 2);
+        user.stages.atk = 6;
+        L(m.name + ' 消耗一半HP，攻击提升到了最高！', 'good');
       }
     } else if (move.effect) {
       if (move.effect.kind === 'stat') {
@@ -1528,7 +1612,19 @@ function useMove(user, target, move, log, kinds) {
     if (res.eff > 1) effMsg = ' 效果拔群！';
     if (res.eff > 0 && res.eff < 1) effMsg = ' 效果不太理想……';
   }
-  t.hp -= totalDmg;
+  let blockedBySubstitute = false;
+  if (target.substituteHp > 0) {
+    target.substituteHp -= totalDmg;
+    blockedBySubstitute = true;
+    if (target.substituteHp <= 0) {
+      target.substituteHp = 0;
+      L(t.name + ' 的替身被击破了！', target.side || '');
+    } else {
+      L(t.name + ' 的替身承受了 ' + totalDmg + ' 点伤害！', target.side || '');
+    }
+  } else {
+    t.hp -= totalDmg;
+  }
   if (t.hp <= 0 &&
       move.effect && move.effect.kind === 'leaveOneWild' &&
       STATE.battle && STATE.battle.kind === 'wild' &&
@@ -1544,13 +1640,13 @@ function useMove(user, target, move, log, kinds) {
     target.enduredThisBattle = true;
     L(t.name + ' 即将倒下之际，想起了与你的点点滴滴，靠着毅力强行撑了下来！', 'good');
   }
-  if (t.hp <= 0) {
+  if (!blockedBySubstitute && t.hp <= 0) {
     t.hp = 0;
     L(t.name + ' 倒下了！', foeKind);
   }
 
   // 二次效果
-  if (move.effect) {
+  if (move.effect && !blockedBySubstitute) {
     if (move.effect.kind === 'status' && move.effect.chance && t.hp > 0 && Math.random() < move.effect.chance) {
       applyStatus(target, move.effect.status, log, move.type);
     }
@@ -1670,6 +1766,35 @@ function endOfTurn(log, kinds) {
       m.hp = Math.min(m.stats.hp, m.hp + heal);
       L(m.name + ' 吃着剩饭盒里的饭，恢复了 ' + heal + ' 点HP！', 'good');
     }
+    if (bm.wishTurns > 0) {
+      bm.wishTurns--;
+      if (bm.wishTurns === 0 && bm.wishHeal > 0 && m.hp > 0) {
+        const heal = Math.min(m.stats.hp - m.hp, bm.wishHeal);
+        m.hp += heal;
+        L(m.name + ' 的愿望实现了，回复了 ' + heal + ' 点HP！', 'good');
+        bm.wishHeal = 0;
+      }
+    }
+    if (bm.yawnTurns > 0) {
+      bm.yawnTurns--;
+      if (bm.yawnTurns === 0 && !m.status && bm.safeguardTurns <= 0 && m.hp > 0) {
+        m.status = '睡眠';
+        bm.sleepTurns = randInt(1, 3);
+        L(m.name + ' 打着哈欠睡着了！', sideKind);
+      }
+    }
+    if (bm.perishTurns > 0) {
+      bm.perishTurns--;
+      if (bm.perishTurns === 0 && m.hp > 0) {
+        m.hp = 0;
+        L(m.name + ' 被灭亡之歌带走了！', sideKind);
+      } else if (bm.perishTurns > 0) {
+        L(m.name + ' 的灭亡倒计时：' + bm.perishTurns + '！', 'info');
+      }
+    }
+    ['barrierPhysical', 'barrierSpecial', 'safeguardTurns', 'tauntTurns'].forEach(function (key) {
+      if (bm[key] > 0) bm[key]--;
+    });
     // 羁绊阶段四：10% 概率回合末自愈异常
     if (bm.side === 'player' && (m.bond || 0) >= 90 && m.status && Math.random() < 0.1) {
       m.status = null;
@@ -1729,6 +1854,11 @@ function handleFaints(log, kinds) {
     for (let i = 0; i < f.mons.length; i++) {
       if (f.mons[i].m.hp > 0) {
         f.active = i;
+        if (f.hazard > 0) {
+          const chip = Math.max(1, Math.floor(f.mons[i].m.stats.hp * f.hazard / 8));
+          f.mons[i].m.hp = Math.max(1, f.mons[i].m.hp - chip);
+          L(f.mons[i].m.name + ' 受到撒菱伤害 ' + chip + ' 点！', 'bad');
+        }
         L('对方派出了 ' + f.mons[i].m.name + '！', 'info');
         break;
       }
@@ -1944,8 +2074,14 @@ function battleSwitch(idx) {
   const target = p.mons[idx];
   if (!target || target.m.hp <= 0) { addLog('这只宝可梦已经没有体力了！'); return; }
   if (idx === p.active) { addLog('它已经在场上了！'); return; }
-  if (pm.trapTurns > 0) { addLog(pm.m.name + ' 被困住，无法替换！'); return; }
+  if (pm.trapTurns > 0 || pm.switchTrapped) { addLog(pm.m.name + ' 被困住，无法替换！'); return; }
   p.active = idx;
+  const incoming = p.mons[idx];
+  if (p.hazard > 0) {
+    const chip = Math.max(1, Math.floor(incoming.m.stats.hp * p.hazard / 8));
+    incoming.m.hp = Math.max(1, incoming.m.hp - chip);
+    addLog(incoming.m.name + ' 受到撒菱伤害 ' + chip + ' 点！', 'bad');
+  }
   addLog('回来吧！上吧，' + target.m.name + '！', 'info');
   const fm = f.mons[f.active];
   const fMove = pickFoeMove(fm, target);
