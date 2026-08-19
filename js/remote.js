@@ -162,7 +162,8 @@ function remoteSaveDraftLocal() {
   if (!REMOTE.pvpDraft) return;
   localStorage.setItem('bkm_pvp_draft_v1', JSON.stringify({
     draft: REMOTE.pvpDraft, confirmed: REMOTE.pvpDraftConfirmed,
-    sourceFingerprint: REMOTE.pvpDraftSourceFingerprint || remoteSourceFingerprint()
+    sourceFingerprint: REMOTE.pvpDraftSourceFingerprint || remoteSourceFingerprint(),
+    pvpSkillSyncVersion: 2
   }));
 }
 
@@ -171,7 +172,7 @@ function remoteRestoreDraftLocal() {
     const raw = localStorage.getItem('bkm_pvp_draft_v1');
     const saved = raw ? JSON.parse(raw) : null;
     if (!saved || !Array.isArray(saved.draft) || !saved.draft.length) return false;
-    if (saved.sourceFingerprint && saved.sourceFingerprint !== remoteSourceFingerprint()) {
+    if (saved.pvpSkillSyncVersion !== 2 || (saved.sourceFingerprint && saved.sourceFingerprint !== remoteSourceFingerprint())) {
       const draft = remoteDraftFromSingle();
       REMOTE.pvpDraft = draft.length ? draft : null;
       REMOTE.pvpDraftConfirmed = false;
@@ -492,17 +493,39 @@ function remoteBuildTeam() {
   return { team: team, items: items, titleBonus: typeof equippedTitleBonus === 'function' ? equippedTitleBonus() : {} };
 }
 
+function remotePvpMoves(m) {
+  const data = POKEDEX[m.species];
+  const current = (m.moves || []).filter(function (id) { return MOVES[id]; });
+  if (!data) return current.slice(0, 4);
+  const learnable = [];
+  Object.keys(data.learnset || {}).forEach(function (lv) {
+    if (+lv <= 100) (data.learnset[lv] || []).forEach(function (id) {
+      if (MOVES[id] && learnable.indexOf(id) === -1) learnable.push(id);
+    });
+  });
+  const tmMoves = (m.tmMoves || []).concat(current.filter(function (id) {
+    return learnable.indexOf(id) === -1;
+  }));
+  const special = tmMoves.filter(function (id, i, a) {
+    return MOVES[id] && a.indexOf(id) === i;
+  }).slice(0, 4);
+  const slots = Math.max(0, 4 - special.length);
+  return special.concat(slots ? learnable.slice(-slots) : []);
+}
+
 function remoteDraftFromSingle() {
   return (STATE.party || []).slice(0, 4).map(function (m, i) {
     return { sourceUid: m.uid || null, sourceIndex: i, species: m.species, level: m.level,
-      nature: m.nature, ivs: m.ivs || undefined, candyBonus: m.candyBonus || {}, moves: (m.moves || []).slice(0, 4), held: m.held || null };
+      nature: m.nature, ivs: m.ivs || undefined, candyBonus: m.candyBonus || {},
+      tmMoves: m.tmMoves || [], moves: remotePvpMoves(m), pvpAutoMoves: true, held: m.held || null };
   });
 }
 
 function remoteDraftPayload() {
   const team = (REMOTE.pvpDraft || []).map(function (m) {
     const e = { species: m.species, level: m.level, nature: m.nature, ivs: m.ivs || undefined,
-      candyBonus: m.candyBonus || undefined, moves: (m.moves || []).slice(0, 4) };
+      candyBonus: m.candyBonus || undefined, moves: (m.moves || []).slice(0, 4),
+      pvpAutoMoves: m.pvpAutoMoves !== false };
     if (m.held) e.held = m.held;
     return e;
   });
@@ -576,7 +599,7 @@ function remoteSetDraftMove(index, slot, moveId) {
   const m = REMOTE.pvpDraft[index];
   if (!m || !MOVES[moveId]) return;
   if (m.moves.indexOf(moveId) !== -1 && m.moves[slot] !== moveId) { remoteMsg('同一只宝可梦不能重复携带同一招式', true); return; }
-  m.moves[slot] = moveId; REMOTE.pvpDraftConfirmed = false; remoteSaveDraftLocal(); closeModal(); render();
+  m.moves[slot] = moveId; m.pvpAutoMoves = false; REMOTE.pvpDraftConfirmed = false; remoteSaveDraftLocal(); closeModal(); render();
 }
 
 function remoteEditDraftHeld(index) {
