@@ -967,6 +967,12 @@ function doBatchTransfer() {
     return;
   }
   const totalFee = selected.reduce(function (sum, idx) { return sum + boxTransferFee(STATE.box[idx]); }, 0);
+  // 余额不足时在确认框前直接反馈；否则失败日志会被批量弹窗遮住，看起来像点击无效。
+  if (STATE.money < totalFee) {
+    addLog('批量传送需要 ' + totalFee + ' 金币，当前只有 ' + STATE.money + ' 金币，余额不足。', 'warn');
+    alert('金币不足：需要 ' + totalFee + ' 金币，当前只有 ' + STATE.money + ' 金币。');
+    return;
+  }
   if (!confirm('确定传送选中的 ' + selected.length + ' 只宝可梦吗？\n总费用 ' + totalFee + ' 金币，传送后不可恢复。携带物会退回背包。')) return;
   if (!transferMons(selected)) return;
   save();
