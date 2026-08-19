@@ -1861,8 +1861,44 @@ function effHint(mv, foeTypes) {
 }
 
 // 招式效果描述：让玩家一眼看懂变化类/带效果招式的用途（如 天气→晴、速度↑2、回复1/2HP）
+// 生成技能表中没有 effect 字段的变化招式也不能只显示“变化招式”。
+// 这些是图鉴说明；尚未接入战斗引擎的招式会明确标注，避免把说明误当成已生效机制。
+const MOVE_DEX_TEXT = {
+  assist: '随机使用队友会使用的招式（当前战斗效果待接入）', attract: '让异性对手陷入着迷，较大概率无法行动（当前战斗效果待接入）',
+  barrier: '提升自身防御（当前战斗效果待接入）', baton_pass: '替换宝可梦，并保留自身能力变化（当前战斗效果待接入）', block: '阻止对手替换宝可梦（当前战斗效果待接入）',
+  camouflage: '根据场地改变自身属性（当前战斗效果待接入）', charge: '蓄电并提升下一次电系招式威力（当前战斗效果待接入）', charm: '令对方攻击大幅下降（当前战斗效果待接入）',
+  conversion: '将自身属性变为当前第一招式的属性（当前战斗效果待接入）', conversion_2: '将自身属性变为对方最近使用招式的属性（当前战斗效果待接入）',
+  cosmic_power: '自身防御、特防各提升1级（当前战斗效果待接入）', curse: '普通/幽灵属性效果不同：幽灵系消耗HP诅咒对手，其余提升攻防并降低速度（当前战斗效果待接入）',
+  destiny_bond: '若自身被击倒，最后攻击者也会一同倒下（当前战斗效果待接入）', detect: '本回合避开攻击（当前战斗效果待接入）', disable: '令对手暂时无法使用最近使用的招式（当前战斗效果待接入）',
+  double_team: '自身闪避率提升1级（当前战斗效果待接入）', encore: '迫使对手重复使用最近使用的招式（当前战斗效果待接入）', endure: '本回合至少保留1HP（当前战斗效果待接入）',
+  fake_tears: '令对方特防大幅下降2级（当前战斗效果待接入）', feather_dance: '令对方攻击大幅下降2级（当前战斗效果待接入）', flash: '令对方命中率下降1级（当前战斗效果待接入）',
+  flatter: '令对方特攻提升1级，但使其陷入混乱（当前战斗效果待接入）', focus_energy: '提升自身暴击率（当前战斗效果待接入）', follow_me: '吸引对手本回合优先攻击自己（当前战斗效果待接入）',
+  foresight: '消除对方的闪避优势，并可命中幽灵属性（当前战斗效果待接入）', glare: '令对方陷入麻痹（当前战斗效果待接入）', grass_whistle: '令对方陷入睡眠（当前战斗效果待接入）',
+  growth: '自身攻击、特攻各提升1级（当前战斗效果待接入）', grudge: '若自身被击倒，耗尽对方最后使用招式的PP（当前战斗效果待接入）', hail: '天气变为冰雹，持续5回合（当前战斗效果待接入）',
+  helping_hand: '提升队友本回合招式威力（当前1v1规则暂不适用）', howl: '自身攻击提升1级（当前战斗效果待接入）', imprison: '对手不能使用与自身相同的招式（当前战斗效果待接入）',
+  ingrain: '扎根场地，每回合回复HP但不能替换（当前战斗效果待接入）', kinesis: '令对方命中率下降1级（当前战斗效果待接入）', lock_on: '下一次攻击必定命中（当前战斗效果待接入）',
+  lovely_kiss: '令对方陷入睡眠（当前战斗效果待接入）', magic_coat: '反弹本回合受到的变化招式（当前战斗效果待接入）', meditate: '自身攻击提升1级（当前战斗效果待接入）',
+  memento: '自身倒下，令对方攻击、特攻各下降2级（当前战斗效果待接入）', metal_sound: '令对方特防大幅下降2级（当前战斗效果待接入）', metronome: '随机使用一个招式（当前战斗效果待接入）',
+  mimic: '复制对手最近使用的招式（当前战斗效果待接入）', mind_reader: '下一次攻击必定命中（当前战斗效果待接入）', minimize: '自身闪避率提升2级（当前战斗效果待接入）',
+  mirror_move: '复制对手刚使用的招式（当前战斗效果待接入）', mist: '我方队伍的能力不会被对手降低，持续5回合（当前战斗效果待接入）', mud_sport: '电系招式威力降低，持续5回合（当前战斗效果待接入）',
+  nature_power: '根据场地变为对应的攻击招式（当前战斗效果待接入）', nightmare: '睡眠中的对手每回合损失最大HP的1/4（当前战斗效果待接入）', odor_sleuth: '消除对方闪避优势，并可命中幽灵属性（当前战斗效果待接入）',
+  pain_split: '双方当前HP取平均值（当前战斗效果待接入）', poison_gas: '令对方陷入中毒（当前战斗效果待接入）', psych_up: '复制对方当前能力等级变化（当前战斗效果待接入）',
+  recycle: '重新获得最近消耗的携带物（当前战斗效果待接入）', refresh: '治愈自身麻痹、中毒、灼伤（当前战斗效果待接入）', role_play: '复制对方特性（当前战斗效果待接入）',
+  sand_attack: '令对方命中率下降1级（当前战斗效果待接入）', scary_face: '令对方速度大幅下降2级（当前战斗效果待接入）', sharpen: '自身攻击提升1级（当前战斗效果待接入）',
+  sketch: '永久复制对手最近使用的招式（当前战斗效果待接入）', skill_swap: '与对方交换特性（当前战斗效果待接入）', slack_off: '回复自身最大HP的50%（当前战斗效果待接入）',
+  sleep_talk: '睡眠时随机使用已学招式（当前战斗效果待接入）', smokescreen: '令对方命中率下降1级（当前战斗效果待接入）', snatch: '抢先夺取对手本回合使用的变化招式（当前战斗效果待接入）',
+  spider_web: '令对方无法主动替换（当前战斗效果待接入）', spite: '令对方最近使用招式的PP减少4点（当前战斗效果待接入）', splash: '什么都不会发生', stockpile: '蓄力1层，提升防御和特防，最多3层（当前战斗效果待接入）',
+  supersonic: '令对方陷入混乱（当前战斗效果待接入）', swagger: '令对方攻击提升2级并陷入混乱（当前战斗效果待接入）', swallow: '消耗蓄力层回复HP，层数越高回复越多（当前战斗效果待接入）',
+  sweet_kiss: '令对方陷入混乱（当前战斗效果待接入）', sweet_scent: '令对方闪避率下降1级（当前战斗效果待接入）', tail_glow: '自身特攻大幅提升2级（当前战斗效果待接入）',
+  teeter_dance: '令场上其他宝可梦陷入混乱（当前1v1规则暂不适用）', teleport: '脱离野生战斗（当前战斗效果待接入）', tickle: '令对方攻击、防御各下降1级（当前战斗效果待接入）',
+  torment: '对方不能连续使用同一个招式（当前战斗效果待接入）', transform: '变身为对手并复制其招式（当前战斗效果待接入）', trick: '与对手交换携带物（当前战斗效果待接入）',
+  water_sport: '火系招式威力降低，持续5回合（当前战斗效果待接入）', withdraw: '自身防御提升1级（当前战斗效果待接入）'
+};
+
 function moveEffectText(mv) {
-  if (!mv || !mv.effect) return '';
+  if (!mv) return '';
+  if (MOVE_DEX_TEXT[mv.id]) return MOVE_DEX_TEXT[mv.id];
+  if (!mv.effect) return '';
   const e = mv.effect;
   const chanceTxt = e.chance && e.chance < 1 ? Math.round(e.chance * 100) + '% ' : '';
   const statName = STAT_NAME[e.stat] || e.stat || '';
@@ -1878,11 +1914,11 @@ function moveEffectText(mv) {
     }
     case 'status': return chanceTxt + '使对方' + (e.status || '');
     case 'confuse': return chanceTxt + '使对方混乱';
-    case 'heal': return '回复' + Math.round(e.ratio * 100) + '%最大HP';
+    case 'heal': return e.self ? '回复自身' + Math.round(e.ratio * 100) + '%最大HP' : '造成伤害并回复自身' + Math.round(e.ratio * 100) + '%伤害值的HP';
     case 'rest': return '回复满HP，随后睡眠';
-    case 'leech': return '寄生：每回合吸取对方HP';
+    case 'leech': return '寄生种子：对方每回合损失最大HP的1/16，自身回复等量HP';
     case 'protect': return '本回合免疫攻击';
-    case 'recoil': return '反伤' + Math.round(e.ratio * 100) + '%';
+    case 'recoil': return '自身承受造成伤害的' + Math.round(e.ratio * 100) + '%反作用伤害';
     case 'flinch': return chanceTxt + '使对方畏缩';
     case 'trap': return '束缚对方数回合';
     case 'priority': return '先制攻击';
@@ -1892,6 +1928,20 @@ function moveEffectText(mv) {
     case 'fixedLevel': return '固定造成等于自身等级的伤害';
     case 'multi': return e.hits === 2 ? '连续攻击2次' : '连续攻击2~5次';
     case 'leaveOneWild': return '对野生宝可梦手下留情，至少保留1HP';
+    case 'barrier': return (e.barrier === 'physical' ? '物理' : '特殊') + '伤害减半，持续5回合';
+    case 'safeguard': return '我方队伍5回合内不会陷入异常状态';
+    case 'substitute': return '消耗自身最大HP的1/4制造替身，替身吸收伤害和异常效果';
+    case 'yawn': return '延迟使对方陷入睡眠（可被守护类效果抵抗）';
+    case 'wish': return '延迟回复自身最大HP的50%（PvP上限为1/3）';
+    case 'clearStages': return '清除对方全部能力等级变化（当前1v1规则适配）';
+    case 'clearAllStages': return '清除场上双方全部能力等级变化';
+    case 'taunt': return '对方3回合内不能使用变化类招式';
+    case 'trapSwitch': return '对方无法主动替换宝可梦（当前1v1规则适配）';
+    case 'perishSong': return '双方进入灭亡倒计时，3回合后倒下';
+    case 'cureParty': return '治愈我方队伍全部异常状态';
+    case 'hazard': return '在对方场地撒下菱，最多叠加3层；对方换入时受到伤害';
+    case 'bellyDrum': return '消耗自身一半HP，将攻击提升至最高（攻击+6）';
+    case 'selfConfuse': return '连续攻击后自身陷入混乱';
     default: return '';
   }
 }

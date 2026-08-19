@@ -246,6 +246,7 @@ async function main() {
   // 强化技效果说明（卡比兽·瞬间失忆）
   await evaljs("STATE.party = [makeMon(143, 40, { nature: '勤奋' })]; STATE.party[0].moves = ['amnesia', 'body_slam']; STATE.party[0].pp = [20, 15]; startWildBattle(16, 40); render();");
   ok(await evaljs("document.querySelector('#battle-actions').textContent.indexOf('特防↑2') !== -1"), '强化技显示效果说明（瞬间失忆 特防↑2）');
+  ok(await evaljs("Object.keys(MOVES).filter(function(id){var m=MOVES[id]; return m.effect && !moveEffectText(m);}).length === 0"), '所有带效果招式都有详细说明');
   await evaljs("(function(){var guard=0;while(STATE.battle && !STATE.battle.over && guard++<60){var a=STATE.battle.player.mons[STATE.battle.player.active];var idx=0;for(var i=0;i<a.m.moves.length;i++){if(MOVES[a.m.moves[i]].power>0){idx=i;break;}}battleMove(idx);}})()");
   await evaljs('render();');
   // 招式更换：满级卡比兽把残留的高速移动换成泰山压顶
