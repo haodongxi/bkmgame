@@ -345,6 +345,12 @@ function rememberTmMove(mon, moveId) {
   if (mon.tmMoves.indexOf(moveId) === -1) mon.tmMoves.push(moveId);
 }
 
+function isTmMove(moveId) {
+  return Object.keys(ITEMS).some(function (name) {
+    return ITEMS[name].type === 'tm' && ITEMS[name].move === moveId;
+  });
+}
+
 function tryLearnMove(mon, moveId, log, autoReplace, kinds, source) {
   const mv = MOVES[moveId];
   if (mon.moves.indexOf(moveId) !== -1) return;
@@ -3373,13 +3379,21 @@ function deserializeMon(d) {
   mon.tradeBonus = !!d.tradeBonus;
   mon.bond = d.bond === undefined ? 0 : Math.max(0, Math.min(100, d.bond));
   mon.exploreSteps = d.exploreSteps || 0;
-  mon.tmMoves = Array.isArray(d.tmMoves)
+  const hasTmHistory = Array.isArray(d.tmMoves);
+  mon.tmMoves = hasTmHistory
     ? d.tmMoves.filter(function (id) { return MOVES[id]; })
     : [];
   // 旧档无遗忘清单字段：默认空数组，不影响升级学招
   mon.forgottenMoves = Array.isArray(d.forgottenMoves)
     ? d.forgottenMoves.filter(function (id) { return MOVES[id]; })
     : [];
+  // 旧档没有 tmMoves 字段：利用原先已保存的遗忘记录，恢复明确对应技能机的招式。
+  // 只有技能机清单中的招式会迁移，普通等级招式不会被误加入。
+  if (!hasTmHistory) {
+    mon.forgottenMoves.forEach(function (id) {
+      if (isTmMove(id)) rememberTmMove(mon, id);
+    });
+  }
   mon.locked = !!d.locked; // 旧档无 locked 字段：默认不上锁
   mon.shiny = !!d.shiny; // 旧档无 shiny 字段：默认普通
   return mon;
