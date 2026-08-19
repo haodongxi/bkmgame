@@ -186,7 +186,39 @@ function openModal(title, bodyHtml) {
 }
 
 function closeModal() {
+  const cb = _uiDialogCallback;
+  _uiDialogCallback = null;
   $id('modal-root').innerHTML = '';
+  if (cb) cb(false);
+}
+
+// 统一像素风提示/确认框，避免浏览器原生 alert/confirm 破坏移动端视觉和交互。
+let _uiDialogCallback = null;
+function uiAlert(message, onClose) {
+  _uiDialogCallback = typeof onClose === 'function' ? onClose : null;
+  openModal('提示', '<div class="shop-hint ui-dialog-text">' + esc(String(message)).replace(/\n/g, '<br>') + '</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="uiDialogClose(true)">确定</button></div>');
+}
+
+function uiConfirm(message, onConfirm, onCancel) {
+  _uiDialogCallback = function (accepted) {
+    if (accepted && typeof onConfirm === 'function') onConfirm();
+    if (!accepted && typeof onCancel === 'function') onCancel();
+  };
+  openModal('确认操作', '<div class="shop-hint ui-dialog-text">' + esc(String(message)).replace(/\n/g, '<br>') + '</div>' +
+    '<div class="modal-btns"><button class="btn btn-primary" onclick="uiDialogClose(true)">确定</button>' +
+    '<button class="btn" onclick="uiDialogClose(false)">取消</button></div>');
+}
+
+function uiConfirmAsync(message) {
+  return new Promise(function (resolve) { uiConfirm(message, function () { resolve(true); }, function () { resolve(false); }); });
+}
+
+function uiDialogClose(accepted) {
+  const cb = _uiDialogCallback;
+  _uiDialogCallback = null;
+  closeModal();
+  if (cb) cb(!!accepted);
 }
 
 function typeColor(type) {
@@ -321,20 +353,20 @@ function uiStartNew() {
 
 function uiContinue() {
   if (load()) render();
-  else alert('没有找到存档！');
+  else uiAlert('没有找到存档！');
 }
 
 function uiReset() {
-  if (confirm('确定要删除存档，重新开始吗？')) {
+  uiConfirm('确定要删除存档，重新开始吗？', function () {
     resetGame();
     render();
-  }
+  });
 }
 
 function exportSave() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) { alert('还没有存档可以导出。'); return; }
+    if (!raw) { uiAlert('还没有存档可以导出。'); return; }
     const code = btoa(unescape(encodeURIComponent(raw)));
     openModal('导出存档', '<div class="shop-hint">复制下面的存档码，粘贴到另一台设备即可导入：</div>' +
       '<textarea id="save-code" class="save-code" readonly>' + code + '</textarea>' +
@@ -342,7 +374,7 @@ function exportSave() {
       '<div class="modal-btns"><button class="btn btn-primary" onclick="copySaveCode()">复制存档码</button>' +
       '<button class="btn" onclick="remoteUploadCloudSave()">☁️ 上传云存档</button></div>');
   } catch (e) {
-    alert('导出失败：' + e.message);
+    uiAlert('导出失败：' + e.message);
   }
 }
 
@@ -373,9 +405,9 @@ function copySaveCode() {
   try {
     document.execCommand('copy');
     closeModal();
-    alert('存档码已复制！');
+    uiAlert('存档码已复制！');
   } catch (e) {
-    alert('复制失败，请手动全选复制。');
+    uiAlert('复制失败，请手动全选复制。');
   }
 }
 
@@ -395,15 +427,15 @@ function doImportSave() {
     const json = decodeURIComponent(escape(atob(code)));
     const data = JSON.parse(json);
     if (!data || data.version !== GAME_VERSION) {
-      alert('存档码无效或版本不匹配。');
+      uiAlert('存档码无效或版本不匹配。');
       return;
     }
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
     closeModal();
-    if (!load()) alert('导入失败，请检查存档码。');
+    if (!load()) uiAlert('导入失败，请检查存档码。');
     else render();
   } catch (e) {
-    alert('导入失败：存档码无效。');
+    uiAlert('导入失败：存档码无效。');
   }
 }
 
@@ -963,34 +995,34 @@ function doBatchTransfer() {
     return Number(input.getAttribute('data-box-idx'));
   });
   if (selected.length === 0) {
-    addLog('请至少选择一只未锁定的宝可梦。', 'info');
+    uiAlert('请至少选择一只未锁定的宝可梦。');
     return;
   }
   const totalFee = selected.reduce(function (sum, idx) { return sum + boxTransferFee(STATE.box[idx]); }, 0);
   // 余额不足时在确认框前直接反馈；否则失败日志会被批量弹窗遮住，看起来像点击无效。
   if (STATE.money < totalFee) {
     addLog('批量传送需要 ' + totalFee + ' 金币，当前只有 ' + STATE.money + ' 金币，余额不足。', 'warn');
-    alert('金币不足：需要 ' + totalFee + ' 金币，当前只有 ' + STATE.money + ' 金币。');
+    uiAlert('金币不足：需要 ' + totalFee + ' 金币，当前只有 ' + STATE.money + ' 金币。');
     return;
   }
-  if (!confirm('确定传送选中的 ' + selected.length + ' 只宝可梦吗？\n总费用 ' + totalFee + ' 金币，传送后不可恢复。携带物会退回背包。')) return;
-  if (!transferMons(selected)) return;
-  save();
-  closeModal();
-  renderMap();
-  showBoxModal();
+  uiConfirm('确定传送选中的 ' + selected.length + ' 只宝可梦吗？\n总费用 ' + totalFee + ' 金币，传送后不可恢复。携带物会退回背包。', function () {
+    if (!transferMons(selected)) return;
+    save();
+    renderMap();
+    showBoxModal();
+  });
 }
 
 function doInheritExp(boxIdx, partyIdx) {
   const target = STATE.box[boxIdx];
   const old = STATE.party[partyIdx];
   if (!target || !old) return;
-  if (!confirm('确定让 ' + target.name + ' 继承 ' + old.name + ' 的培养经验吗？\n' + old.name + ' 会被传送且无法恢复；携带物会退回背包。')) return;
-  if (!inheritExpFromBox(boxIdx, partyIdx)) return;
-  save();
-  closeModal();
-  renderMap();
-  showBoxModal();
+  uiConfirm('确定让 ' + target.name + ' 继承 ' + old.name + ' 的培养经验吗？\n' + old.name + ' 会被传送且无法恢复；携带物会退回背包。', function () {
+    if (!inheritExpFromBox(boxIdx, partyIdx)) return;
+    save();
+    renderMap();
+    showBoxModal();
+  });
 }
 
 // 电脑箱锁定切换：上锁后不可取出/传送（默认不上锁）
@@ -1007,14 +1039,14 @@ function toggleBoxLock(boxIdx) {
 function doTransfer(idx, fromDetail) {
   const mon = STATE.box[idx];
   if (!mon) return;
-  if (confirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 ' + boxTransferFee(mon) + ' 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。')) {
+  uiConfirm('确定要把 ' + mon.name + ' 传送给大木博士吗？\n需花费 ' + boxTransferFee(mon) + ' 金币，传送后它将从电脑箱消失，转化为万能经验与属性糖果。', function () {
     if (!fromDetail) rememberBoxScroll();
     transferMon(idx);
     save();
     // 先刷新底层地图（电脑箱数量按钮等），再重开箱子弹窗
     renderMap();
     showBoxModal();
-  }
+  });
 }
 
 function doBoxSwap(idx) {
@@ -1168,11 +1200,12 @@ function doReplaceMove(idx, slot, moveId) {
   const mon = STATE.party[idx];
   const mv = MOVES[moveId];
   if (!mon || !mv) return;
-  if (!confirm('确定要把第 ' + (slot + 1) + ' 招替换成【' + mv.name + '】吗？花费 ' + moveReplaceCost(mon) + ' 金。')) return;
-  const res = replaceMove(idx, slot, moveId);
-  if (!res.ok) { alert(res.msg); return; }
-  save();
-  showMonDetail(idx);
+  uiConfirm('确定要把第 ' + (slot + 1) + ' 招替换成【' + mv.name + '】吗？花费 ' + moveReplaceCost(mon) + ' 金。', function () {
+    const res = replaceMove(idx, slot, moveId);
+    if (!res.ok) { uiAlert(res.msg); return; }
+    save();
+    showMonDetail(idx);
+  });
 }
 
 // 羁绊评级（隐藏数值，只展示阶段）
@@ -1348,21 +1381,21 @@ function doTitleEquip(id, rarity) {
 function doTitleSynth() {
   const r = synthesizeTitle(_titleSel.id, _titleSel.rarity);
   if (r.ok) _titleMsg = '✔ 合成了【' + titleLabel(_titleSel.id, RARITIES[rarityIndex(_titleSel.rarity) + 1]) + '】';
-  else alert(r.msg);
+  else uiAlert(r.msg);
   refreshTitleArea();
 }
 
 function doTitleDismantle() {
   const r = dismantleTitle(_titleSel.id, _titleSel.rarity);
   if (r.ok) _titleMsg = '✔ 分解了【' + titleLabel(_titleSel.id, _titleSel.rarity) + '】，+' + (rarityIndex(_titleSel.rarity) + 1) + ' 碎片';
-  else alert(r.msg);
+  else uiAlert(r.msg);
   refreshTitleArea();
 }
 
 function doTitleExchange(id) {
   const r = exchangeTitle(id);
   if (r.ok) _titleMsg = '✔ 兑换了【' + titleLabel(id, '普通') + '】';
-  else alert(r.msg);
+  else uiAlert(r.msg);
   refreshTitleArea();
 }
 

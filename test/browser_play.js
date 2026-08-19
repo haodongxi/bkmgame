@@ -368,7 +368,7 @@ async function main() {
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .box-actions .btn')).filter(function(x){return x.textContent.indexOf('继承经验') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelector('#modal-root .modal-body').textContent.indexOf('→') !== -1 && document.querySelectorAll('#modal-root .modal-body button').length >= 2"), '经验继承弹窗显示队伍选择项');
   await evaljs('closeModal(); doMapAction(\'box\');');
-  await evaljs("document.querySelector('#modal-root .btn-danger').click()");
+  await evaljs("document.querySelector('#modal-root .btn-danger').click(); document.querySelector('#modal-root .modal-btns .btn-primary').click()");
   ok(await evaljs("STATE.box.length === 1 && STATE.expPool > 0"), '传送后箱子剩 1 只且获得万能经验');
   ok(await evaljs("STATE.bag['电气球'] === 1"), '传送后携带物退回背包');
   ok(await evaljs("Array.prototype.some.call(document.querySelectorAll('#action-panel .btn'), function(b){ return b.textContent.indexOf('电脑箱（1只）') !== -1; })"), '传送后地图按钮同步为 1 只');
@@ -378,13 +378,13 @@ async function main() {
   await evaljs("STATE.box = []; for (var i = 0; i < 25; i++) STATE.box.push(makeMon(16, 5, { nature: '勤奋' })); STATE.box[0].locked = true; STATE.money = 999999; doMapAction('box');");
   await evaljs("(function(){var b=Array.prototype.slice.call(document.querySelectorAll('#modal-root .modal-btns .btn')).filter(function(x){return x.textContent.indexOf('批量传送') !== -1;})[0]; if(b)b.click();})()");
   ok(await evaljs("document.querySelectorAll('#modal-root .box-batch-check').length === 25 && document.querySelectorAll('#modal-root .box-batch-check:disabled').length === 1"), '批量传送只允许选择未锁定成员');
-  await evaljs("document.querySelectorAll('#modal-root .box-batch-check')[1].checked = true; document.querySelectorAll('#modal-root .box-batch-check')[2].checked = true; document.querySelector('#modal-root .btn-primary').click();");
+  await evaljs("document.querySelectorAll('#modal-root .box-batch-check')[1].checked = true; document.querySelectorAll('#modal-root .box-batch-check')[2].checked = true; document.querySelector('#modal-root .btn-primary').click(); document.querySelector('#modal-root .modal-btns .btn-primary').click();");
   ok(await evaljs("STATE.box.length === 23 && STATE.box.some(function(m){return m.locked;})"), '批量传送成功且保留锁定成员');
   await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; document.querySelector('#modal-root .box-actions .btn').click();})()");
   ok(await evaljs("document.querySelector('#modal-root .modal-btns .btn') !== null && document.querySelector('#modal-root .modal-btns').textContent.indexOf('返回电脑箱') !== -1"), '详情返回按钮（滚动场景）');
   await evaljs("document.querySelector('#modal-root .modal-btns .btn').click()");
   ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m.scrollTop > m.scrollHeight - 600;})()"), '详情返回后保留电脑箱列表滚动位置');
-  await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; var bs=document.querySelectorAll('#modal-root .box-actions .btn-danger'); if(bs[20])bs[20].click();})()");
+  await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); m.scrollTop=m.scrollHeight; var bs=document.querySelectorAll('#modal-root .box-actions .btn-danger'); if(bs[20])bs[20].click(); var ok=document.querySelector('#modal-root .modal-btns .btn-primary'); if(ok)ok.click();})()");
   ok(await evaljs("(function(){var m=document.querySelector('#modal-root .modal'); return m && m.scrollTop > 0;})()"), '传送后保留电脑箱列表滚动位置');
   await evaljs('closeModal();');
   // 火箭队秘密仓库与精灵蛋

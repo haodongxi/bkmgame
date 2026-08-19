@@ -628,11 +628,11 @@ async function remoteDownloadCloudSave() {
     remoteMsg('☁️ 正在下载云存档，请勿关闭页面（大存档最多等待 120 秒）');
     const data = await remoteApi('GET', '/api/me/save', undefined, 120000);
     if (!data || !data.save || data.save.version !== GAME_VERSION) throw new Error('云存档版本不匹配');
-    if (!confirm('下载云存档会覆盖当前浏览器里的单机存档，确定继续吗？')) return;
+    if (!await uiConfirmAsync('下载云存档会覆盖当前浏览器里的单机存档，确定继续吗？')) return;
     const fromSaveModal = !!$id('save-cloud-msg');
     localStorage.setItem('bkm_poke_save_v1', JSON.stringify(data.save));
     load(); closeModal(); render();
-    if (fromSaveModal) alert('✅ 云存档已下载并加载；PvP准备队伍仍保持独立');
+    if (fromSaveModal) uiAlert('✅ 云存档已下载并加载；PvP准备队伍仍保持独立');
     else remoteMsg('✅ 云存档已下载并加载；PvP准备队伍仍保持独立');
   } catch (e) { remoteMsg('云存档下载失败：' + e.message, true); }
 }
