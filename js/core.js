@@ -263,6 +263,7 @@ function makeMon(speciesId, level, opts) {
     candyBonus: { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0, total: 0 },
     bond: 0,
     exploreSteps: 0,
+    tmMoves: [], // 通过技能机学会过的招式；换下后仍可在更换招式面板学回
     forgottenMoves: [], // 玩家明确不学/遗忘的招式：升级不再重复提示
     locked: false, // 电脑箱锁定：上锁后不可传送（默认不上锁）
     shiny: false // 闪光形态：超越之塔闪光石解锁，金色/虹色闪耀
@@ -339,24 +340,31 @@ function grantExp(mon, amount, log, kinds, opts) {
   if (remain > 0) mon.exp += remain;
 }
 
-function tryLearnMove(mon, moveId, log, autoReplace, kinds) {
+function rememberTmMove(mon, moveId) {
+  if (!mon.tmMoves) mon.tmMoves = [];
+  if (mon.tmMoves.indexOf(moveId) === -1) mon.tmMoves.push(moveId);
+}
+
+function tryLearnMove(mon, moveId, log, autoReplace, kinds, source) {
   const mv = MOVES[moveId];
   if (mon.moves.indexOf(moveId) !== -1) return;
   if (mon.moves.length < 4) {
     mon.moves.push(moveId);
     if (mon.pp) mon.pp.push(mv.pp);
+    if (source === 'tm') rememberTmMove(mon, moveId);
     log.push(mon.name + ' 学会了新招式【' + mv.name + '】！');
     if (kinds) kinds.push('good');
   } else if (autoReplace) {
     const old = mon.moves[0];
     mon.moves[0] = moveId;
     if (mon.pp) mon.pp[0] = mv.pp;
+    if (source === 'tm') rememberTmMove(mon, moveId);
     log.push(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + mv.name + '】！');
     if (kinds) kinds.push('good');
   } else {
     const where = STATE.party.indexOf(mon) !== -1 ? 'party' : 'box';
     const idx = (where === 'party' ? STATE.party : STATE.box).indexOf(mon);
-    STATE.pendingLearn.push({ where: where, idx: idx, uid: mon.uid, moveId: moveId, monName: mon.name, moveName: mv.name });
+    STATE.pendingLearn.push({ where: where, idx: idx, uid: mon.uid, moveId: moveId, source: source || null, monName: mon.name, moveName: mv.name });
     log.push(mon.name + ' 想学会【' + mv.name + '】，但招式已经满了！');
   }
 }
@@ -387,6 +395,7 @@ function resolvePendingLearn(moveId, replaceIdx) {
   if (old !== p.moveId && mon.forgottenMoves.indexOf(old) === -1) mon.forgottenMoves.push(old);
   mon.moves[replaceIdx] = moveId;
   if (mon.pp) mon.pp[replaceIdx] = MOVES[moveId].pp;
+  if (p.source === 'tm') rememberTmMove(mon, moveId);
   addLog(mon.name + ' 忘记了【' + MOVES[old].name + '】，学会了【' + MOVES[moveId].name + '】！');
   return { ok: true };
 }
@@ -492,6 +501,9 @@ function learnableMoves(mon) {
     (ls[lv] || []).forEach(function (id) {
       if (MOVES[id] && !seen[id]) { seen[id] = true; all.push(id); }
     });
+  });
+  (mon.tmMoves || []).forEach(function (id) {
+    if (MOVES[id] && !seen[id]) { seen[id] = true; all.push(id); }
   });
   const known = mon.moves || [];
   return all.filter(function (id) { return known.indexOf(id) === -1; });
@@ -3165,7 +3177,7 @@ function useBagItemOnMon(itemName, partyIdx, qty) {
     removeItem(itemName, 1);
     const mv = MOVES[item.move];
     const log = [];
-    tryLearnMove(mon, item.move, log, false);
+    tryLearnMove(mon, item.move, log, false, undefined, 'tm');
     if (log.length === 0) {
       addLog(mon.name + ' 已经会【' + mv.name + '】了。', 'info');
       addItem(itemName, 1);
@@ -3336,6 +3348,7 @@ function serializeMon(m) {
     status: m.status, statusTurns: m.statusTurns, ivs: m.ivs, moves: m.moves,
     pp: m.pp, nature: m.nature, held: m.held, tradeBonus: !!m.tradeBonus,
     candyBonus: m.candyBonus, bond: m.bond, exploreSteps: m.exploreSteps || 0,
+    tmMoves: m.tmMoves || [],
     forgottenMoves: m.forgottenMoves || [],
     locked: !!m.locked,
     shiny: !!m.shiny
@@ -3360,6 +3373,9 @@ function deserializeMon(d) {
   mon.tradeBonus = !!d.tradeBonus;
   mon.bond = d.bond === undefined ? 0 : Math.max(0, Math.min(100, d.bond));
   mon.exploreSteps = d.exploreSteps || 0;
+  mon.tmMoves = Array.isArray(d.tmMoves)
+    ? d.tmMoves.filter(function (id) { return MOVES[id]; })
+    : [];
   // 旧档无遗忘清单字段：默认空数组，不影响升级学招
   mon.forgottenMoves = Array.isArray(d.forgottenMoves)
     ? d.forgottenMoves.filter(function (id) { return MOVES[id]; })

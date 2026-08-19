@@ -936,6 +936,14 @@ ok(T.getState().money === 5000 - 700 + 50 && T.getState().bag['精灵球'] === 4
   s.bag['TM点到为止'] = 1;
   T.useBagItemOnMon('TM点到为止', 0);
   ok(s.party[0].moves.indexOf('false_swipe') !== -1, 'TM点到为止可学会招式点到为止');
+  ok(s.party[0].tmMoves.indexOf('false_swipe') !== -1, '技能机招式写入可回忆清单');
+  s.party[0].moves = ['tackle', 'growl', 'ember', 'false_swipe'];
+  s.party[0].pp = s.party[0].moves.map(function (id) { return T.MOVES[id].pp; });
+  s.money = 10000;
+  ok(T.replaceMove(0, 3, 'scratch').ok && T.learnableMoves(s.party[0]).indexOf('false_swipe') !== -1, '技能机招式换下后仍可重新学习');
+  T.save();
+  T.load();
+  ok(T.getState().party[0].tmMoves.indexOf('false_swipe') !== -1, '技能机可回忆清单随存档保存');
 }
 {
   T.newGame(4);
