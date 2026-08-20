@@ -29,6 +29,28 @@
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); }
     body { overflow-x: hidden; }
+    .game-announcement {
+      height: 34px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      border-bottom: 3px solid var(--border);
+      background: #1d2029;
+      color: var(--gold);
+      font-size: 9px;
+      white-space: nowrap;
+    }
+    .announcement-track {
+      display: inline-flex;
+      flex: 0 0 auto;
+      width: max-content;
+      animation: announcement-scroll 18s linear infinite;
+    }
+    .announcement-item { display: inline-block; padding-right: 72px; }
+    @keyframes announcement-scroll {
+      from { transform: translateX(0); }
+      to { transform: translateX(-50%); }
+    }
     .log-line.log-player { color: var(--blue); }
     .log-line.log-foe { color: var(--red); }
     .log-line.log-good { color: var(--green); }
@@ -96,7 +118,7 @@
     .starter-hint { font-size: 10px; color: var(--text-dim); line-height: 1.8; margin-top: 18px; }
 
     /* ---------- 主场景 ---------- */
-    #screen-map { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; position: relative; }
+    #screen-map { padding: 10px 10px 18px; flex-direction: column; height: calc(100dvh - 34px); position: relative; }
     #screen-map.active { display: flex !important; }
     /* 右上角重开按钮：远离底部操作区，避免误触 */
     .map-reset-wrap { position: absolute; top: 8px; right: 8px; z-index: 10; }
@@ -177,7 +199,7 @@
     .slot-no { color: var(--text-dim); min-width: 24px; flex: 0 0 auto; }
 
     /* ---------- 战斗 ---------- */
-    #screen-battle { padding: 10px 10px 18px; flex-direction: column; height: 100dvh; }
+    #screen-battle { padding: 10px 10px 18px; flex-direction: column; height: calc(100dvh - 34px); }
     #screen-battle.active { display: flex !important; }
     .battle-card { display: flex; gap: 10px; padding: 10px; margin-bottom: 8px; }
     .battle-card.hit { animation: hitFlash 0.4s ease; }
@@ -303,7 +325,7 @@
     }
 
     /* ---------- 联机对战（bkmserver） ---------- */
-    #screen-remote { padding: 12px 12px 18px; flex-direction: column; height: 100dvh; overflow-y: auto; }
+    #screen-remote { padding: 12px 12px 18px; flex-direction: column; height: calc(100dvh - 34px); overflow-y: auto; }
     #screen-remote.active { display: flex !important; }
     .remote-panel { max-width: 460px; width: 100%; margin: 0 auto; }
     .remote-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
@@ -346,6 +368,12 @@
 </head>
 <body>
   <div id="app">
+    <div id="game-announcement" class="game-announcement" role="status" aria-label="游戏公告">
+      <div class="announcement-track">
+        <span class="announcement-item">📢 恭喜玩家咸鱼王者梦第一个集齐全套宝可梦图鉴。</span>
+        <span class="announcement-item" aria-hidden="true">📢 恭喜玩家咸鱼王者梦第一个集齐全套宝可梦图鉴。</span>
+      </div>
+    </div>
     <!-- 标题 -->
     <div id="screen-title" class="screen">
       <div class="title-logo">POKéMON</div>
